@@ -1,6 +1,6 @@
-netAnalysis_signalingRole_heatmap_v2 <- function(object, signaling = NULL, pattern = c("outgoing", "incoming", "all"),
-                                                 slot.name = "netP", color.use = NULL, color.heatmap = "BuGn", title = NULL,
-                                                 font.size = 8, font.size.title = 10, cluster.rows = FALSE, cluster.cols = FALSE) {
+cellchat_netAnalysis_signalingRole_heatmap <- function(object, signaling = NULL, pattern = c("outgoing", "incoming", "all"),
+                                                       slot.name = "netP", color.use = NULL, color.heatmap = "BuGn", title = NULL,
+                                                       font.size = 8, font.size.title = 10, cluster.rows = FALSE, cluster.cols = FALSE) {
   pattern <- match.arg(pattern)
   if (length(slot(object, slot.name)$centr) == 0) {
     stop("Please run `netAnalysis_computeCentrality` to compute the network centrality scores! ")
@@ -164,4 +164,12 @@ cellchat_netAnalysis_signalingRole_network <- function(object, signaling, slot.n
 
   return(plot_list)
   # return(ggpubr::ggarrange(plotlist = plot_list, nrow = 1))
+}
+
+
+cellchat_compare_network_genes <- function()
+{
+  # this function should take (1) pathway(s) or (2) detect pathways that are different between two groups and plot representation(s) of these genes such as
+  # violin plots, correlation plots of L vs R, that shows differences in expression/expression profiles for the genes identified by cellchat
+  return()
 }
