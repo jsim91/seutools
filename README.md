@@ -1,1 +1,1 @@
-tools for summarizing outputs from seurat, cellchat, and other single cell tools
+tools for summarizing outputs from seurat, cellchat, and other single cell methods in R
