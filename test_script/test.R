@@ -116,5 +116,13 @@ if(F) {
   seu_small <- readRDS(file = "J:/U54_grant/sc/inputs/pbmc_flu_small_seurat_object_all.rds")
 }
 
+if(F) {
+  seu_act_nk <- subset(x = seu, subset = cell_type == "Activ NK")
+  seu_mono <- subset(x = seu, subset = cell_type == "Mono")
+  seu_test_dge <- merge(x = seu_act_nk, y = seu_mono)
+  seu_test_dge <- JoinLayers(object = seu_test_dge, assay = "RNA", layers = "data")
+  seu_test_dge <- JoinLayers(object = seu_test_dge, assay = "RNA", layers = "counts")
+}
+
 # liana_in
 # pseudobulk_in

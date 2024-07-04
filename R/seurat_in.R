@@ -1912,28 +1912,36 @@ scvi_volcano <- function(indata, plotx = c("lfc","fc"), gene_set = "none", text_
   return(plt)
 }
 
-seurat_mast <- function(seurat_object,
-                        freq_expressed = 0.1,
-                        fc_threshold = log2(1.5),
-                        test_per_cluster = TRUE,
-                        test_clusters = "all",
-                        cluster_column = "cell_type",
-                        test_per_category = TRUE,
-                        test_categories = c("younger","older"),
-                        category_column = "age_group",
-                        test_per_condition = TRUE, # or FALSE to test all cells without subsetting by condition
-                        test_condition = "all", # only considered if test_per_condition, test_condition = "all" suggests
-                        condition_column = "condition",
-                        pid_column = "pid")
+seurat_mast <- function(x) {
+  return(x)
+}
+
+seurat_dge <- function(seurat_object,
+                       dge_method = c("MAST", "wilcox"),
+                       freq_expressed = 0.1,
+                       fc_threshold = log2(1.5),
+                       test_per_cluster = TRUE,
+                       test_clusters = "all",
+                       cluster_column = "cell_type",
+                       test_per_category = TRUE,
+                       test_categories = c("younger","older"),
+                       category_column = "age_group",
+                       test_per_condition = TRUE, # or FALSE to test all cells without subsetting by condition
+                       test_condition = "all", # only considered if test_per_condition, test_condition = "all" suggests
+                       condition_column = "condition",
+                       pid_column = "pid")
 {
   require(Seurat)
-  require(MAST)
   # testing
   # seurat_object = seu
+  # seurat_object = seu_test_dge
+  # # dge_method = "wilcox"
+  # dge_method = "MAST"
   # freq_expressed = 0.1
   # fc_threshold = log2(1.5)
   # test_per_cluster = TRUE
-  # test_clusters = und_cl
+  # # test_clusters = und_cl
+  # test_clusters = c("Activ NK","Mono")
   # cluster_column = "cell_type"
   # test_per_category = FALSE
   # test_categories = c("younger","older")
@@ -1975,8 +1983,8 @@ seurat_mast <- function(seurat_object,
     stop("Nothing to compare")
   }
 
-  mast_outs <- vector("list", length = ifelse(is.null(conditions), 1, length(conditions))); names(mast_outs) <- ifelse(is.null(conditions), "all", conditions)
-  mast_outs <- lapply(X = mast_outs, FUN = function(arg1, ann = annos){
+  dge_outs <- vector("list", length = ifelse(is.null(conditions), 1, length(conditions))); names(dge_outs) <- ifelse(is.null(conditions), "all", conditions)
+  dge_outs <- lapply(X = dge_outs, FUN = function(arg1, ann = annos){
     tmpv <- vector("list", length = ifelse(is.null(ann), 1, length(ann)))
     if(is.null(ann)) {
       names(tmpv) <- "all"
@@ -1987,22 +1995,22 @@ seurat_mast <- function(seurat_object,
   })
 
   start_test <- Sys.time()
-  for(i in 1:length(mast_outs)) {
+  for(i in 1:length(dge_outs)) {
     start_loop <- Sys.time()
-    if(names(mast_outs)[i]=="all") {
+    if(names(dge_outs)[i]=="all") {
       subs1 <- seurat_object
     } else {
       seurat_object <- AddMetaData(object = seurat_object, metadata = seurat_object@meta.data[,condition_column], col.name = "c")
-      subs1 <- subset(x = seurat_object, subset = c == names(mast_outs)[i])
+      subs1 <- subset(x = seurat_object, subset = c == names(dge_outs)[i])
     }
-    for(j in 1:length(mast_outs[[i]])){
-      print(paste0("starting on [",names(mast_outs[[i]])[j],"] in [",names(mast_outs)[i],"] at ",Sys.time()))
+    for(j in 1:length(dge_outs[[i]])){
+      print(paste0("starting on [",names(dge_outs[[i]])[j],"] in [",names(dge_outs)[i],"] at ",Sys.time()))
       if(!is.null(annos)) {
         if(!is.null(test_cats)) {
           subs1 <- AddMetaData(object = subs1, metadata = subs1@meta.data[,cluster_column], col.name = "l")
-          subs2 <- subset(x = subs1, subset = l == names(mast_outs[[i]])[j])
+          subs2 <- subset(x = subs1, subset = l == names(dge_outs[[i]])[j])
         } else {
-          subs1 <- AddMetaData(object = subs1, metadata = ifelse(subs1@meta.data[,cluster_column]==names(mast_outs[[i]])[j], names(mast_outs[[i]])[j], "other"), col.name = "l")
+          subs1 <- AddMetaData(object = subs1, metadata = ifelse(subs1@meta.data[,cluster_column]==names(dge_outs[[i]])[j], names(dge_outs[[i]])[j], "other"), col.name = "l")
           subs2 <- subs1
         }
       } else {
@@ -2013,40 +2021,56 @@ seurat_mast <- function(seurat_object,
         ident2 <- test_categories[2]
         Idents(subs2) <- subs2@meta.data[,category_column]
       } else {
-        ident1 <- names(mast_outs[[i]])[j] # will be either "all" or a cluster
+        ident1 <- names(dge_outs[[i]])[j] # will be either "all" or a cluster
         if(is.null(ident1)) {
           stop("Nothing to test")
         }
         ident2 <- "other"
         Idents(subs2) <- ifelse(subs2@meta.data[,cluster_column]==ident1, ident1, "other")
       }
-      binary_expr_matrix <- subs2@assays$RNA@layers$counts > 0
-      percent_expr <- rowSums(binary_expr_matrix) / ncol(binary_expr_matrix); names(percent_expr) <- row.names(subs2)
-      genes_to_keep <- row.names(subs2)[percent_expr >= freq_expressed]
-      if(sum(is.na(genes_to_keep))>0) {
-        stop("one or more genes is NA")
-      }
-      if(length(genes_to_keep)==0) {
-        next
-      }
-      subs2 <- subset(x = subs2, features = genes_to_keep)
-      seu_as_sce <- as.SingleCellExperiment(subs2, assay = "RNA")
-      logcounts(seu_as_sce) <- log2(counts(seu_as_sce) + 1)
-      cdr <- colSums(seu_as_sce@assays@data@listData[["logcounts"]]>0) # cellular detection rate; number of genes detected which is a well-known confounder (https://bioconductor.org/packages/release/bioc/vignettes/MAST/inst/doc/MAITAnalysis.html#22_Filtering)
-      seu_as_sce$cngeneson <- scale(cdr)
-      subs2@assays$RNA@layers$data <- seu_as_sce@assays@data@listData[["logcounts"]]
-      subs2@meta.data <- as.data.frame(seu_as_sce@colData)
+      if(tolower(dge_method) == "mast") {
+        require(MAST)
+        binary_expr_matrix <- subs2@assays$RNA@layers$counts > 0
+        percent_expr <- rowSums(binary_expr_matrix) / ncol(binary_expr_matrix); names(percent_expr) <- row.names(subs2)
+        genes_to_keep <- row.names(subs2)[percent_expr >= freq_expressed]
+        if(sum(is.na(genes_to_keep))>0) {
+          stop("one or more genes is NA")
+        }
+        if(length(genes_to_keep)==0) {
+          next
+        }
+        subs2 <- subset(x = subs2, features = genes_to_keep)
+        seu_as_sce <- as.SingleCellExperiment(subs2, assay = "RNA")
+        logcounts(seu_as_sce) <- log2(counts(seu_as_sce) + 1)
+        cdr <- colSums(seu_as_sce@assays@data@listData[["logcounts"]]>0) # cellular detection rate; number of genes detected which is a well-known confounder (https://bioconductor.org/packages/release/bioc/vignettes/MAST/inst/doc/MAITAnalysis.html#22_Filtering)
+        seu_as_sce$cngeneson <- scale(cdr)
+        subs2@assays$RNA@layers$data <- seu_as_sce@assays@data@listData[["logcounts"]]
+        subs2@meta.data <- as.data.frame(seu_as_sce@colData)
 
-      mast_res <- Seurat::FindMarkers(object = subs2, assay = "RNA", ident.1 = ident1, ident.2 = ident2,
-                                      test.use = "MAST", only.pos = FALSE, latent.vars = c("cngeneson",pid_column))
-      colnames(mast_res)[which(colnames(mast_res)=="pct.1")] <- paste0("pct.",ident1); colnames(mast_res)[which(colnames(mast_res)=="pct.2")] <- paste0("pct.",ident2)
-      mast_res$gene <- row.names(mast_res)
-      mast_res <- mast_res[mast_res$p_val_adj<0.05,]
+        mast_res <- Seurat::FindMarkers(object = subs2, assay = "RNA", ident.1 = ident1, ident.2 = ident2,
+                                        test.use = "MAST", only.pos = FALSE, latent.vars = c("cngeneson",pid_column))
+        colnames(mast_res)[which(colnames(mast_res)=="pct.1")] <- gsub(" ","_",paste0("pct.",ident1))
+        colnames(mast_res)[which(colnames(mast_res)=="pct.2")] <- gsub(" ","",paste0("pct.",ident2))
+        mast_res$gene <- row.names(mast_res)
+        mast_res <- mast_res[mast_res$p_val_adj<0.05,]
+        mast_res <- mast_res[which(abs(mast_res$avg_log2FC)>fc_threshold),]
 
-      mast_outs[[i]][[j]] <- mast_res
+        dge_outs[[i]][[j]] <- mast_res
+      } else if(tolower(dge_method) == "wilcox") {
+        require(SeuratWrappers)
+        wilcox_res <- SeuratWrappers::RunPresto(object = subs2, assay = "RNA", ident.1 = ident1, ident.2 = ident2,
+                                                test.use = "wilcox", only.pos = FALSE, min.pct = 0.01)
+        colnames(wilcox_res)[which(colnames(wilcox_res)=="pct.1")] <- gsub(" ","",paste0("pct.",ident1))
+        colnames(wilcox_res)[which(colnames(wilcox_res)=="pct.2")] <- gsub(" ","",paste0("pct.",ident2))
+        wilcox_res$gene <- row.names(wilcox_res)
+        wilcox_res <- wilcox_res[wilcox_res$p_val_adj<0.05,]
+        wilcox_res <- wilcox_res[which(abs(wilcox_res$avg_log2FC)>fc_threshold),]
+
+        dge_outs[[i]][[j]] <- wilcox_res
+      }
     }
-    print(paste0("[",names(mast_outs[[i]])[j],"] in [",names(mast_outs)[i],"] testing took ",round(as.numeric(difftime(Sys.time(), start_loop, units = "mins")),2)," mins"))
+    print(paste0("[",names(dge_outs[[i]])[j],"] in [",names(dge_outs)[i],"] testing took ",round(as.numeric(difftime(Sys.time(), start_loop, units = "mins")),2)," mins"))
   }
   print(paste0("total test time: ",round(as.numeric(difftime(Sys.time(), start_test, units = "hours")),3)," hours"))
-  return(mast_outs)
+  return(dge_outs)
 }
