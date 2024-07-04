@@ -111,6 +111,8 @@ if(F) {
   seu_small <- subset(x = seu, subset = lane %in% c("9569-JO-1_multi","9569-JO-2_multi"))
   saveRDS(object = seu_small, file = "J:/U54_grant/sc/inputs/pbmc_flu_small_seurat_object_all.rds")
 } else {
+  library(Seurat)
+  library(Matrix)
   seu_small <- readRDS(file = "J:/U54_grant/sc/inputs/pbmc_flu_small_seurat_object_all.rds")
 }
 

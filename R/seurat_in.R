@@ -1928,6 +1928,20 @@ seurat_mast <- function(seurat_object,
 {
   require(Seurat)
   require(MAST)
+  # testing
+  # seurat_object = seu
+  # freq_expressed = 0.1
+  # fc_threshold = log2(1.5)
+  # test_per_cluster = TRUE
+  # test_clusters = und_cl
+  # cluster_column = "cell_type"
+  # test_per_category = FALSE
+  # test_categories = c("younger","older")
+  # category_column = "age_group"
+  # test_per_condition = FALSE
+  # test_condition = "all"
+  # condition_column = "condition"
+  # pid_column = "pid"
 
   if(test_per_condition) {
     conditions <- test_condition[test_condition %in% seurat_object@meta.data[,condition_column]]
@@ -1963,7 +1977,12 @@ seurat_mast <- function(seurat_object,
 
   mast_outs <- vector("list", length = ifelse(is.null(conditions), 1, length(conditions))); names(mast_outs) <- ifelse(is.null(conditions), "all", conditions)
   mast_outs <- lapply(X = mast_outs, FUN = function(arg1, ann = annos){
-    tmpv <- vector("list", length = ifelse(is.null(ann), 1, length(ann))); names(tmpv) <- ifelse(is.null(ann), "all", ann)
+    tmpv <- vector("list", length = ifelse(is.null(ann), 1, length(ann)))
+    if(is.null(ann)) {
+      names(tmpv) <- "all"
+    } else {
+      names(tmpv) <- ann
+    }
     return(tmpv)
   })
 
@@ -1979,8 +1998,13 @@ seurat_mast <- function(seurat_object,
     for(j in 1:length(mast_outs[[i]])){
       print(paste0("starting on [",names(mast_outs[[i]])[j],"] in [",names(mast_outs)[i],"] at ",Sys.time()))
       if(!is.null(annos)) {
-        subs1 <- AddMetaData(object = subs1, metadata = subs1@meta.data[,cluster_column], col.name = "l")
-        subs2 <- subset(x = subs1, subset = l == names(mast_outs[[i]])[j])
+        if(!is.null(test_cats)) {
+          subs1 <- AddMetaData(object = subs1, metadata = subs1@meta.data[,cluster_column], col.name = "l")
+          subs2 <- subset(x = subs1, subset = l == names(mast_outs[[i]])[j])
+        } else {
+          subs1 <- AddMetaData(object = subs1, metadata = ifelse(subs1@meta.data[,cluster_column]==names(mast_outs[[i]])[j], names(mast_outs[[i]])[j], "other"), col.name = "l")
+          subs2 <- subs1
+        }
       } else {
         subs2 <- subs1
       }
@@ -2013,11 +2037,9 @@ seurat_mast <- function(seurat_object,
       subs2@assays$RNA@layers$data <- seu_as_sce@assays@data@listData[["logcounts"]]
       subs2@meta.data <- as.data.frame(seu_as_sce@colData)
 
-      Idents(subs2) <- subs2@meta.data$time_to_group
-
       mast_res <- Seurat::FindMarkers(object = subs2, assay = "RNA", ident.1 = ident1, ident.2 = ident2,
                                       test.use = "MAST", only.pos = FALSE, latent.vars = c("cngeneson",pid_column))
-      colnames(mast_res)[which(colnames(mast_res)=="pct.1")] <- ident1; colnames(mast_res)[which(colnames(mast_res)=="pct.2")] <- ident2
+      colnames(mast_res)[which(colnames(mast_res)=="pct.1")] <- paste0("pct.",ident1); colnames(mast_res)[which(colnames(mast_res)=="pct.2")] <- paste0("pct.",ident2)
       mast_res$gene <- row.names(mast_res)
       mast_res <- mast_res[mast_res$p_val_adj<0.05,]
 
