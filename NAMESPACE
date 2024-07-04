@@ -2,7 +2,7 @@
 
 export(seurat_test_clusters)
 export(seurat_size_bar)
-export(seurat_mast)
+export(seurat_dge)
 import(Seurat)
 import(SeuratObject)
 import(SeuratWrappers)
