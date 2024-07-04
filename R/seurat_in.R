@@ -1912,10 +1912,6 @@ scvi_volcano <- function(indata, plotx = c("lfc","fc"), gene_set = "none", text_
   return(plt)
 }
 
-seurat_mast <- function(x) {
-  return(x)
-}
-
 seurat_dge <- function(seurat_object,
                        dge_method = c("MAST", "wilcox"),
                        freq_expressed = 0.1,
