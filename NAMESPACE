@@ -1,1 +1,5 @@
-exportPattern("^[[:alpha:]]+")
+#exportPattern("^[[:alpha:]]+")
+
+export(seurat_test_clusters)
+export(seurat_size_bar)
+export(seurat_mast)
