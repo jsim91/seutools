@@ -1,293 +1,21 @@
-plot_volcano <- function(dge_input, plot_clusters = "all",
-                         de_method = c("seurat_presto", "pseudobulk_py"),
-                         gene_set = NA, prio_top_genes = 0,
-                         pval_threshold = 1, table_height = 50,
-                         logfc_threshold = 1.5,
-                         logFC_colname = "avg_log2FC",
-                         padj_colname = "p_val_adj",
-                         cluster_colname = "annotation",
-                         feature_gsub_pattern = "TotalseqC-") # input here is the FindAllMarkers function output
-{
-  require(ggplot2)
-  require(ggpubr)
-  require(ggrepel)
-  require(ggpmisc)
-  options(scipen = 999)
-
-  # testing
-  # dge_input = indata
-  # plot_clusters = "all"
-  # de_method = "pseudobulk_py"
-  # gene_set = NA
-  # prio_top_genes = 10
-  # pval_threshold = 1
-  # table_height = 50
-  # logfc_threshold = 1.5
-  # logFC_colname = "log2FoldChange"
-  # padj_colname = "padj"
-  # cluster_colname = "cluster"
-  # feature_gsub_pattern = "TotalseqC-"
-
-  if(length(de_method)!=1) {
-    stop("use either 'seurat_presto' or 'pseudobulk_py' for 'de_method'; length of 'de_method' must be 1")
-  }
-
-  if(plot_clusters[1]!="all") {
-    keep_cluster_rows <- which(dge_input[,cluster_colname] %in% plot_clusters)
-    if(length(keep_cluster_rows)!=0) {
-      dge_input <- dge_input[keep_cluster_rows,]
-    }
-  }
-  dge_input$gene <- gsub(pattern = feature_gsub_pattern, replacement = "", x = dge_input$gene)
-  dge_input$avg_FC <- 2^dge_input[,logFC_colname]
-  dge_input[,padj_colname] <- ifelse(dge_input[,padj_colname]==0, min(dge_input[,padj_colname][which(dge_input[,padj_colname]!=0)]), dge_input[,padj_colname])
-  which_rm1 <- which(dge_input[,padj_colname]>=pval_threshold)
-  dge_input$p_val_adj_nlog10 <- -log10(dge_input[,padj_colname])
-  colnames(dge_input)[which(colnames(dge_input)==padj_colname)] <- "padj"
-  which_rm2 <- which(abs(dge_input[,logFC_colname])<logfc_threshold)
-  which_rm <- union(which_rm1, which_rm2)
-  if(length(which_rm)!=0) {
-    dge_input <- dge_input[-which_rm,]
-  }
-  dge_input$p_val_adj_nlog10 <- ifelse(is.infinite(dge_input$p_val_adj_nlog10),
-                                       max(dge_input$p_val_adj_nlog10[!is.infinite(dge_input$p_val_adj_nlog10)])+1,
-                                       dge_input$p_val_adj_nlog10)
-  colnames(dge_input)[which(colnames(dge_input)==logFC_colname)] <- "avg fold diff"
-  dge_input$`avg fold diff` <- ifelse(dge_input$avg_FC<1,
-                                      -1/dge_input$avg_FC,
-                                      dge_input$avg_FC)
-  if(nrow(dge_input)==0) {
-    return("no dge")
-  }
-  avgdfc <- rep(NA,nrow(dge_input))
-  for(i in 1:length(dge_input$`avg fold diff`)) {
-    if(dge_input$`avg fold diff`[i]<0){
-      avgdfc[i] <- -1*log(-1*dge_input$`avg fold diff`[i],2)
-    } else {
-      avgdfc[i] <- log(dge_input$`avg fold diff`[i],2)
-    }
-  }
-  dge_input$avg_directional_log2FC <- avgdfc
-
-  dge_split <- split(x = dge_input, f = dge_input[,cluster_colname])
-
-  if(all(prio_top_genes[1]!=0, !is.na(prio_top_genes[1]))) {
-    if(de_method=="pseudobulk_py") {
-      top_g <- dge_input$gene[order(dge_input$stat, decreasing = T)][1:prio_top_genes[1]]
-      bottom_g <- dge_input$gene[order(dge_input$stat, decreasing = F)][1:prio_top_genes[1]]
-      gene_set <- c(top_g, bottom_g); gene_set <- gene_set[!is.na(gene_set)]
-    } else if(de_method=="seurat_presto") {
-      dge_up <- dge_input[which(dge_input$`avg fold diff`>0),]
-      if(nrow(dge_up)==0) {
-        top_g <- c()
-      } else {
-        top_g <- dge_input$gene[order(dge_input$`avg fold diff`, decreasing = T)][1:prio_top_genes[1]]
-      }
-      dge_dn <- dge_input[which(dge_input$`avg fold diff`<0),]
-      if(nrow(dge_dn)==0) {
-        bottom_g <- c()
-      } else {
-        bottom_g <- dge_input$gene[order(dge_input$`avg fold diff`, decreasing = F)][1:prio_top_genes[1]]
-      }
-      gene_set <- c(top_g, bottom_g); gene_set <- gene_set[!is.na(gene_set)]
-    }
-  }
-
-  tmp_volcano <- function(vol_in, prio_genes = gene_set, maxyval = max(dge_input$p_val_adj_nlog10),
-                          y_thresh = pval_threshold, t_height = table_height, demethod = de_method)
-  {
-    # testing
-    # vol_in <- dge_split[[1]]; prio_genes = gene_set; maxyval = max(dge_input$p_val_adj_nlog10); y_thresh = pval_threshold; t_height = table_height;demethod = de_method
-
-    minx_seg <- ifelse(min(vol_in$avg_directional_log2FC)<0, min(vol_in$avg_directional_log2FC), 0)
-    maxx_seg <- ifelse(max(vol_in$avg_directional_log2FC)>0, max(vol_in$avg_directional_log2FC), 0)
-    miny_seg <- ifelse(is.na(y_thresh[1]),0,y_thresh)
-    maxy_seg <- max(vol_in$p_val_adj_nlog10)
-
-    dfx_segment <- data.frame(x1 = minx_seg, y1 = ifelse(is.na(y_thresh[1]),0,y_thresh),
-                              x2 = maxx_seg, y2 = ifelse(is.na(y_thresh[1]),0,y_thresh))
-    dfy_segment <- data.frame(x1 = 0, y1 = miny_seg,
-                              x2 = 0, y2 = maxy_seg)
-
-    volc <- ggplot(data = vol_in, mapping = aes(x = avg_directional_log2FC, y = p_val_adj_nlog10)) +
-      # ylim(maxy_seg,0) +
-      geom_segment(data = dfx_segment, mapping = aes(x = x1, y = y1, xend = x2, yend = y2), color = "#757575") +
-      geom_segment(data = dfy_segment, mapping = aes(x = x1, y = y1, xend = x2, yend = y2), color = "#757575")
-    if(all(!is.na(gene_set[1]), length(gene_set)!=0)) {
-      # if(prio_top_genes!=0) {
-      # add_genes <- vol_in$gene[order(vol_in$avg_directional_log2FC, decreasing = TRUE)][1:prio_top_genes]
-      # prio_genes <- c(prio_genes, add_genes)
-      # }
-      prio_row <- which(vol_in$gene %in% prio_genes)
-      if(length(prio_row)!=0) {
-        prio_data <- vol_in[which(vol_in$gene %in% prio_genes),]
-        volc <- volc + geom_point(pch = 21) +
-          geom_point(data = prio_data,
-                     mapping = aes(x = avg_directional_log2FC, y = p_val_adj_nlog10),
-                     pch = 21, fill = "red", color = "black", stroke = 0.5, size = 3) +
-          ggrepel::geom_label_repel(data = prio_data, min.segment.length = 0,
-                                    mapping = aes(x = avg_directional_log2FC, y = p_val_adj_nlog10,
-                                                  label = gene), seed = 123,
-                                    max.overlaps = 20, size = 6,
-                                    verbose = FALSE, color = "red", fontface = "bold")
-      } else {
-        volc <- volc + geom_point() + ggrepel::geom_label_repel(mapping = aes(label = gene), seed = 123,
-                                                                max.overlaps = 15, min.segment.length = 0,
-                                                                label.size = NA, fill = NA)
-      }
-    } else {
-      volc <- volc + geom_point() + ggrepel::geom_label_repel(mapping = aes(label = gene), seed = 123,
-                                                              max.overlaps = 15, min.segment.length = 0,
-                                                              label.size = NA, fill = NA)
-    }
-    # volc <- volc + ggtitle(paste0("cluster ",vol_in[,cluster_colname][1])) +
-    volc <- volc + ggtitle(paste0(vol_in[,cluster_colname][1])) +
-      labs(x = "log2 fold difference", y = "-log10(p-value)") +
-      theme_minimal() +
-      scale_y_continuous(limits = c(ifelse(is.na(y_thresh[1]),0.1,y_thresh),maxyval), trans='pseudo_log') +
-      theme(plot.title = element_text(hjust = 0.5, size = 26),
-            axis.title = element_text(size = 23),
-            axis.text = element_text(size = 18))
-
-    if(demethod=="pseudobulk_py") {
-      dn_direction <- vol_in[which(vol_in$stat<0),]
-      low_gene <- dn_direction[order(dn_direction$stat,decreasing = FALSE),
-                               c("stat","avg fold diff","padj","gene")]
-      up_direction <- vol_in[which(vol_in$stat>0),]
-      high_gene <- up_direction[order(up_direction$stat,decreasing = TRUE),
-                                c("stat","avg fold diff","padj","gene")]
-    } else if(demethod=="seurat_presto") {
-      up_df <- vol_in[which(vol_in$`avg fold diff`>0),]
-      dn_df <- vol_in[which(vol_in$`avg fold diff`<0),]
-      if(nrow(up_df)==0) {
-        up_direction <- vol_in[0,]
-      } else {
-        up_direction <- vol_in[order(vol_in$`avg fold diff`, decreasing = TRUE),]
-      }
-      if(nrow(dn_df)==0) {
-        dn_direction <- vol_in[0,]
-      } else {
-        dn_direction <- vol_in[order(vol_in$`avg fold diff`, decreasing = FALSE),]
-      }
-      low_gene <- dn_direction[,c("avg fold diff","padj","gene")]
-      high_gene <- up_direction[,c("avg fold diff","padj","gene")]
-    }
-
-    prep_table <- function(table_in, tht = t_height, demet = demethod) {
-      # testing
-      # table_in <- high_gene; tht = t_height; demet = demethod
-      if(nrow(table_in)==0) {
-        return(table_in)
-      }
-
-      row.names(table_in) <- table_in$gene; table_in <- table_in[,-which(colnames(table_in)=="gene")]
-      if(nrow(table_in)==0) {
-        if(demet=="pseudobulk_py") {
-          table_tmp <- data.frame('stat' = NA, 'avg fold diff' = NA, 'padj' = NA, check.names = FALSE)
-          row.names(table_tmp) <- "none"
-        } else if(demet=="seurat_pesto") {
-          table_tmp <- data.frame('avg fold diff' = NA, 'padj' = NA, check.names = FALSE)
-          row.names(table_tmp) <- "none"
-        }
-        return(table_tmp)
-      } else {
-        if(demet=="pseudobulk_py") {
-          table_in$`avg fold diff` <- round(table_in$`avg fold diff`,2)
-          table_in$stat <- round(table_in$stat,2)
-        } else if(demet=="seurat_presto") {
-          table_in$`avg fold diff` <- round(table_in$`avg fold diff`,2)
-        }
-      }
-
-      convert_p <- function(pval) {
-        if(pval==0) {
-          return("0")
-        }
-        if(regexpr(pattern = "e", text = as.character(pval))!=-1) {
-          p_exp <- gsub("e","",stringr::str_extract(string = as.character(pval), pattern = "e[0-9-]+$"))
-          p_num <- stringr::str_extract(string = as.character(pval), pattern = "^[0-9.]+")
-          p_num_rounded <- round(x = as.numeric(p_num), digits = 2) # this assumes exponential notation was used
-          return(paste0(p_num_rounded,"e",p_exp))
-        } else {
-          # p_exp <- stringr::str_extract(string = as.character(pval), pattern = "[1-9]+$")
-          # p_num <- gsub(pattern = "^0\\.", replacement = "", x = stringr::str_extract(string = as.character(pval), pattern = "^[0.]+"))
-          # numzero <- nchar(p_num)
-          # if(nchar(p_exp)>3) {
-          #   num_pre <- substr(p_exp, start = 1, stop = 3)
-          #   num_pre <- paste0(substr(num_pre,1,1),".",substr(num_pre,2,nchar(num_pre)))
-          # } else {
-          #   num_pre <- p_exp
-          #   if(nchar(num_pre)!=1) {
-          #     num_pre <- paste0(substr(num_pre,1,1),".",substr(num_pre,2,nchar(num_pre)))
-          #   }
-          # }
-          return(formatC(pval, 3))
-        }
-      }
-      table_in$padj <- sapply(X = table_in$padj, FUN = convert_p)
-      if(nrow(table_in)>tht) {
-        table_in <- table_in[1:tht,]
-      }
-      #colnames(table_in)[2] <- "adj p-value"
-      return(table_in)
-    }
-
-    low_gene_prep <- prep_table(table_in = low_gene)
-    high_gene_prep <- prep_table(table_in = high_gene)
-
-    if(demethod=="pseudobulk_py") {
-      low_gene_prep <- low_gene_prep[which(low_gene_prep$stat<0),]
-      high_gene_prep <- high_gene_prep[which(high_gene_prep$stat>0),]
-    } else if(demethod=="seurat_presto") {
-      low_gene_prep <- low_gene_prep[which(low_gene_prep$`avg fold diff`<0),]
-      high_gene_prep <- high_gene_prep[which(high_gene_prep$`avg fold diff`>0),]
-    }
-
-    blank_plt <- ggplot(data = cars, mapping = aes(x = speed, y = dist)) +
-      geom_point(alpha = 0) + theme_void()
-    if(nrow(high_gene_prep)==0) {
-      high_tab <- blank_plt
-    } else {
-      high_tab <- blank_plt +
-        annotate(geom='table',x=0.5,y=0.5,label=list(high_gene_prep),table.rownames=TRUE)
-    }
-    if(nrow(low_gene_prep)==0) {
-      low_tab <- blank_plt
-    } else {
-      low_tab <- blank_plt +
-        annotate(geom='table',x=0.5,y=0.5,label=list(low_gene_prep),table.rownames=TRUE)
-    }
-
-    arr_plot <- ggpubr::ggarrange(plotlist = list(volc, high_tab, low_tab),
-                                  nrow = 1, widths = c(0.65,0.175,0.175))
-    return(arr_plot)
-  }
-
-  out_volc <- lapply(X = dge_split, FUN = tmp_volcano)
-
-  return(out_volc)
-}
-
-
-heatmap_calculate <- function(seurat_data = sobj, gene_set, set_name,
-                              active_clusters = c(14,23,31)) # c(21,28,34)
+heatmap_calculate <- function(seurat_obj, gene_set, set_name, clusters)
 {
   require(ComplexHeatmap)
   require(FCSimple)
   require(ggplot2)
 
-  # seurat_data = sobj
+  # seurat_obj = sobj
   # gene_set = gene_set_list[[8]]
   # gene_set = gene_set_list[["Cytokine Signaling"]]
-  # active_clusters = c(14,23,31)
+  # clusters = c(14,23,31)
   # set_name = "Cytokine Signaling"
 
-  ct = seurat_data@assays[["RNA"]]@data
+  ct = seurat_obj@assays[["RNA"]]@data
 
   gene_row <- which(row.names(ct) %in% gsub("_.+$","",gene_set))
   pared_data <- as.matrix(ct[gene_row,])
   cluster_nums <- as.character(sobj@meta.data$seurat_clusters)
-  cluster_nums[which(!cluster_nums %in% active_clusters)] <- "other"
+  cluster_nums[which(!cluster_nums %in% clusters)] <- "other"
   uclus <- unique(cluster_nums[-which(cluster_nums=="other")]); uclus <- uclus[order(as.numeric(uclus))]
   uclus <- c(uclus,"other")
 
@@ -316,19 +44,18 @@ heatmap_calculate <- function(seurat_data = sobj, gene_set, set_name,
 
   out_hm <- Heatmap(matrix = in_mat)
 
-  ggsave(filename = "cytokine_signaling.pdf",
-         plot = grid::grid.grabExpr(draw(out_hm)),
-         device = "pdf", width = hm_width,
-         height = hm_height,
-         units = "in", dpi = 900)
-  # ggsave()
-  # return(out_hm)
+  # ggsave(filename = "cytokine_signaling.pdf",
+  #        plot = grid::grid.grabExpr(draw(out_hm)),
+  #        device = "pdf", width = hm_width,
+  #        height = hm_height,
+  #        units = "in", dpi = 900)
+  # return(grid::grid.grabExpr(draw(out_hm)))
 }
 
-tile_reduction <- function(coords, condition, cluster_numbers,
-                           color_clusters = c(14,23,31,34,21,28), label_clusters = "all",
+tile_reduction <- function(seurat_obj, condition, cluster_numbers,
+                           color_clusters, label_clusters = "all",
                            pt_alpha = 0.05, anno_text_size = 6, pt_size = 1, color_seed = 123,
-                           outline_method = c("nudge","fontsize","bquote"), postfix_title_string = NA,
+                           outline_method = c("nudge","fontsize"), postfix_title_string = NA,
                            force_xlim = FALSE, force_ylim = FALSE, return_as_list = FALSE,
                            plot_order = c(2,1,3), annotation_method = "repel", # c("repel","text","shadowtext","none")
                            override_color_aes = NA, frameon = FALSE)
@@ -352,6 +79,8 @@ tile_reduction <- function(coords, condition, cluster_numbers,
   # annotation_method = "repel"
   # color_seed = 123
   # override_color_aes = NA
+
+  coords <- seurat_obj@reductions$
 
   plot_data <- data.frame(UMAP1 = coords$UMAP1, UMAP2 = coords$UMAP2,
                           cluster = cluster_numbers, condition = condition)
@@ -534,27 +263,6 @@ tile_reduction <- function(coords, condition, cluster_numbers,
                                    size = anno_ts*1.05, color = "black") +
               plt <- plt + geom_text(data = color_text_add, mapping = aes(x = UMAP1, y = UMAP2, color = cluster, label = cluster),
                                      size = anno_ts)
-          }
-          if(text_omethod=="bquote") {
-            stop("bquote not supported anymore..")
-            # sample
-            # d <- diamonds[sample(nrow(diamonds), 10), ]
-            #
-            #
-            # p <- ggplot(d, aes(carat, price) )
-            # theta <- seq(pi/8, 2*pi, length.out=16)
-            # xo <- diff(range(d$carat))/200
-            # yo <- diff(range(d$price))/200
-            # for(i in theta) {
-            #   p <- p + geom_text(
-            #     aes(x = bquote(carat+.(cos(i)*xo)),
-            #           y = bquote(price+.(sin(i)*yo)),
-            #           label = ~cut),
-            #     size=12, colour='black' )
-            # }
-            # p <- p + geom_text( aes(label=cut), size=12, colour='white' )
-            # # p <- p + opts( panel.background=theme_rect(fill='green' ) )
-            # print(p)
           }
         }
       }
@@ -1155,62 +863,46 @@ mean_count_hm <- function(exprs_matrix, cluster_numbers, include_clusters, gene_
   }
 }
 
-test_clusters <- function(test_data, order_x = c("MTB300","Media","GRV"),
-                          bin_colors = c("coral","azure4","seagreen"),
-                          subtract_background = TRUE, tile_plots = TRUE,
-                          backround_condition = "Media", y_axis_subset = "T/NK",
-                          connect_points = TRUE, data_paired = TRUE,
-                          return_plots = TRUE, return_plot_data = FALSE,
-                          plot_type = c("string", "numeric"),
-                          coord_stretch_factor = 0.11, text_size_factor = 1,
-                          shape_key = NULL)
+seurat_test_clusters <- function(seurat_object, test_by_column = "condition", pid_column = "pid",
+                                 cluster_column = "cell_type", cell_barcode_column = "barcode",
+                                 order_x = c("MTB300","Media","GRV"),
+                                 bin_colors = c("coral","azure4","seagreen"),
+                                 subtract_background = TRUE, tile_plots = TRUE,
+                                 backround_condition = "Media", y_axis_subset = "T/NK",
+                                 connect_points = TRUE, data_paired = TRUE,
+                                 return_plots = TRUE, return_plot_data = FALSE,
+                                 coord_stretch_factor = 0.11, text_size_factor = 1,
+                                 shape_key = NULL)
 {
   require(ggplot2)
   require(ggpubr)
 
-  # testing flu
-  # test_data = test_data[,c(1:4)]
-  # order_x = c('media','stim')
-  # bin_colors = c('#8C8C8C','#EF5350')
-  # subtract_background = F
-  # tile_plots = F
+  # testing
+  # seurat_object <- seu
+  # test_by_column <- "condition"
+  # pid_column <- "pid"
+  # cluster_column <- "cell_type"
+  # cell_barcode_column <- "barcode"
+  # order_x <- c("media","stim")
+  # bin_colors <- c("coral","azure4","seagreen")
+  # subtract_background = FALSE
+  # tile_plots = TRUE
   # backround_condition = "media"
   # y_axis_subset = "PBMC"
   # connect_points = TRUE
   # data_paired = TRUE
   # return_plots = TRUE
   # return_plot_data = FALSE
-  # plot_type = "string"
   # coord_stretch_factor = 0.11
-  # text_size_factor = 0.8
-  # shape_key = shape_df
-
-  # testing tb
-  # test_data = test_data[,c(1:4)]
-  # order_x = c("MTB300","Media","GRV")
-  # bin_colors = c("coral","azure4","seagreen")
-  # subtract_background = F
-  # tile_plots = F
-  # backround_condition = "Media"
-  # y_axis_subset = "PBMC"
-  # connect_points = TRUE
-  # data_paired = TRUE
-  # return_plots = TRUE
-  # return_plot_data = FALSE
-  # plot_type = "string"
-  # coord_stretch_factor = 0.11
-  # text_size_factor = 0.8
+  # text_size_factor = 1
   # shape_key = NULL
 
-  if(length(plot_type)!=1) {
-    stop("specify argument 'plot_type'")
-  }
   names(bin_colors) <- order_x
 
-  test_data <- test_data[,c("pid","condition","cluster","bc")]
-  upid <- unique(test_data[,"pid"])
+  test_data <- seu@meta.data[,c(pid_column,test_by_column,cluster_column,cell_barcode_column)]
+  upid <- unique(test_data[,pid_column])
   ucondition <- order_x
-  uclus <- unique(test_data[,"cluster"]); uclus <- uclus[order(uclus)]
+  uclus <- unique(test_data[,cluster_column]); uclus <- uclus[order(uclus)]
 
   freq_matrix <- matrix(data = NA, nrow = length(upid), ncol = length(uclus))
   row.names(freq_matrix) <- upid; colnames(freq_matrix) <- uclus
@@ -1219,7 +911,7 @@ test_clusters <- function(test_data, order_x = c("MTB300","Media","GRV"),
     freq_matrix_copy <- freq_matrix
     tmp_data <- test_data[which(test_data$condition==names(freq_list)[i]),]
     for(j in 1:nrow(freq_matrix_copy)) {
-      tmp_clus <- tmp_data[,"cluster"][which(tmp_data[,"pid"]==row.names(freq_matrix_copy)[j])]
+      tmp_clus <- tmp_data[,cluster_column][which(tmp_data[,pid_column]==row.names(freq_matrix_copy)[j])]
       for(k in 1:ncol(freq_matrix_copy)) {
         freq_matrix_copy[j,k] <- mean(tmp_clus==colnames(freq_matrix_copy)[k]) * 100
       }
@@ -1261,7 +953,7 @@ test_clusters <- function(test_data, order_x = c("MTB300","Media","GRV"),
   }
   if(!is.null(shape_key[1])) {
     for(i in 1:length(cluster_list)) {
-      cluster_list[[i]] <- merge(x = cluster_list[[i]], y = shape_key, by = "pid", sort = FALSE)
+      cluster_list[[i]] <- merge(x = cluster_list[[i]], y = shape_key, by = pid_column, sort = FALSE)
     }
   }
   if(return_plot_data) {
@@ -1269,40 +961,49 @@ test_clusters <- function(test_data, order_x = c("MTB300","Media","GRV"),
   }
 
   iterate_boxplot <- function(arg1, b_colors = bin_colors,
+                              tbc = test_by_column,
+                              pidc = pid_column,
+                              clc = cluster_column,
+                              cellbc = cell_barcode_column,
                               should_connect = connect_points,
                               anchor_stim = backround_condition,
                               tp = tile_plots, dp = data_paired,
                               yax_lab = y_axis_subset,
-                              pl_type = plot_type,
                               csf = coord_stretch_factor,
                               tsf = text_size_factor,
                               shp = shape_key)
   {
     require(reshape2)
     require(combinat)
+    require(ggplot2)
+    require(ggpubr)
 
     # testing
     # arg1 = cluster_list[[1]]
     # b_colors = bin_colors
+    # tbc = test_by_column
+    # pidc = pid_column
+    # clc = cluster_column
+    # cellbc = cell_barcode_column
     # should_connect = connect_points
     # anchor_stim = backround_condition
     # tp = tile_plots
     # dp = data_paired
     # yax_lab = y_axis_subset
-    # pl_type = plot_type
     # csf = coord_stretch_factor
     # tsf = text_size_factor
     # shp = shape_key
 
     if(!is.null(shp[1])) {
-      shp <- colnames(shape_key)[which(colnames(shape_key)!="pid")]
+      shp <- colnames(shape_key)[which(colnames(shape_key)!=pidc)]
     } else {
       shp <- NULL
     }
 
     arg1$group <- as.character(1:nrow(arg1))
-    arg_melt <- reshape2::melt(data = arg1, value.name = "cluster")
+    arg_melt <- reshape2::melt(data = arg1, value.name = clc)
     # colnames(arg_melt) <- c("cluster","pid","group","condition","frequency") # condition = variable
+    colnames(arg_melt)[which(colnames(arg_melt)==clc)] <- "frequency"
     colnames(arg_melt)[ncol(arg_melt)] <- "frequency"
     compare_these <- combinat::permn(unique(arg_melt$variable))
     for(i in 1:length(compare_these)) {
@@ -1324,13 +1025,13 @@ test_clusters <- function(test_data, order_x = c("MTB300","Media","GRV"),
     if(tp) {
       spldata <- vector("list",length=length(compare_these))
       for(i in 1:length(spldata)) {
-        spldata[[i]] <- arg_melt[which(arg_melt[,test_column] %in% compare_these[[i]]),]
+        spldata[[i]] <- arg_melt[which(arg_melt[,"variable"] %in% compare_these[[i]]),]
       }
 
       internal_pl_fun <- function(internal_arg1, cp = should_connect, plot_csf = csf, shp = shp) {
 
         # testing
-        # internal_arg1 = spldata[[1]]; cp = should_connect; shp = shp
+        # internal_arg1 = spldata[[1]]; cp = should_connect; plot_csf = csf; shp = shp
 
         internal_arg1[,"variable"] <- as.character(internal_arg1[,"variable"])
         unique_stim <- unique(internal_arg1[,"variable"])
@@ -1355,7 +1056,8 @@ test_clusters <- function(test_data, order_x = c("MTB300","Media","GRV"),
           scale_color_manual(values = b_colors) +
           ylab(paste0("% of ",yax_lab)) +
           # ggtitle(ifelse(pl_type=="numeric", paste0("cluster ",internal_arg1[,"cluster"][1]), internal_arg1[,"cluster"][1])) +
-          ggtitle(paste0("cluster ",internal_arg1[,"cluster"][1])) +
+          # ggtitle(paste0("cluster ",internal_arg1[,"cluster"][1])) +
+          ggtitle(internal_arg1[,"cluster"][1]) +
           theme_minimal() +
           theme(axis.title.x = element_blank(),
                 axis.title.y = element_text(size = 23*tsf, color = "black"),
@@ -1416,7 +1118,7 @@ test_clusters <- function(test_data, order_x = c("MTB300","Media","GRV"),
   return(test_plots)
 }
 
-abundance_bar <- function(patient_id, condition, cluster)
+seurat_size_bar <- function(seurat_object, pid_column = "pid", condition_column = "condition", cluster_column = "cell_type")
 {
   require(ggplot2)
   require(ggpubr)
@@ -1427,13 +1129,22 @@ abundance_bar <- function(patient_id, condition, cluster)
   # condition <- meta_clus$condition
   # cluster <- meta_clus$cluster
 
-  plot_data <- data.frame(pid = patient_id, condition = condition, cluster = cluster)
+  # testing
+  # seurat_object = seu
+  # pid_column = "pid"
+  # condition_column = "condition"
+  # cluster_column = "cell_type"
+
+  plot_data <- data.frame(pid = seu@meta.data[,pid_column],
+                          condition = seu@meta.data[,condition_column],
+                          cluster = seu@meta.data[,cluster_column])
   plot_data$pid_condition <- paste0(plot_data$pid,"_",plot_data$condition)
   plot_data$group_var <- factor(plot_data$cluster)
 
   cluster_table <- as.matrix(table(plot_data$cluster,plot_data$pid_condition))
-  pre_melt <- cbind(as.matrix(data.frame(cluster = as.numeric(row.names(cluster_table)))),cluster_table)
-  data.m <- reshape2::melt(pre_melt, id.vars="cluster")
+  # pre_melt <- cbind(as.matrix(data.frame(cluster = row.names(cluster_table))),cluster_table)
+  # data.m <- reshape2::melt(pre_melt, id.vars="cluster")
+  data.m <- as.data.frame(cluster_table)
   colnames(data.m) <- c("cluster","PID","size")
 
   rm_row <- which(data.m$PID=="cluster")
@@ -1442,86 +1153,19 @@ abundance_bar <- function(patient_id, condition, cluster)
   }
   data.m$cluster <- factor(data.m$cluster)
 
-  dodge_bars <- ggplot(data = data.m, mapping = aes(x = cluster, y = size)) +
-    geom_bar(aes(fill = PID), position = "dodge", stat = "identity") +
+  stack_bars <- ggplot(data = data.m, mapping = aes(x = cluster, y = size)) +
+    # geom_bar(aes(fill = PID), position = "dodge", stat = "identity") +
+    geom_bar(aes(fill = PID), stat = "identity") +
     theme_minimal() +
-    ylab("size (number of cells)") +
+    ylab("number of cells") +
     theme(legend.position = "bottom",
           legend.title = element_blank(),
           legend.text = element_text(size = 12),
-          axis.text = element_text(size = 14),
-          axis.title = element_text(size = 15, face = "bold"))
+          axis.text.x = element_text(size = 14, angle = 90, hjust = 1, vjust = 0.5),
+          # axis.title = element_text(size = 15, face = "bold"))
+          axis.title = element_blank())
 
-  return(dodge_bars)
-}
-
-
-adt_on_umap <- function(arg1, pex = pt_expansion, pal = pt_alpha, pl_title, incl_leg = FALSE,
-                        tex = text_expansion, tex_annotate = text_expansion_annotate, #dtype,
-                        lab_clus = label_clusters, enable_wrap = FALSE, wrap_by = NULL){
-  # testing
-  # arg1 <- plt_list[[1]]
-  # pal = pt_alpha; pex = pt_expansion;
-  # tex = text_expansion; tex_annotate = text_expansion_annotate;
-  # lab_clus = label_clusters; enable_wrap = FALSE; wrap_by = NULL
-
-  if(!is.factor(arg1$cluster)){
-    arg1$cluster <- factor(arg1$cluster)
-  }
-  uclus1 <- as.character(unique(arg1$cluster))
-  xval <- rep(NA,times=length(uclus1)); names(xval) <- uclus1[order(uclus1)]; yval <- xval
-  for(i in 1:length(xval)){
-    xval[i] <- median(arg1$UMAP1[which(arg1$cluster==names(xval)[i])])
-    yval[i] <- median(arg1$UMAP2[which(arg1$cluster==names(xval)[i])])
-  }
-  cluslab <- data.frame(xval = xval, yval = yval, labl = names(xval))
-  capture_adt <- colnames(arg1)[grep("_cluster$",colnames(arg1))]
-  colnames(arg1)[which(colnames(arg1)==capture_adt)] <- "adt"
-  pl <- ggplot(data = arg1, mapping = aes(x=UMAP1,y=UMAP2)) +
-    geom_point_rast(aes(color=adt),pch=19, alpha = pal, cex = pex) +
-    scale_color_viridis(option = "D", name = gsub("_cluster","",capture_adt)) +
-    # ggtitle(gsub("_cluster","",capture_adt)) +
-    guides(color = guide_colourbar(title.position = "top", frame.colour = "black", ticks.colour = "black",
-                                   draw.ulim = F, draw.llim = F, ticks.linewidth = 0.5)) +
-    theme_void() +
-    theme(plot.title = element_text(hjust = 0.5, size = 25*tex, face = "bold", vjust = -1),
-          legend.key.height = unit(5, "mm"),
-          legend.key.width = unit(18, "mm"),
-          legend.direction = "horizontal",
-          legend.position = "bottom",
-          # legend.text = element_text(angle=45, size = 12*tex),
-          legend.text = element_text(size = 10*tex),
-          legend.title = element_blank())
-  # legend.title = element_text(size = 14*tex))
-  if(!incl_leg) {
-    pl <- pl + theme(legend.position = "none")
-  }
-  if(lab_clus[1]=="all") {
-    pl <- pl + annotate("shadowtext", x = xval, y = yval, label = names(xval), size = 8*tex_annotate)
-  } else if(lab_clus[1]!="none") {
-    annox <- xval[which(names(xval) %in% lab_clus)]
-    annoy <- yval[which(names(yval) %in% lab_clus)]
-    lab_df <- data.frame(xval = annox, yval = annoy, id = names(annox))
-    pl <- pl + ggrepel::geom_text_repel(data = lab_df, mapping = aes(x = xval, y = yval, label = id),
-                                        size = tex*4, bg.color = "black", bg.r = 0.075, color = "white", seed = 123)
-    # pl <- pl + annotate("shadowtext", x = annox, y = annoy, label = names(annox), size = 8*tex_annotate)
-  }
-  if(pl_title) {
-    # if(dtype == "ADT") {
-    pl <- pl + ggtitle(gsub("_cluster","",capture_adt)) +
-      theme(plot.title = element_text(hjust = 0.5, size = 25*tex, face = "bold"))
-    # } else {
-    #   pl <- pl + ggtitle(gsub("_cluster","",capture_adt)) +
-    #     theme(plot.title = element_text(hjust = 0.5, size = 30*tex, face = "bold"))
-    # }
-  }
-  # if(all(lab_clus,enable_wrap!=TRUE)){
-  #   pl <- pl + annotate("shadowtext", x = xval, y = yval, label = names(xval), size = 7*tex_annotate)
-  # } else if(all(enable_wrap != FALSE, !is.null(wrap_by))){
-  #   pl <- pl + facet_wrap(~stim, nrow = 1) + theme(strip.text.x = element_text(size = 12)) +
-  #     geom_shadowtext(data = cluslab, mapping = aes(x = xval, y = yval, label = labl), size = 4*tex_annotate)
-  # }
-  return(pl)
+  return(stack_bars)
 }
 
 feature_overlay <- function(adt_data, fam_adt = NULL, pt_expansion = 0.7, pt_alpha = 0.25,
@@ -1555,6 +1199,22 @@ feature_overlay <- function(adt_data, fam_adt = NULL, pt_expansion = 0.7, pt_alp
   # return_tiled = FALSE
   # datatype = "ADT"
 
+  # testing
+  seurat_object <- seu_adt
+  reduction <- "umap"
+  assay <- "ADT"
+  layer <- "data" # or "counts"
+  color_by = c("cell", "cluster")
+  meta_cluster_col = "cell_type"
+  plot_features = NULL
+  pt_expansion = 0.7
+  pt_alpha = 0.25
+  text_expansion = 1
+  text_expansion_annotate = 1
+  label_clusters = TRUE
+  add_title = FALSE
+  downsample_size = NA
+  return_tiled = FALSE
 
   exprs <- adt_data
   if(clean_names) {
@@ -1609,6 +1269,75 @@ feature_overlay <- function(adt_data, fam_adt = NULL, pt_expansion = 0.7, pt_alp
     plt_list[[i]]$value <- get_gene
     colnames(plt_list[[i]])[ncol(plt_list[[i]])] <- paste0(gsub("-TotalseqC","",names(plt_list)[i]),"_cell")
   }
+
+  adt_on_umap <- function(arg1, pex = pt_expansion, pal = pt_alpha, pl_title, incl_leg = FALSE,
+                          tex = text_expansion, tex_annotate = text_expansion_annotate, #dtype,
+                          lab_clus = label_clusters, enable_wrap = FALSE, wrap_by = NULL){
+    # testing
+    # arg1 <- plt_list[[1]]
+    # pal = pt_alpha; pex = pt_expansion;
+    # tex = text_expansion; tex_annotate = text_expansion_annotate;
+    # lab_clus = label_clusters; enable_wrap = FALSE; wrap_by = NULL
+
+    if(!is.factor(arg1$cluster)){
+      arg1$cluster <- factor(arg1$cluster)
+    }
+    uclus1 <- as.character(unique(arg1$cluster))
+    xval <- rep(NA,times=length(uclus1)); names(xval) <- uclus1[order(uclus1)]; yval <- xval
+    for(i in 1:length(xval)){
+      xval[i] <- median(arg1$UMAP1[which(arg1$cluster==names(xval)[i])])
+      yval[i] <- median(arg1$UMAP2[which(arg1$cluster==names(xval)[i])])
+    }
+    cluslab <- data.frame(xval = xval, yval = yval, labl = names(xval))
+    capture_adt <- colnames(arg1)[grep("_cluster$",colnames(arg1))]
+    colnames(arg1)[which(colnames(arg1)==capture_adt)] <- "adt"
+    pl <- ggplot(data = arg1, mapping = aes(x=UMAP1,y=UMAP2)) +
+      geom_point_rast(aes(color=adt),pch=19, alpha = pal, cex = pex) +
+      scale_color_viridis(option = "D", name = gsub("_cluster","",capture_adt)) +
+      # ggtitle(gsub("_cluster","",capture_adt)) +
+      guides(color = guide_colourbar(title.position = "top", frame.colour = "black", ticks.colour = "black",
+                                     draw.ulim = F, draw.llim = F, ticks.linewidth = 0.5)) +
+      theme_void() +
+      theme(plot.title = element_text(hjust = 0.5, size = 25*tex, face = "bold", vjust = -1),
+            legend.key.height = unit(5, "mm"),
+            legend.key.width = unit(18, "mm"),
+            legend.direction = "horizontal",
+            legend.position = "bottom",
+            # legend.text = element_text(angle=45, size = 12*tex),
+            legend.text = element_text(size = 10*tex),
+            legend.title = element_blank())
+    # legend.title = element_text(size = 14*tex))
+    if(!incl_leg) {
+      pl <- pl + theme(legend.position = "none")
+    }
+    if(lab_clus[1]=="all") {
+      pl <- pl + annotate("shadowtext", x = xval, y = yval, label = names(xval), size = 8*tex_annotate)
+    } else if(lab_clus[1]!="none") {
+      annox <- xval[which(names(xval) %in% lab_clus)]
+      annoy <- yval[which(names(yval) %in% lab_clus)]
+      lab_df <- data.frame(xval = annox, yval = annoy, id = names(annox))
+      pl <- pl + ggrepel::geom_text_repel(data = lab_df, mapping = aes(x = xval, y = yval, label = id),
+                                          size = tex*4, bg.color = "black", bg.r = 0.075, color = "white", seed = 123)
+      # pl <- pl + annotate("shadowtext", x = annox, y = annoy, label = names(annox), size = 8*tex_annotate)
+    }
+    if(pl_title) {
+      # if(dtype == "ADT") {
+      pl <- pl + ggtitle(gsub("_cluster","",capture_adt)) +
+        theme(plot.title = element_text(hjust = 0.5, size = 25*tex, face = "bold"))
+      # } else {
+      #   pl <- pl + ggtitle(gsub("_cluster","",capture_adt)) +
+      #     theme(plot.title = element_text(hjust = 0.5, size = 30*tex, face = "bold"))
+      # }
+    }
+    # if(all(lab_clus,enable_wrap!=TRUE)){
+    #   pl <- pl + annotate("shadowtext", x = xval, y = yval, label = names(xval), size = 7*tex_annotate)
+    # } else if(all(enable_wrap != FALSE, !is.null(wrap_by))){
+    #   pl <- pl + facet_wrap(~stim, nrow = 1) + theme(strip.text.x = element_text(size = 12)) +
+    #     geom_shadowtext(data = cluslab, mapping = aes(x = xval, y = yval, label = labl), size = 4*tex_annotate)
+    # }
+    return(pl)
+  }
+
   out_plots <- lapply(plt_list, adt_on_umap, pal = pt_alpha, pex = pt_expansion,
                       tex = text_expansion, tex_annotate = text_expansion_annotate,
                       lab_clus = label_clusters, enable_wrap = FALSE, wrap_by = NULL,
@@ -2181,4 +1910,121 @@ scvi_volcano <- function(indata, plotx = c("lfc","fc"), gene_set = "none", text_
   }
   # plt
   return(plt)
+}
+
+seurat_mast <- function(seurat_object,
+                        freq_expressed = 0.1,
+                        fc_threshold = log2(1.5),
+                        test_per_cluster = TRUE,
+                        test_clusters = "all",
+                        cluster_column = "cell_type",
+                        test_per_category = TRUE,
+                        test_categories = c("younger","older"),
+                        category_column = "age_group",
+                        test_per_condition = TRUE, # or FALSE to test all cells without subsetting by condition
+                        test_condition = "all", # only considered if test_per_condition, test_condition = "all" suggests
+                        condition_column = "condition",
+                        pid_column = "pid")
+{
+  require(Seurat)
+  require(MAST)
+
+  if(test_per_condition) {
+    conditions <- test_condition[test_condition %in% seurat_object@meta.data[,condition_column]]
+    if(length(conditions)==0) {
+      conditions <- NULL
+      warning("None of the requested 'conditions' found in seurat_object@meta.data[,condition_column]. Continuing without subsetting on any condition(s).")
+    }
+  } else {
+    conditions <- NULL
+  }
+  if(test_per_cluster) {
+    test_clusters <- unique(test_clusters[test_clusters %in% seurat_object@meta.data[,cluster_column]])
+    if(length(test_clusters)==0) {
+      annos <- NULL
+      warning("None of 'test_clusters' found in seurat_object@meta.data[,cluster_column]. Continuing with test(s) on all cells.")
+    } else {
+      annos <- test_clusters
+    }
+  } else {
+    annos <- NULL
+  }
+  if(test_per_category) {
+    test_cats <- test_categories[test_categories %in% seurat_object@meta.data[,category_column]]
+    if(length(test_cats)!=2) {
+      stop("After filtering for viable categories, 'test_categories' must be of length 2; which two categories in 'category_column' should be compared?")
+    }
+  } else {
+    test_cats <- NULL
+  }
+  if(all(is.null(annos), is.null(test_cats))) {
+    stop("Nothing to compare")
+  }
+
+  mast_outs <- vector("list", length = ifelse(is.null(conditions), 1, length(conditions))); names(mast_outs) <- ifelse(is.null(conditions), "all", conditions)
+  mast_outs <- lapply(X = mast_outs, FUN = function(arg1, ann = annos){
+    tmpv <- vector("list", length = ifelse(is.null(ann), 1, length(ann))); names(tmpv) <- ifelse(is.null(ann), "all", ann)
+    return(tmpv)
+  })
+
+  start_test <- Sys.time()
+  for(i in 1:length(mast_outs)) {
+    start_loop <- Sys.time()
+    if(names(mast_outs)[i]=="all") {
+      subs1 <- seurat_object
+    } else {
+      seurat_object <- AddMetaData(object = seurat_object, metadata = seurat_object@meta.data[,condition_column], col.name = "c")
+      subs1 <- subset(x = seurat_object, subset = c == names(mast_outs)[i])
+    }
+    for(j in 1:length(mast_outs[[i]])){
+      print(paste0("starting on [",names(mast_outs[[i]])[j],"] in [",names(mast_outs)[i],"] at ",Sys.time()))
+      if(!is.null(annos)) {
+        subs1 <- AddMetaData(object = subs1, metadata = subs1@meta.data[,cluster_column], col.name = "l")
+        subs2 <- subset(x = subs1, subset = l == names(mast_outs[[i]])[j])
+      } else {
+        subs2 <- subs1
+      }
+      if(!is.null(test_cats)) {
+        ident1 <- test_categories[1]
+        ident2 <- test_categories[2]
+        Idents(subs2) <- subs2@meta.data[,category_column]
+      } else {
+        ident1 <- names(mast_outs[[i]])[j] # will be either "all" or a cluster
+        if(is.null(ident1)) {
+          stop("Nothing to test")
+        }
+        ident2 <- "other"
+        Idents(subs2) <- ifelse(subs2@meta.data[,cluster_column]==ident1, ident1, "other")
+      }
+      binary_expr_matrix <- subs2@assays$RNA@layers$counts > 0
+      percent_expr <- rowSums(binary_expr_matrix) / ncol(binary_expr_matrix); names(percent_expr) <- row.names(subs2)
+      genes_to_keep <- row.names(subs2)[percent_expr >= freq_expressed]
+      if(sum(is.na(genes_to_keep))>0) {
+        stop("one or more genes is NA")
+      }
+      if(length(genes_to_keep)==0) {
+        next
+      }
+      subs2 <- subset(x = subs2, features = genes_to_keep)
+      seu_as_sce <- as.SingleCellExperiment(subs2, assay = "RNA")
+      logcounts(seu_as_sce) <- log2(counts(seu_as_sce) + 1)
+      cdr <- colSums(seu_as_sce@assays@data@listData[["logcounts"]]>0) # cellular detection rate; number of genes detected which is a well-known confounder (https://bioconductor.org/packages/release/bioc/vignettes/MAST/inst/doc/MAITAnalysis.html#22_Filtering)
+      seu_as_sce$cngeneson <- scale(cdr)
+      subs2@assays$RNA@layers$data <- seu_as_sce@assays@data@listData[["logcounts"]]
+      subs2@meta.data <- as.data.frame(seu_as_sce@colData)
+
+      Idents(subs2) <- subs2@meta.data$time_to_group
+
+      mast_res <- Seurat::FindMarkers(object = subs2, assay = "RNA", ident.1 = ident1, ident.2 = ident2,
+                                      test.use = "MAST", only.pos = FALSE, latent.vars = c("cngeneson",pid_column))
+      colnames(mast_res)[which(colnames(mast_res)=="pct.1")] <- ident1; colnames(mast_res)[which(colnames(mast_res)=="pct.2")] <- ident2
+      mast_res$gene <- row.names(mast_res)
+      mast_res <- mast_res[mast_res$p_val_adj<0.05,]
+
+      mast_outs[[i]][[j]] <- mast_res
+    }
+    print(paste0("[",names(mast_outs[[i]])[j],"] in [",names(mast_outs)[i],"] testing took ",round(as.numeric(difftime(Sys.time(), start_loop, units = "mins")),2)," mins"))
+  }
+  print(paste0("total test time: ",round(as.numeric(difftime(Sys.time(), start_test, units = "hours")),3)," hours"))
+  return(mast_outs)
 }
