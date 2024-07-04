@@ -106,8 +106,12 @@ if(F) {
   seu_all_obj[['umap']] <- all_dr
 
   saveRDS(object = seu_all_obj, file = "J:/U54_grant/sc/inputs/pbmc_flu_seurat_object_all.rds")
-} else {
+} else if(F){
   seu <- readRDS(file = "J:/U54_grant/sc/inputs/pbmc_flu_seurat_object_all.rds")
+  seu_small <- subset(x = seu, subset = lane %in% c("9569-JO-1_multi","9569-JO-2_multi"))
+  saveRDS(object = seu_small, file = "J:/U54_grant/sc/inputs/pbmc_flu_small_seurat_object_all.rds")
+} else {
+  seu_small <- readRDS(file = "J:/U54_grant/sc/inputs/pbmc_flu_small_seurat_object_all.rds")
 }
 
 # liana_in
