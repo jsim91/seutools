@@ -23,14 +23,9 @@ tile_plots <- function(plotlist, n_row = 2, n_col = 2, rm_legend = FALSE) {
 
 
 plot_volcano <- function(dge_input, plot_clusters = "all",
-                         de_method = c("seurat_presto", "pseudobulk_py"),
                          gene_set = NA, prio_top_genes = 0,
                          pval_threshold = 1, table_height = 50,
-                         logfc_threshold = 1.5,
-                         logFC_colname = "avg_log2FC",
-                         padj_colname = "p_val_adj",
-                         cluster_colname = "annotation",
-                         feature_gsub_pattern = "TotalseqC-") # input here is the FindAllMarkers function output
+                         fc_threshold = log2(1.5)) # input here is the seurat_dge output list
 {
   require(ggplot2)
   require(ggpubr)
@@ -39,18 +34,13 @@ plot_volcano <- function(dge_input, plot_clusters = "all",
   options(scipen = 999)
 
   # testing
-  # dge_input = indata
+  # dge_input <- readRDS(file = "J:/10x/JOflu/scbp/all/undecided_clusters/dge_undecided.rds")
   # plot_clusters = "all"
-  # de_method = "pseudobulk_py"
   # gene_set = NA
-  # prio_top_genes = 10
+  # prio_top_genes = 0
   # pval_threshold = 1
   # table_height = 50
-  # logfc_threshold = 1.5
-  # logFC_colname = "log2FoldChange"
-  # padj_colname = "padj"
-  # cluster_colname = "cluster"
-  # feature_gsub_pattern = "TotalseqC-"
+  # fc_threshold = log2(1.5)
 
   if(length(de_method)!=1) {
     stop("use either 'seurat_presto' or 'pseudobulk_py' for 'de_method'; length of 'de_method' must be 1")
@@ -68,7 +58,7 @@ plot_volcano <- function(dge_input, plot_clusters = "all",
   which_rm1 <- which(dge_input[,padj_colname]>=pval_threshold)
   dge_input$p_val_adj_nlog10 <- -log10(dge_input[,padj_colname])
   colnames(dge_input)[which(colnames(dge_input)==padj_colname)] <- "padj"
-  which_rm2 <- which(abs(dge_input[,logFC_colname])<logfc_threshold)
+  which_rm2 <- which(abs(dge_input[,logFC_colname])<fc_threshold)
   which_rm <- union(which_rm1, which_rm2)
   if(length(which_rm)!=0) {
     dge_input <- dge_input[-which_rm,]
@@ -96,25 +86,19 @@ plot_volcano <- function(dge_input, plot_clusters = "all",
   dge_split <- split(x = dge_input, f = dge_input[,cluster_colname])
 
   if(all(prio_top_genes[1]!=0, !is.na(prio_top_genes[1]))) {
-    if(de_method=="pseudobulk_py") {
-      top_g <- dge_input$gene[order(dge_input$stat, decreasing = T)][1:prio_top_genes[1]]
-      bottom_g <- dge_input$gene[order(dge_input$stat, decreasing = F)][1:prio_top_genes[1]]
-      gene_set <- c(top_g, bottom_g); gene_set <- gene_set[!is.na(gene_set)]
-    } else if(de_method=="seurat_presto") {
-      dge_up <- dge_input[which(dge_input$`avg fold diff`>0),]
-      if(nrow(dge_up)==0) {
-        top_g <- c()
-      } else {
-        top_g <- dge_input$gene[order(dge_input$`avg fold diff`, decreasing = T)][1:prio_top_genes[1]]
-      }
-      dge_dn <- dge_input[which(dge_input$`avg fold diff`<0),]
-      if(nrow(dge_dn)==0) {
-        bottom_g <- c()
-      } else {
-        bottom_g <- dge_input$gene[order(dge_input$`avg fold diff`, decreasing = F)][1:prio_top_genes[1]]
-      }
-      gene_set <- c(top_g, bottom_g); gene_set <- gene_set[!is.na(gene_set)]
+    dge_up <- dge_input[which(dge_input$`avg fold diff`>0),]
+    if(nrow(dge_up)==0) {
+      top_g <- c()
+    } else {
+      top_g <- dge_input$gene[order(dge_input$`avg fold diff`, decreasing = T)][1:prio_top_genes[1]]
     }
+    dge_dn <- dge_input[which(dge_input$`avg fold diff`<0),]
+    if(nrow(dge_dn)==0) {
+      bottom_g <- c()
+    } else {
+      bottom_g <- dge_input$gene[order(dge_input$`avg fold diff`, decreasing = F)][1:prio_top_genes[1]]
+    }
+    gene_set <- c(top_g, bottom_g); gene_set <- gene_set[!is.na(gene_set)]
   }
 
   tmp_volcano <- function(vol_in, prio_genes = gene_set, maxyval = max(dge_input$p_val_adj_nlog10),
