@@ -867,7 +867,7 @@ seurat_test_clusters <- function(seurat_object, test_by_column = "condition", pi
                                  cluster_column = "cell_type", cell_barcode_column = "barcode",
                                  order_x = c("MTB300","Media","GRV"),
                                  bin_colors = c("coral","azure4","seagreen"),
-                                 subtract_background = TRUE, tile_plots = TRUE,
+                                 subtract_background = TRUE, comparison_list = NULL,
                                  backround_condition = "Media", y_axis_subset = "T/NK",
                                  connect_points = TRUE, data_paired = TRUE,
                                  return_plots = TRUE, return_plot_data = FALSE,
@@ -899,7 +899,7 @@ seurat_test_clusters <- function(seurat_object, test_by_column = "condition", pi
 
   names(bin_colors) <- order_x
 
-  test_data <- seu@meta.data[,c(pid_column,test_by_column,cluster_column,cell_barcode_column)]
+  test_data <- seurat_object@meta.data[,c(pid_column,test_by_column,cluster_column,cell_barcode_column)]
   upid <- unique(test_data[,pid_column])
   ucondition <- order_x
   uclus <- unique(test_data[,cluster_column]); uclus <- uclus[order(uclus)]
@@ -967,7 +967,9 @@ seurat_test_clusters <- function(seurat_object, test_by_column = "condition", pi
                               cellbc = cell_barcode_column,
                               should_connect = connect_points,
                               anchor_stim = backround_condition,
-                              tp = tile_plots, dp = data_paired,
+                              comps = comparison_list,
+                              # tp = tile_plots,
+                              dp = data_paired,
                               yax_lab = y_axis_subset,
                               csf = coord_stretch_factor,
                               tsf = text_size_factor,
@@ -987,7 +989,7 @@ seurat_test_clusters <- function(seurat_object, test_by_column = "condition", pi
     # cellbc = cell_barcode_column
     # should_connect = connect_points
     # anchor_stim = backround_condition
-    # tp = tile_plots
+    # comps = comparison_list
     # dp = data_paired
     # yax_lab = y_axis_subset
     # csf = coord_stretch_factor
@@ -1005,114 +1007,68 @@ seurat_test_clusters <- function(seurat_object, test_by_column = "condition", pi
     # colnames(arg_melt) <- c("cluster","pid","group","condition","frequency") # condition = variable
     colnames(arg_melt)[which(colnames(arg_melt)==clc)] <- "frequency"
     colnames(arg_melt)[ncol(arg_melt)] <- "frequency"
-    compare_these <- combinat::permn(unique(arg_melt$variable))
-    for(i in 1:length(compare_these)) {
-      compare_these[[i]] <- as.character(compare_these[[i]][1:2])
-    }
-    find_dupls <- rep(NA,length=length(compare_these))
-    for(i in 1:length(find_dupls)) {
-      find_dupls[i] <- paste0(compare_these[[i]][order(compare_these[[i]])],collapse="")
-    }
-    rm_elements <- which(duplicated(find_dupls))
-    if(length(rm_elements)>0) {
-      compare_these <- compare_these[-rm_elements]
+    if(is.null(comps)) {
+      compare_these <- combinat::permn(unique(arg_melt$variable))
+      for(i in 1:length(compare_these)) {
+        compare_these[[i]] <- as.character(compare_these[[i]][1:2])
+      }
+      find_dupls <- rep(NA,length=length(compare_these))
+      for(i in 1:length(find_dupls)) {
+        find_dupls[i] <- paste0(compare_these[[i]][order(compare_these[[i]])],collapse="")
+      }
+      rm_elements <- which(duplicated(find_dupls))
+      if(length(rm_elements)>0) {
+        compare_these <- compare_these[-rm_elements]
+      }
+    } else {
+      compare_these <- comps
     }
     if(!is.null(shp)) {
       # arg_melt <- merge(x = arg_melt, y = shape_key, by = "pid", all.x = TRUE, all.y = FALSE)
       colnames(arg_melt)[which(colnames(arg_melt)==shp)] <- "shape_group"
     }
-
-    if(tp) {
-      spldata <- vector("list",length=length(compare_these))
-      for(i in 1:length(spldata)) {
-        spldata[[i]] <- arg_melt[which(arg_melt[,"variable"] %in% compare_these[[i]]),]
+    pl <- ggplot(data = arg_melt, mapping = aes(x = variable, y = frequency, color = variable)) +
+      geom_boxplot(fill = "#bfbfbf", lwd = 0.5, alpha = 0.4, width = 0.45)
+    if(should_connect) {
+      pl <- pl + geom_line(mapping = aes(group = group), color = "black")
+      if("shape_group" %in% colnames(arg_melt)) {
+        pl <- pl + geom_point(mapping = aes(fill = variable, shape = shape_group), size = 4, color = "black") +
+          scale_shape_manual(values = 21:25)
+      } else {
+        pl <- pl + geom_point(mapping = aes(fill = variable), pch = 21, size = 3, color = "black")
       }
-
-      internal_pl_fun <- function(internal_arg1, cp = should_connect, plot_csf = csf, shp = shp) {
-
-        # testing
-        # internal_arg1 = spldata[[1]]; cp = should_connect; plot_csf = csf; shp = shp
-
-        internal_arg1[,"variable"] <- as.character(internal_arg1[,"variable"])
-        unique_stim <- unique(internal_arg1[,"variable"])
-        if(mean(internal_arg1$pid[which(internal_arg1[,"variable"]==unique_stim[1])]==internal_arg1$pid[which(internal_arg1[,"variable"]==unique_stim[2])])!=1) {
-          stop("error (3)")
-        }
-
-
-        pl <- ggplot(data = internal_arg1, mapping = aes(x = variable, y = frequency, color = variable)) +
-          geom_boxplot(fill = "#bfbfbf", lwd = 0.5, alpha = 0.4, width = 0.45)
-        if(cp) {
-          pl <- pl + geom_line(mapping = aes(group = group), color = "black") +
-            geom_point(mapping = aes(fill = variable), pch = 21, size = 3, color = "black")
-        } else {
-          pl <- pl + geom_dotplot(data = internal_arg1, aes(fill = variable), color = "black", stroke = 1.1,
-                                  binaxis = "y", stackdir = "center", position = "dodge", binpositions="all", binwidth = 0.5)
-        }
-        pl <- pl + stat_compare_means(paired = TRUE, method = "wilcox", comparisons = list(unique_stim), size = 7.6*tsf)
-        pl <- pl + coord_cartesian(ylim = c(min(internal_arg1$frequency, na.rm = TRUE), max(internal_arg1$frequency, na.rm = TRUE)*(1 + length(compare_these)*plot_csf)))
-        pl <- pl +
-          scale_fill_manual(values = b_colors) +
-          scale_color_manual(values = b_colors) +
-          ylab(paste0("% of ",yax_lab)) +
-          # ggtitle(ifelse(pl_type=="numeric", paste0("cluster ",internal_arg1[,"cluster"][1]), internal_arg1[,"cluster"][1])) +
-          # ggtitle(paste0("cluster ",internal_arg1[,"cluster"][1])) +
-          ggtitle(internal_arg1[,"cluster"][1]) +
-          theme_minimal() +
-          theme(axis.title.x = element_blank(),
-                axis.title.y = element_text(size = 23*tsf, color = "black"),
-                axis.text.x = element_text(size = 22*tsf, face = "bold", color = "black"),
-                axis.text.y = element_text(size = 20*tsf),
-                plot.title = element_text(size = 25*tsf, hjust = 0.5, face = "bold"),
-                legend.position = "none")
-      }
-      plot_set <- lapply(spldata,internal_pl_fun)
-      pubr_plots <- ggpubr::ggarrange(plotlist = plot_set, nrow = 1)
-      return(pubr_plots)
     } else {
-      pl <- ggplot(data = arg_melt, mapping = aes(x = variable, y = frequency, color = variable)) +
-        geom_boxplot(fill = "#bfbfbf", lwd = 0.5, alpha = 0.4, width = 0.45)
-      if(should_connect) {
-        pl <- pl + geom_line(mapping = aes(group = group), color = "black")
-        if("shape_group" %in% colnames(arg_melt)) {
-          pl <- pl + geom_point(mapping = aes(fill = variable, shape = shape_group), size = 4, color = "black") +
-            scale_shape_manual(values = 21:25)
-        } else {
-          pl <- pl + geom_point(mapping = aes(fill = variable), pch = 21, size = 3, color = "black")
-        }
-      } else {
-        pl <- pl + geom_dotplot(data = arg_melt, aes(fill = variable), color = "black", stroke = 1.1,
-                                binaxis = "y", stackdir = "center", position = "dodge", binpositions="all")
-      }
-      if(dp) {
-        pl <- pl +
-          stat_compare_means(paired = TRUE, method = "wilcox", comparisons = compare_these, size = 7.6*tsf)
-      } else {
-        pl <- pl +
-          stat_compare_means(paired = FALSE, method = "wilcox", comparisons = compare_these, size = 7.6*tsf)
-      }
-      pl <- pl + coord_cartesian(ylim = c(min(arg_melt$frequency, na.rm = TRUE), max(arg_melt$frequency, na.rm = TRUE)*(1 + length(compare_these)*csf)))
-      pl <- pl +
-        guides(fill = "none", shape = guide_legend(position = "bottom", override.aes = list(size = 7*tsf),
-                                                   theme = theme(legend.text = element_text(size = 18*tsf, margin = margin(t = -2, r = 15, b = 0, l = 1)),
-                                                                 legend.title = element_blank())),
-               color = "none") +
-        scale_fill_manual(values = b_colors) +
-        scale_color_manual(values = b_colors) +
-        ylab(paste0("% of ",yax_lab)) +
-        # ggtitle(ifelse(pl_type=="numeric", paste0("cluster ",arg_melt[,"cluster"][1]), arg_melt[,"cluster"][1])) +
-        ggtitle(paste0("cluster ",arg_melt[,"cluster"][1])) +
-        theme_minimal() +
-        theme(axis.title.x = element_blank(),
-              axis.title.y = element_text(size = 23*tsf, color = "black"),
-              axis.text.x = element_text(size = 22*tsf, face = "bold", color = "black"),
-              axis.text.y = element_text(size = 20*tsf),
-              plot.title = element_text(size = 25*tsf, hjust = 0.5, face = "bold"))
-      if(is.null(shp[1])) {
-        pl <- pl + theme(legend.position = "none")
-      }
-      return(pl)
+      pl <- pl + geom_dotplot(data = arg_melt, aes(fill = variable), color = "black", stroke = 1.1,
+                              binaxis = "y", stackdir = "center", position = "dodge", binpositions="all")
     }
+    if(dp) {
+      pl <- pl +
+        stat_compare_means(paired = TRUE, method = "wilcox", comparisons = compare_these, size = 7.6*tsf)
+    } else {
+      pl <- pl +
+        stat_compare_means(paired = FALSE, method = "wilcox", comparisons = compare_these, size = 7.6*tsf)
+    }
+    pl <- pl + coord_cartesian(ylim = c(min(arg_melt$frequency, na.rm = TRUE), max(arg_melt$frequency, na.rm = TRUE)*(1 + length(compare_these)*csf)))
+    pl <- pl +
+      guides(fill = "none", shape = guide_legend(position = "bottom", override.aes = list(size = 7*tsf),
+                                                 theme = theme(legend.text = element_text(size = 18*tsf, margin = margin(t = -2, r = 15, b = 0, l = 1)),
+                                                               legend.title = element_blank())),
+             color = "none") +
+      scale_fill_manual(values = b_colors) +
+      scale_color_manual(values = b_colors) +
+      ylab(paste0("% of ",yax_lab)) +
+      # ggtitle(ifelse(pl_type=="numeric", paste0("cluster ",arg_melt[,"cluster"][1]), arg_melt[,"cluster"][1])) +
+      ggtitle(paste0("cluster ",arg_melt[,"cluster"][1])) +
+      theme_minimal() +
+      theme(axis.title.x = element_blank(),
+            axis.title.y = element_text(size = 23*tsf, color = "black"),
+            axis.text.x = element_text(size = 22*tsf, face = "bold", color = "black"),
+            axis.text.y = element_text(size = 20*tsf),
+            plot.title = element_text(size = 25*tsf, hjust = 0.5, face = "bold"))
+    if(is.null(shp[1])) {
+      pl <- pl + theme(legend.position = "none")
+    }
+    return(pl)
   }
   test_plots <- lapply(X = cluster_list, FUN = iterate_boxplot, b_colors = bin_colors, dp = data_paired)
   return(test_plots)
@@ -1182,6 +1138,7 @@ seurat_feature_overlay <- function(seurat_object,
                                    text_expansion_annotate = 1,
                                    label_clusters = "none", # "all", "none", or a set of seurat_object@meta.data[,color_meta] to label
                                    add_title = TRUE,
+                                   draw_legend = TRUE,
                                    downsample_size = NA){
   require(ggplot2)
   require(shadowtext)
@@ -1264,7 +1221,7 @@ seurat_feature_overlay <- function(seurat_object,
                           pex = pt_expansion,
                           pal = pt_alpha,
                           metac = color_meta,
-                          incl_leg = FALSE,
+                          incl_leg = draw_legend,
                           tex = text_expansion,
                           tex_annotate = text_expansion_annotate,
                           lab_clus = label_clusters){
@@ -1300,10 +1257,10 @@ seurat_feature_overlay <- function(seurat_object,
                                      draw.ulim = F, draw.llim = F, ticks.linewidth = 0.5)) +
       theme_void() +
       theme(legend.key.height = unit(5, "mm"),
-            legend.key.width = unit(18, "mm"),
+            legend.key.width = unit(15, "mm"),
             legend.direction = "horizontal",
             legend.position = "bottom",
-            legend.text = element_text(size = 10*tex),
+            legend.text = element_text(size = 12*tex),
             legend.title = element_blank())
     if(!incl_leg) {
       pl <- pl + theme(legend.position = "none")
@@ -1326,7 +1283,7 @@ seurat_feature_overlay <- function(seurat_object,
   }
 
   out_plots <- lapply(plt_list, adt_on_umap, pex = pt_expansion, pal = pt_alpha,
-                      metac = color_meta, incl_leg = FALSE, tex = text_expansion,
+                      metac = color_meta, incl_leg = draw_legend, tex = text_expansion,
                       tex_annotate = text_expansion_annotate, lab_clus = label_clusters)
   return(out_plots)
 }

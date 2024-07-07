@@ -81,8 +81,20 @@ if(F) {
 }
 
 if(F) {
+  all_types <- read.csv(file = 'J:/U54_grant/sc/flu_all_annotations.csv', check.names = FALSE)
+  named_types <- all_types$annotated_type; names(named_types) <- all_types$barcode
+
   seu_all <- merge(x = seu, y = seu_und)
   seu_all <- JoinLayers(object = seu_all)
+
+  if(mean(seu_all$barcode %in% all_types$barcode)!=1) {
+    stop("one or more barcode(s) cannot be mapped; not found in mapping report")
+  } else {
+    seu_all <- AddMetaData(object = seu_all, metadata = named_types[seu_all$barcode], col.name = "cell_type")
+    seu_all <- subset(x = seu_all, subset = cell_type != 'DROP')
+    seu_all <- AddMetaData(object = seu_all, metadata = paste0(seu_all$condition,"\n",seu_all$age_group), col.name = "condition_age")
+  }
+
   seu_all_ct <- Seurat::GetAssayData(object = seu_all, assay = "RNA", layer = "counts")
   seu_all_obj <- Seurat::CreateSeuratObject(counts = seu_all_ct, assay = "RNA", meta.data = seu_all@meta.data)
   seu_all_obj <- Seurat::NormalizeData(object = seu_all_obj)
@@ -107,6 +119,8 @@ if(F) {
 
   saveRDS(object = seu_all_obj, file = "J:/U54_grant/sc/inputs/pbmc_flu_seurat_object_all.rds")
 } else if(F){
+  library(Seurat)
+  library(Matrix)
   seu <- readRDS(file = "J:/U54_grant/sc/inputs/pbmc_flu_seurat_object_all.rds")
   seu_small <- subset(x = seu, subset = lane %in% c("9569-JO-1_multi","9569-JO-2_multi"))
   saveRDS(object = seu_small, file = "J:/U54_grant/sc/inputs/pbmc_flu_small_seurat_object_all.rds")

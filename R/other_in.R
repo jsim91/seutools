@@ -1,4 +1,4 @@
-tile_plots <- function(plotlist, n_row = 2, n_col = 2, rm_legend = FALSE) {
+tile_plots <- function(plotlist, n_row = 2, n_col = 2, rm_legend = FALSE, common_leg = FALSE) {
   require(ggplot2)
   require(ggpubr)
   # testing
@@ -15,7 +15,7 @@ tile_plots <- function(plotlist, n_row = 2, n_col = 2, rm_legend = FALSE) {
   outplots <- vector("list", length = length(start_seq))
   for(i in 1:length(start_seq)) {
     outplots[[i]] <- ggpubr::ggarrange(plotlist = plotlist[start_seq[i]:end_seq[i]], nrow = n_row,
-                                       ncol = n_col, legend = ifelse(rm_legend, "none","bottom"), common.legend = TRUE)
+                                       ncol = n_col, legend = ifelse(rm_legend, "none","bottom"), common.legend = common_leg)
     print(start_seq[i]:end_seq[i])
   }
   return(outplots)
