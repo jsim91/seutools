@@ -1168,13 +1168,21 @@ seurat_size_bar <- function(seurat_object, pid_column = "pid", condition_column 
   return(stack_bars)
 }
 
-feature_overlay <- function(adt_data, fam_adt = NULL, pt_expansion = 0.7, pt_alpha = 0.25,
-                            text_expansion = 1, text_expansion_annotate = 1,
-                            # plots_as_list = FALSE,
-                            color_by = c("cell", "cluster"), datatype = "ADT",
-                            plot_features = NULL, label_clusters = TRUE, meta, add_title = FALSE,
-                            downsample_size = NA, return_tiled = FALSE,
-                            meta_cluster_col = "leiden2", umap_coords, clean_names = TRUE){
+seurat_feature_overlay <- function(seurat_object,
+                                   reduction = "umap",
+                                   assay = "ADT",
+                                   layer = "data", # or "counts"
+                                   color_meta = "cell_type",
+                                   color_by = "cluster", # c("cluster","cell")
+                                   feature_reference = NULL, # allow for csv reference where features in col1 are renamed to features in col2, row-wise for titling plots for readability
+                                   plot_features = NULL,
+                                   pt_expansion = 0.7,
+                                   pt_alpha = 0.25,
+                                   text_expansion = 1,
+                                   text_expansion_annotate = 1,
+                                   label_clusters = "none", # "all", "none", or a set of seurat_object@meta.data[,color_meta] to label
+                                   add_title = TRUE,
+                                   downsample_size = NA){
   require(ggplot2)
   require(shadowtext)
   require(viridis)
@@ -1182,205 +1190,145 @@ feature_overlay <- function(adt_data, fam_adt = NULL, pt_expansion = 0.7, pt_alp
   require(ggpubr)
 
   # testing
-  # adt_data = adt_counts
-  # fam_adt = NULL
-  # pt_expansion = 0.5
-  # pt_alpha = 0.2
-  # text_expansion = 1.7
+  # seurat_object <- seu_adt
+  # reduction <- "umap"
+  # assay <- "ADT"
+  # layer <- "data" # or "counts"
+  # color_meta = "cell_type"
+  # color_by = "cluster" # c("cluster","cell")
+  # feature_reference = NULL # allow for csv reference where features in col1 are renamed to features in col2, row-wise for titling plots for readability
+  # plot_features = NULL
+  # pt_expansion = 0.7
+  # pt_alpha = 0.25
+  # text_expansion = 1
   # text_expansion_annotate = 1
-  # plot_features = adt_features
-  # meta_cluster_col = "leiden"
-  # label_clusters = "none"
-  # meta = adt_meta
-  # color_by = "cluster"
-  # umap_coords = umap_subset
+  # label_clusters = "all" # "all", "none", or a set of seurat_object@meta.data[,color_meta] to label
   # add_title = TRUE
-  # clean_names = TRUE
-  # return_tiled = FALSE
-  # datatype = "ADT"
+  # downsample_size = NA
 
-  # testing
-  seurat_object <- seu_adt
-  reduction <- "umap"
-  assay <- "ADT"
-  layer <- "data" # or "counts"
-  color_by = c("cell", "cluster")
-  meta_cluster_col = "cell_type"
-  plot_features = NULL
-  pt_expansion = 0.7
-  pt_alpha = 0.25
-  text_expansion = 1
-  text_expansion_annotate = 1
-  label_clusters = TRUE
-  add_title = FALSE
-  downsample_size = NA
-  return_tiled = FALSE
-
-  exprs <- adt_data
-  if(clean_names) {
-    row.names(exprs) <- gsub(pattern = "(^Hu\\.|\\-.+$)", replacement = "", x = row.names(exprs))
-    plot_genes <- gsub(pattern = "(^Hu\\.|\\-.+$)", replacement = "", x = plot_features)
-  }
-  if(all(!is.null(fam_adt),nrow(fam_adt)!=0)){
-    fam_adt$gene <- gsub(pattern = "(^Hu\\.|\\-.+$)", replacement = "", x = fam_adt$gene)
-    plot_genes <- unique(fam_adt$gene)
-  } else if(!is.null(plot_features)){
-    plot_genes <- plot_features
-    plot_genes <- gsub(pattern = "(^Hu\\.|\\-.+$)", replacement = "", x = plot_genes)
+  exprs <- seurat_object
+  DefaultAssay(object = seurat_object) <- assay
+  available_features <- row.names(seurat_object)
+  if(is.null(plot_features)) {
+    plot_features <- row.names(seurat_object)
   } else {
-    stop("no features found for plotting")
+    plot_features <- plot_features[which(plot_features %in% row.names(seurat_object))]
+    if(length(plot_features)==0) {
+      stop("None of plot_features found in seurat_object.")
+    }
   }
-  metadata <- data.frame(UMAP1 = umap_coords$UMAP1,
-                         UMAP2 = umap_coords$UMAP2,
-                         cluster = meta[,meta_cluster_col])
   if(!is.na(downsample_size[1])) {
-    sample_loc <- sample(x = 1:nrow(metadata), size=downsample_size, replace=FALSE)
-    metadata <- metadata[sample_loc,]
-    exprs <- adt_data[,sample_loc]
-  }
-  cd_genes <- plot_genes[grep("CD[0-9]*",plot_genes)]; other_genes <- plot_genes[-grep("CD[0-9]*",plot_genes)]
-  cdnum <- as.numeric(gsub("^.+CD","",stringr::str_extract(cd_genes,"^.+CD[0-9]*")))
-  cd_genes <- cd_genes[order(cdnum)]; other_genes <- other_genes[order(other_genes)]
-  if(datatype=="ADT") {
-    plot_genes <- c(cd_genes,other_genes)
+    sample_loc <- sample(x = 1:dim(seurat_object)[2], size=downsample_size, replace=FALSE)
+    seurat_object <- subset(x = seurat_object, cells = sample_loc)
+    metadata <- seurat_object@meta.data
+    exprs <- seurat_object@assays[[assay]]@layers[["data"]] # assumes normed data
   } else {
-    plot_genes <- plot_features
+    metadata <- seurat_object@meta.data
+    exprs <- seurat_object@assays[[assay]]@layers[["data"]]
   }
-  plt_list <- vector("list", length = length(plot_genes)); names(plt_list) <- plot_genes
+  row.names(exprs) <- row.names(seurat_object)
+  if(assay=="ADT") {
+    cd_features <- plot_features[grep("CD[0-9]*",plot_features)]; other_features <- plot_features[-grep("CD[0-9]*",plot_features)]
+    cdnum <- as.numeric(gsub("^.+CD","",stringr::str_extract(cd_features,"^.+CD[0-9]*")))
+    cd_features <- cd_features[order(cdnum)]; other_features <- other_features[order(other_features)]
+    plot_features <- c(cd_features,other_features)
+  }
+  plt_list <- vector("list", length = length(plot_features)); names(plt_list) <- plot_features
   for(i in 1:length(plt_list)){
-    # get_gene <- exprs[which(row.names(exprs)==names(plt_list)[i]),]
-    get_gene <- exprs[grep(pattern = paste0("^",names(plt_list)[i],"(-|$)"), x = row.names(exprs)),]
+    get_feature <- exprs[grep(pattern = paste0("^",names(plt_list)[i],"(-|$)"), x = row.names(seurat_object)),]
     intens <- rep(NA,times=nrow(metadata))
-    uclus <- unique(metadata$cluster)
+    uclus <- unique(metadata[,color_meta])
     if(color_by=="cluster") {
       for(j in 1:length(uclus)){
-        clus_val <- get_gene[which(metadata$cluster==uclus[j])]
+        clus_val <- get_feature[which(metadata[,color_meta]==uclus[j])]
         cluster_val <- mean(clus_val)
-        intens[which(metadata$cluster==uclus[j])] <- cluster_val
+        intens[which(metadata[,color_meta]==uclus[j])] <- cluster_val
       }
       plt_list[[i]] <- metadata
       plt_list[[i]]$value <- intens
+      colnames(plt_list[[i]])[ncol(plt_list[[i]])] <- paste0(gsub("-TotalseqC","",names(plt_list)[i]),"_cluster")
     } else if(color_by=="cell"){
       plt_list[[i]] <- metadata
-      plt_list[[i]]$value <- get_gene
+      plt_list[[i]]$value <- get_feature
       plt_list[[i]] <- plt_list[[i]][order(plt_list[[i]]$value, decreasing = FALSE),] # draw highest values last
+      colnames(plt_list[[i]])[ncol(plt_list[[i]])] <- paste0(gsub("-TotalseqC","",names(plt_list)[i]),"_cell")
+      plt_list[[i]]$value <- get_feature
     }
-    colnames(plt_list[[i]])[ncol(plt_list[[i]])] <- paste0(gsub("-TotalseqC","",names(plt_list)[i]),"_cluster")
-    plt_list[[i]]$value <- get_gene
-    colnames(plt_list[[i]])[ncol(plt_list[[i]])] <- paste0(gsub("-TotalseqC","",names(plt_list)[i]),"_cell")
+    plt_list[[i]]$feature <- names(plt_list)[i]
+    plt_list[[i]]$redx <- seurat_object@reductions[[tolower(reduction)]]@cell.embeddings[,1]
+    plt_list[[i]]$redy <- seurat_object@reductions[[tolower(reduction)]]@cell.embeddings[,2]
   }
 
-  adt_on_umap <- function(arg1, pex = pt_expansion, pal = pt_alpha, pl_title, incl_leg = FALSE,
-                          tex = text_expansion, tex_annotate = text_expansion_annotate, #dtype,
-                          lab_clus = label_clusters, enable_wrap = FALSE, wrap_by = NULL){
+  adt_on_umap <- function(arg1,
+                          lab_pl = add_title,
+                          pex = pt_expansion,
+                          pal = pt_alpha,
+                          metac = color_meta,
+                          incl_leg = FALSE,
+                          tex = text_expansion,
+                          tex_annotate = text_expansion_annotate,
+                          lab_clus = label_clusters){
     # testing
-    # arg1 <- plt_list[[1]]
-    # pal = pt_alpha; pex = pt_expansion;
-    # tex = text_expansion; tex_annotate = text_expansion_annotate;
-    # lab_clus = label_clusters; enable_wrap = FALSE; wrap_by = NULL
+    # arg1 = plt_list[[1]]
+    # lab_pl = add_title
+    # pex = pt_expansion
+    # pal = pt_alpha
+    # metac = color_meta
+    # incl_leg = FALSE
+    # tex = text_expansion
+    # tex_annotate = text_expansion_annotate
+    # lab_clus = label_clusters
 
-    if(!is.factor(arg1$cluster)){
-      arg1$cluster <- factor(arg1$cluster)
+    pl_title <- arg1$feature[1]
+    if(!is.factor(arg1[,metac])){
+      arg1[,metac] <- factor(arg1[,metac])
     }
-    uclus1 <- as.character(unique(arg1$cluster))
+    uclus1 <- as.character(unique(arg1[,metac]))
     xval <- rep(NA,times=length(uclus1)); names(xval) <- uclus1[order(uclus1)]; yval <- xval
     for(i in 1:length(xval)){
-      xval[i] <- median(arg1$UMAP1[which(arg1$cluster==names(xval)[i])])
-      yval[i] <- median(arg1$UMAP2[which(arg1$cluster==names(xval)[i])])
+      xval[i] <- median(arg1$redx[which(arg1[,metac]==names(xval)[i])])
+      yval[i] <- median(arg1$redy[which(arg1[,metac]==names(xval)[i])])
     }
     cluslab <- data.frame(xval = xval, yval = yval, labl = names(xval))
-    capture_adt <- colnames(arg1)[grep("_cluster$",colnames(arg1))]
-    colnames(arg1)[which(colnames(arg1)==capture_adt)] <- "adt"
-    pl <- ggplot(data = arg1, mapping = aes(x=UMAP1,y=UMAP2)) +
-      geom_point_rast(aes(color=adt),pch=19, alpha = pal, cex = pex) +
-      scale_color_viridis(option = "D", name = gsub("_cluster","",capture_adt)) +
-      # ggtitle(gsub("_cluster","",capture_adt)) +
+    capture_feature <- arg1[,'feature'][1]
+    colnames(arg1)[which(colnames(arg1)==metac)] <- "pop"
+    colnames(arg1)[grep(pattern = capture_feature, x = colnames(arg1))] <- "cby"
+    pl <- ggplot(data = arg1, mapping = aes(x=redx,y=redy)) +
+      geom_point_rast(aes(color=cby),pch=19, alpha = pal, cex = pex) +
+      scale_color_viridis(option = "D", name = capture_feature) +
       guides(color = guide_colourbar(title.position = "top", frame.colour = "black", ticks.colour = "black",
                                      draw.ulim = F, draw.llim = F, ticks.linewidth = 0.5)) +
       theme_void() +
-      theme(plot.title = element_text(hjust = 0.5, size = 25*tex, face = "bold", vjust = -1),
-            legend.key.height = unit(5, "mm"),
+      theme(legend.key.height = unit(5, "mm"),
             legend.key.width = unit(18, "mm"),
             legend.direction = "horizontal",
             legend.position = "bottom",
-            # legend.text = element_text(angle=45, size = 12*tex),
             legend.text = element_text(size = 10*tex),
             legend.title = element_blank())
-    # legend.title = element_text(size = 14*tex))
     if(!incl_leg) {
       pl <- pl + theme(legend.position = "none")
     }
     if(lab_clus[1]=="all") {
       pl <- pl + annotate("shadowtext", x = xval, y = yval, label = names(xval), size = 8*tex_annotate)
     } else if(lab_clus[1]!="none") {
-      annox <- xval[which(names(xval) %in% lab_clus)]
-      annoy <- yval[which(names(yval) %in% lab_clus)]
+      which_anno <- which(names(xval) %in% lab_clus)
+      annox <- xval[which_anno]
+      annoy <- yval[which_anno]
       lab_df <- data.frame(xval = annox, yval = annoy, id = names(annox))
       pl <- pl + ggrepel::geom_text_repel(data = lab_df, mapping = aes(x = xval, y = yval, label = id),
-                                          size = tex*4, bg.color = "black", bg.r = 0.075, color = "white", seed = 123)
-      # pl <- pl + annotate("shadowtext", x = annox, y = annoy, label = names(annox), size = 8*tex_annotate)
+                                          size = 4*tex_annotate, bg.color = "black", bg.r = 0.075, color = "white", seed = 123)
     }
-    if(pl_title) {
-      # if(dtype == "ADT") {
-      pl <- pl + ggtitle(gsub("_cluster","",capture_adt)) +
-        theme(plot.title = element_text(hjust = 0.5, size = 25*tex, face = "bold"))
-      # } else {
-      #   pl <- pl + ggtitle(gsub("_cluster","",capture_adt)) +
-      #     theme(plot.title = element_text(hjust = 0.5, size = 30*tex, face = "bold"))
-      # }
+    if(lab_pl) {
+      pl <- pl + ggtitle(capture_feature) +
+        theme(plot.title = element_text(hjust = 0.5, size = 24*tex, face = "bold", vjust = -1))
     }
-    # if(all(lab_clus,enable_wrap!=TRUE)){
-    #   pl <- pl + annotate("shadowtext", x = xval, y = yval, label = names(xval), size = 7*tex_annotate)
-    # } else if(all(enable_wrap != FALSE, !is.null(wrap_by))){
-    #   pl <- pl + facet_wrap(~stim, nrow = 1) + theme(strip.text.x = element_text(size = 12)) +
-    #     geom_shadowtext(data = cluslab, mapping = aes(x = xval, y = yval, label = labl), size = 4*tex_annotate)
-    # }
     return(pl)
   }
 
-  out_plots <- lapply(plt_list, adt_on_umap, pal = pt_alpha, pex = pt_expansion,
-                      tex = text_expansion, tex_annotate = text_expansion_annotate,
-                      lab_clus = label_clusters, enable_wrap = FALSE, wrap_by = NULL,
-                      pl_title = add_title, incl_leg = TRUE)#, dtype = datatype)
-  # if(plots_as_list) {
-  #   return(out_plots)
-  # }
-  # target_len <- length(out_plots) + length(out_plots)%%4
-  # for(i in 1:target_len){
-  #   if(i>length(out_plots)){
-  #     out_plots[[i]] <- ggplot(cars,aes(speed,dist)) +
-  #       geom_point(color=scales::alpha("black",0)) +
-  #       theme_void()
-  #   }
-  # }
-  # arranged_list <- vector("list",length=length(out_plots)%/%4 + length(out_plots)%%4)
-  # low_seq <- seq(from=1,to=length(out_plots),by=4); high_seq <- low_seq + 3
-  # for(i in 1:length(low_seq)){
-  #   arranged_list[[i]] <- ggpubr::ggarrange(plotlist = out_plots[low_seq[i]:high_seq[i]],nrow=2,ncol=2)
-  # }
-  if(return_tiled) {
-    seq_start <- seq(from = 1, to = length(out_plots), by = 4)
-    seq_end <- seq(from = 4, to = length(out_plots), by = 4)
-
-    blank_plot <- ggplot(data = cars, mapping = aes(x = speed, y = dist)) + geom_point(alpha = 0) + theme_void()
-    add_plots <- 4 - length(out_plots)%%4
-    if(add_plots!=0) {
-      for(i in 1:add_plots) {
-        out_plots <- c(out_plots, list(blank_plot))
-      }
-    }
-
-    seq_start_1 <- seq(from = 1, to = length(out_plots), by = 4)
-    seq_end_1 <- seq(from = 4, to = length(out_plots), by = 4)
-    outplot_arr <- vector("list", length = length(seq_start))
-
-    for(i in 1:length(outplot_arr)) {
-      outplot_arr[[i]] <- ggpubr::ggarrange(plotlist = out_plots[seq_start_1[i]:seq_end_1[i]], ncol = 2, nrow = 2)
-    }
-    return(outplot_arr)
-  } else {
-    return(out_plots)
-  }
+  out_plots <- lapply(plt_list, adt_on_umap, pex = pt_expansion, pal = pt_alpha,
+                      metac = color_meta, incl_leg = FALSE, tex = text_expansion,
+                      tex_annotate = text_expansion_annotate, lab_clus = label_clusters)
+  return(out_plots)
 }
 
 
