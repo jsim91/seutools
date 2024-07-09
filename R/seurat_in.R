@@ -909,7 +909,7 @@ seurat_test_clusters <- function(seurat_object, test_by_column = "condition", pi
   freq_list <- vector("list", length = length(ucondition)); names(freq_list) <- ucondition
   for(i in 1:length(freq_list)) {
     freq_matrix_copy <- freq_matrix
-    tmp_data <- test_data[which(test_data$condition==names(freq_list)[i]),]
+    tmp_data <- test_data[which(test_data[,test_by_column]==names(freq_list)[i]),]
     for(j in 1:nrow(freq_matrix_copy)) {
       tmp_clus <- tmp_data[,cluster_column][which(tmp_data[,pid_column]==row.names(freq_matrix_copy)[j])]
       for(k in 1:ncol(freq_matrix_copy)) {
@@ -1007,6 +1007,11 @@ seurat_test_clusters <- function(seurat_object, test_by_column = "condition", pi
     # colnames(arg_melt) <- c("cluster","pid","group","condition","frequency") # condition = variable
     colnames(arg_melt)[which(colnames(arg_melt)==clc)] <- "frequency"
     colnames(arg_melt)[ncol(arg_melt)] <- "frequency"
+
+    if(!dp) {
+      arg_melt <- arg_melt[!is.na(arg_melt$frequency),]
+    }
+    
     if(is.null(comps)) {
       compare_these <- combinat::permn(unique(arg_melt$variable))
       for(i in 1:length(compare_these)) {
