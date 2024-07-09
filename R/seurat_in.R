@@ -1249,7 +1249,7 @@ seurat_feature_overlay <- function(seurat_object,
     cluslab <- data.frame(xval = xval, yval = yval, labl = names(xval))
     capture_feature <- arg1[,'feature'][1]
     colnames(arg1)[which(colnames(arg1)==metac)] <- "pop"
-    colnames(arg1)[grep(pattern = capture_feature, x = colnames(arg1))] <- "cby"
+    colnames(arg1)[which(colnames(arg1)==capture_feature)] <- "cby"
     pl <- ggplot(data = arg1, mapping = aes(x=redx,y=redy)) +
       geom_point_rast(aes(color=cby),pch=19, alpha = pal, cex = pex) +
       scale_color_viridis(option = "D", name = capture_feature) +
