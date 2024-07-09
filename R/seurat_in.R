@@ -1203,12 +1203,12 @@ seurat_feature_overlay <- function(seurat_object,
       }
       plt_list[[i]] <- metadata
       plt_list[[i]]$value <- intens
-      colnames(plt_list[[i]])[ncol(plt_list[[i]])] <- paste0(gsub("-TotalseqC","",names(plt_list)[i]),"_cluster")
+      colnames(plt_list[[i]])[ncol(plt_list[[i]])] <- names(plt_list)[i]
     } else if(color_by=="cell"){
       plt_list[[i]] <- metadata
       plt_list[[i]]$value <- get_feature
       plt_list[[i]] <- plt_list[[i]][order(plt_list[[i]]$value, decreasing = FALSE),] # draw highest values last
-      colnames(plt_list[[i]])[ncol(plt_list[[i]])] <- paste0(gsub("-TotalseqC","",names(plt_list)[i]),"_cell")
+      colnames(plt_list[[i]])[ncol(plt_list[[i]])] <- names(plt_list)[i]
       plt_list[[i]]$value <- get_feature
     }
     plt_list[[i]]$feature <- names(plt_list)[i]
