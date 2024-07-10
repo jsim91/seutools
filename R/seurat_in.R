@@ -52,8 +52,8 @@ heatmap_calculate <- function(seurat_obj, gene_set, set_name, clusters)
   # return(grid::grid.grabExpr(draw(out_hm)))
 }
 
-tile_reduction <- function(seurat_obj, condition, cluster_numbers,
-                           color_clusters, label_clusters = "all",
+tile_reduction <- function(seurat_object, condition_column, cluster_column,
+                           color_clusters = "all", label_clusters = "all",
                            pt_alpha = 0.05, anno_text_size = 6, pt_size = 1, color_seed = 123,
                            outline_method = c("nudge","fontsize"), postfix_title_string = NA,
                            force_xlim = FALSE, force_ylim = FALSE, return_as_list = FALSE,
@@ -80,7 +80,7 @@ tile_reduction <- function(seurat_obj, condition, cluster_numbers,
   # color_seed = 123
   # override_color_aes = NA
 
-  coords <- seurat_obj@reductions$
+  coords <- seurat_object@reductions$
 
   plot_data <- data.frame(UMAP1 = coords$UMAP1, UMAP2 = coords$UMAP2,
                           cluster = cluster_numbers, condition = condition)
@@ -252,19 +252,19 @@ tile_reduction <- function(seurat_obj, condition, cluster_numbers,
         } else if(amethod[1]=="repel") {
           plt <- plt + ggrepel::geom_text_repel(data = color_text_add, mapping = aes(x = UMAP1, y = UMAP2, color = cluster, label = cluster),
                                                 size = anno_ts, bg.color = "black", bg.r = 0.05, seed = 123)
-        } else if(amethod[1]=="text") {
-          if(text_omethod[1]=="nudge") {
-            plt <- plt + geom_text(data = color_text_add, mapping = aes(x = UMAP1, y = UMAP2, label = cluster),
-                                   size = anno_ts, color = "black", nudge_x = 0.005, nudge_y = 0.005) +
-              plt <- plt + geom_text(data = color_text_add, mapping = aes(x = UMAP1, y = UMAP2, color = cluster, label = cluster),
-                                     size = anno_ts)
-          } else if(text_omethod[1]=="fontsize") {
-            plt <- plt + geom_text(data = color_text_add, mapping = aes(x = UMAP1, y = UMAP2, label = cluster),
-                                   size = anno_ts*1.05, color = "black") +
-              plt <- plt + geom_text(data = color_text_add, mapping = aes(x = UMAP1, y = UMAP2, color = cluster, label = cluster),
-                                     size = anno_ts)
-          }
-        }
+        } #else if(amethod[1]=="text") {
+        #   if(text_omethod[1]=="nudge") {
+        #     plt <- plt + geom_text(data = color_text_add, mapping = aes(x = UMAP1, y = UMAP2, label = cluster),
+        #                            size = anno_ts, color = "black", nudge_x = 0.005, nudge_y = 0.005) +
+        #       plt <- plt + geom_text(data = color_text_add, mapping = aes(x = UMAP1, y = UMAP2, color = cluster, label = cluster),
+        #                              size = anno_ts)
+        #   } else if(text_omethod[1]=="fontsize") {
+        #     plt <- plt + geom_text(data = color_text_add, mapping = aes(x = UMAP1, y = UMAP2, label = cluster),
+        #                            size = anno_ts*1.05, color = "black") +
+        #       plt <- plt + geom_text(data = color_text_add, mapping = aes(x = UMAP1, y = UMAP2, color = cluster, label = cluster),
+        #                              size = anno_ts)
+        #   }
+        # }
       }
     } else {
       plt <- plt + guides(color = guide_legend(override.aes = list(alpha = 1, stroke = 0.1, size = ifelse(psize<5,5,psize)))) +
@@ -299,185 +299,6 @@ tile_reduction <- function(seurat_obj, condition, cluster_numbers,
   return(arr_plot)
 }
 
-test_by_igra <- function(pid, condition, igra_status, test_clusters,
-                         sum_clusters = FALSE,
-                         test_method = c("sequential","cumulative"),
-                         clusters, background_condition = "Media",
-                         bar_colors = c("GRV" = "#2e7d32", "MTB300" = "#2962ff"),
-                         y_axis_subset = "T/NK")
-{
-  require(ggplot2)
-  require(ggpubr)
-  require(scales)
-
-  # testing
-  # pid <- meta$soc_b_id
-  # condition <- meta$soc_condition_id
-  # igra_status <- data.frame(key = row.names(igra), value = igra$`IGRA Status`)
-  # test_clusters <- c(14,23,31,34,21,28)
-  # sum_clusters = TRUE
-  # test_method <- "sequential"
-  # clusters <- meta$seurat_clusters
-  # background_condition <- "Media"
-  # bar_colors = c("GRV" = "#2e7d32", "MTB300" = "#2962ff")
-  # y_axis_subset = "T/NK"
-
-  # testing
-  # pid = meta$soc_b_id; condition = meta$soc_condition_id;
-  # igra_status = data.frame(key = row.names(igra), value = igra$`IGRA Status`);
-  # test_clusters = c(14,23,31); sum_clusters = TRUE;
-  # test_method = c("sequential","cumulative");
-  # clusters = meta$seurat_clusters; background_condition = "Media";
-  # bar_colors = c("gRV" = "#2e7d32", "MTB300" = "#2962ff");
-  # y_axis_subset = "T/NK"
-
-  igra_short <- igra_status[which(igra_status$key %in% unique(pid)),]
-  if(nrow(igra_short)==0) {
-    stop("igra pids do not match or are not found in 'pid'")
-  }
-
-  upid <- unique(pid); upid <- upid[order(upid)]
-  uclus <- unique(clusters); uclus <- uclus[order(uclus)]
-  ucond <- unique(condition)
-
-  freq_mat <- matrix(data = NA, nrow = length(upid), ncol = length(uclus))
-  row.names(freq_mat) <- upid; colnames(freq_mat) <- uclus
-
-  freq_by_condition <- vector("list", length = length(ucond))
-  names(freq_by_condition) <- ucond
-
-  query_data <- data.frame(pid = pid, condition = condition, cluster = clusters)
-
-  for(i in 1:length(freq_by_condition)) {
-    tmp_mat <- freq_mat
-    tmp_query_data <- query_data[which(query_data$condition==names(freq_by_condition)[i]),]
-    for(j in 1:nrow(tmp_mat)) {
-      tmp_nums <- tmp_query_data$cluster[which(tmp_query_data$pid==row.names(tmp_mat)[j])]
-      for(k in 1:ncol(tmp_mat)) {
-        tmp_mat[j,k] <- mean(tmp_nums==as.numeric(colnames(tmp_mat)[k]))*100
-      }
-    }
-    freq_by_condition[[i]] <- tmp_mat
-  }
-  which_background <- which(names(freq_by_condition)==background_condition)
-  if(length(which_background)!=1) {
-    stop("could not find one background condition from which to subtract stims")
-  } else {
-    background_data <- freq_by_condition[[which_background]]
-    stim_data <- freq_by_condition[-which_background]
-  }
-  stim_data_subtr <- stim_data
-  for(i in 1:length(stim_data_subtr)) {
-    stim_data_subtr[[i]] <- stim_data_subtr[[i]] - background_data
-  }
-  for(i in 1:length(stim_data_subtr)) {
-    stim_data_subtr[[i]] <- stim_data_subtr[[i]][,which(colnames(stim_data_subtr[[i]]) %in% as.character(test_clusters))]
-  }
-  if(sum_clusters) {
-    for(i in 1:length(stim_data_subtr)) {
-      new_cname <- paste0(colnames(stim_data_subtr[[i]]), collapse = "+")
-      stim_data_subtr[[i]] <- data.frame(var1 = rowSums(stim_data_subtr[[i]]))
-      colnames(stim_data_subtr[[i]]) <- new_cname
-    }
-  }
-
-  # cluster_list <- vector("list", length = length(uclus)); names(cluster_list) <- uclus
-  cluster_list <- vector("list", length = ncol(stim_data_subtr[[1]])); names(cluster_list) <- colnames(stim_data_subtr)
-  tmp_df <- merge(x = data.frame(pid = row.names(freq_mat)),
-                  y = igra_status, by.x = "pid", by.y = "key")
-
-  for(i in 1:length(cluster_list)) {
-    for(j in 1:length(stim_data_subtr)) {
-      # if(j==1) {
-      # tmp_df <- data.frame(var1 = stim_data_subtr[[j]][,i])
-      if(j==1) {
-        tmp_df2 <- merge(x = tmp_df, y = data.frame(mergevar = row.names(stim_data_subtr[[j]]),
-                                                    freqval = stim_data_subtr[[j]][,i]), by.x = "pid", by.y = "mergevar")
-        colnames(tmp_df2)[ncol(tmp_df2)] <- paste0(names(stim_data_subtr)[j],"_",colnames(stim_data_subtr[[j]])[i])
-      } else {
-        tmp_df2 <- merge(x = tmp_df2, y = data.frame(mergevar = row.names(stim_data_subtr[[j]]),
-                                                     freqval = stim_data_subtr[[j]][,i]), by.x = "pid", by.y = "mergevar")
-        colnames(tmp_df2)[ncol(tmp_df2)] <- paste0(names(stim_data_subtr)[j],"_",colnames(stim_data_subtr[[j]])[i])
-      }
-
-      # } else {
-      # tmp_df <- cbind(tmp_df,data.frame(tmp_var = stim_data_subtr[[j]][,i]))
-      # colnames(tmp_df)[ncol(tmp_df)] <- paste0('var',j)
-      # }
-    }
-    # cluster_list[[i]] <- cbind(tmp_df, data.frame(cluster = rep(names(cluster_list)[i],nrow(stim_data_subtr[[1]])),
-    #                                               pid = row.names(stim_data_subtr[[1]])))
-    if(mean(tmp_df2$value=="Unknown")!=0) {
-      tmp_df2 <- tmp_df2[-which(tmp_df2$value=="Unknown"),]
-    }
-    cluster_list[[i]] <- tmp_df2
-    # colnames(cluster_list[[i]])[1:length(stim_data_subtr)] <- names(stim_data_subtr)
-  }
-
-  iterate_boxplot <- function(arg1, b_colors = bar_colors,
-                              should_connect = FALSE,
-                              # anchor_stim = backround_condition,
-                              tp = tile_plots,
-                              # dp = data_paired,
-                              yax_lab = y_axis_subset)
-  {
-    require(reshape2)
-    require(combinat)
-
-    # testing
-    # arg1 = cluster_list[[1]]; b_colors = bar_colors;
-    # should_connect = FALSE;
-    # # anchor_stim = backround_condition;
-    # tp = TRUE
-    # # dp = data_paired;
-    # yax_lab = y_axis_subset
-
-    arg1$group <- as.character(1:nrow(arg1))
-    arg_melt <- reshape2::melt(data = arg1, value.name = "cluster")
-    # colnames(arg_melt) <- c("cluster","pid","group","condition","frequency")
-    colnames(arg_melt) <- c("pid","igra","group","condition","frequency")
-    # compare_these <- combinat::permn(unique(arg_melt$condition))
-    # for(i in 1:length(compare_these)) {
-    #   compare_these[[i]] <- as.character(compare_these[[i]][1:2])
-    # }
-    # find_dupls <- rep(NA,length=length(compare_these))
-    # for(i in 1:length(find_dupls)) {
-    #   find_dupls[i] <- paste0(compare_these[[i]][order(compare_these[[i]])],collapse="")
-    # }
-    # rm_elements <- which(duplicated(find_dupls))
-    # if(length(rm_elements)>0) {
-    #   compare_these <- compare_these[-rm_elements]
-    # }
-    arg_melt$compare_group <- paste0(arg_melt$igra," ",gsub("_.+$","",arg_melt$condition))
-    arg_melt$compare_group <- factor(x = arg_melt$compare_group,
-                                     levels = c("Negative MTB300","Positive MTB300","Negative gRV","Positive gRV"))
-    # compare_these <- c("Positive","Negative")
-    compare_these <- list(c("Negative MTB300","Positive MTB300"), c("Negative gRV","Positive gRV"))
-
-    plt <- ggplot(data = arg_melt, mapping = aes(x = compare_group, y = frequency, group = compare_group)) +
-      geom_boxplot(fill = "#bfbfbf", lwd = 0.5, alpha = 0.4, width = 0.45) +
-      geom_dotplot(data = arg_melt, fill = "grey", color = "black", stroke = 1,
-                   binaxis = "y", stackdir = "center", position = "dodge", binpositions="all") + #, binwidth = 0.5) +
-      scale_x_discrete(labels = c("Negative\nMTB300","Positive\nMTB300","Negative\ngRV","Positive\ngRV")) +
-      stat_compare_means(paired = FALSE, method = "wilcox", comparisons = compare_these, size = 6) +
-      scale_y_continuous(expand = expansion(mult = c(0.05, 0.15))) +
-      # scale_fill_manual(values = b_colodata_pairedrs) +
-      # scale_color_manual(values = b_colors) +
-      ylab(paste0("% of ",yax_lab)) +
-      # ggtitle(paste0("cluster ",internal_arg1[,"cluster"][1])) +
-      ggtitle(paste0("cluster ",gsub("(MTB300|gRV)_", "", arg_melt$condition))) +
-      theme_minimal() +
-      theme(axis.title.x = element_blank(),
-            axis.title.y = element_text(size = 17, color = "black"),
-            axis.text.x = element_text(size = 15, face = "bold", color = "black"),
-            axis.text.y = element_text(size = 15),
-            plot.title = element_text(size = 19, hjust = 0.5, face = "bold"),
-            legend.position = "none")
-    return(plt)
-  }
-  test_plots <- lapply(X = cluster_list, FUN = iterate_boxplot, b_colors = bin_colors)
-  return(test_plots)
-}
 
 mean_count_hm <- function(exprs_matrix, cluster_numbers, include_clusters, gene_set, pid,
                           low_mid_high_cols = c("#DA29D9","black","#fff176"), show_other = TRUE,
