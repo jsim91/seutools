@@ -730,7 +730,7 @@ seurat_test_clusters <- function(seurat_object, test_by_column = "condition", pi
   freq_list <- vector("list", length = length(ucondition)); names(freq_list) <- ucondition
   for(i in 1:length(freq_list)) {
     freq_matrix_copy <- freq_matrix
-    tmp_data <- test_data[which(test_data$condition==names(freq_list)[i]),]
+    tmp_data <- test_data[which(test_data[,test_by_column]==names(freq_list)[i]),]
     for(j in 1:nrow(freq_matrix_copy)) {
       tmp_clus <- tmp_data[,cluster_column][which(tmp_data[,pid_column]==row.names(freq_matrix_copy)[j])]
       for(k in 1:ncol(freq_matrix_copy)) {
@@ -828,6 +828,11 @@ seurat_test_clusters <- function(seurat_object, test_by_column = "condition", pi
     # colnames(arg_melt) <- c("cluster","pid","group","condition","frequency") # condition = variable
     colnames(arg_melt)[which(colnames(arg_melt)==clc)] <- "frequency"
     colnames(arg_melt)[ncol(arg_melt)] <- "frequency"
+
+    if(!dp) {
+      arg_melt <- arg_melt[!is.na(arg_melt$frequency),]
+    }
+    
     if(is.null(comps)) {
       compare_these <- combinat::permn(unique(arg_melt$variable))
       for(i in 1:length(compare_these)) {
@@ -895,7 +900,7 @@ seurat_test_clusters <- function(seurat_object, test_by_column = "condition", pi
   return(test_plots)
 }
 
-seurat_size_bar <- function(seurat_object, pid_column = "pid", condition_column = "condition", cluster_column = "cell_type")
+seurat_size_bar <- function(seurat_object, group_column = "pid", condition_column = "condition", cluster_column = "cell_type", rm_legend = TRUE, bar_outline_lwd = 0.1)
 {
   require(ggplot2)
   require(ggpubr)
@@ -912,9 +917,9 @@ seurat_size_bar <- function(seurat_object, pid_column = "pid", condition_column 
   # condition_column = "condition"
   # cluster_column = "cell_type"
 
-  plot_data <- data.frame(pid = seu@meta.data[,pid_column],
-                          condition = seu@meta.data[,condition_column],
-                          cluster = seu@meta.data[,cluster_column])
+  plot_data <- data.frame(pid = seurat_object@meta.data[,group_column],
+                          condition = seurat_object@meta.data[,condition_column],
+                          cluster = seurat_object@meta.data[,cluster_column])
   plot_data$pid_condition <- paste0(plot_data$pid,"_",plot_data$condition)
   plot_data$group_var <- factor(plot_data$cluster)
 
@@ -931,8 +936,7 @@ seurat_size_bar <- function(seurat_object, pid_column = "pid", condition_column 
   data.m$cluster <- factor(data.m$cluster)
 
   stack_bars <- ggplot(data = data.m, mapping = aes(x = cluster, y = size)) +
-    # geom_bar(aes(fill = PID), position = "dodge", stat = "identity") +
-    geom_bar(aes(fill = PID), stat = "identity") +
+    geom_bar(aes(fill = PID), stat = "identity", color = "black", linewidth = bar_outline_lwd) +
     theme_minimal() +
     ylab("number of cells") +
     theme(legend.position = "bottom",
@@ -941,7 +945,9 @@ seurat_size_bar <- function(seurat_object, pid_column = "pid", condition_column 
           axis.text.x = element_text(size = 14, angle = 90, hjust = 1, vjust = 0.5),
           # axis.title = element_text(size = 15, face = "bold"))
           axis.title = element_blank())
-
+  if(rm_legend) {
+    stack_bars <- stack_bars + theme(legend.position = "none")
+  }
   return(stack_bars)
 }
 
@@ -1024,12 +1030,12 @@ seurat_feature_overlay <- function(seurat_object,
       }
       plt_list[[i]] <- metadata
       plt_list[[i]]$value <- intens
-      colnames(plt_list[[i]])[ncol(plt_list[[i]])] <- paste0(gsub("-TotalseqC","",names(plt_list)[i]),"_cluster")
+      colnames(plt_list[[i]])[ncol(plt_list[[i]])] <- names(plt_list)[i]
     } else if(color_by=="cell"){
       plt_list[[i]] <- metadata
       plt_list[[i]]$value <- get_feature
       plt_list[[i]] <- plt_list[[i]][order(plt_list[[i]]$value, decreasing = FALSE),] # draw highest values last
-      colnames(plt_list[[i]])[ncol(plt_list[[i]])] <- paste0(gsub("-TotalseqC","",names(plt_list)[i]),"_cell")
+      colnames(plt_list[[i]])[ncol(plt_list[[i]])] <- names(plt_list)[i]
       plt_list[[i]]$value <- get_feature
     }
     plt_list[[i]]$feature <- names(plt_list)[i]
@@ -1070,7 +1076,7 @@ seurat_feature_overlay <- function(seurat_object,
     cluslab <- data.frame(xval = xval, yval = yval, labl = names(xval))
     capture_feature <- arg1[,'feature'][1]
     colnames(arg1)[which(colnames(arg1)==metac)] <- "pop"
-    colnames(arg1)[grep(pattern = capture_feature, x = colnames(arg1))] <- "cby"
+    colnames(arg1)[which(colnames(arg1)==capture_feature)] <- "cby"
     pl <- ggplot(data = arg1, mapping = aes(x=redx,y=redy)) +
       geom_point_rast(aes(color=cby),pch=19, alpha = pal, cex = pex) +
       scale_color_viridis(option = "D", name = capture_feature) +
