@@ -73,10 +73,37 @@ ggsave(filename = "flu_umap_by_condition.png", plot = tr, device = "png", path =
 
 
 # testing seutools::seurat_feature_violin()
-feature_genes <- c("LAG3","IL32","IFIT1","IFITM1")
+seu <- readRDS(file = "J:/U54_grant/sc/inputs/pbmc_flu_seurat_object_all.rds")
+seu_adt <- readRDS(file = "J:/U54_grant/sc/inputs/pbmc_flu_adt_seurat_object.rds")
 
-sfv <- seutools::seurat_feature_violin(seurat_object = seu, plot_features = feature_genes,
-                                       categorical_column = "cell_type",
-                                       plot_categorical_types = "all", assay = "RNA", text_expansion = 1,
-                                       nudge_nonzero = 0.35, y_limit_expansion_factor = 0.5,
-                                       condition = "media", condition_cat = "condition")
+feature_genes <- c("LAG3","IL32","IFIT1","IFITM1","CD8A","CD79A","NCAM1","CLEC12A")
+sfv_genes <- seutools::seurat_feature_violin(seurat_object = seu, plot_features = feature_genes,
+                                             categorical_column = "cell_type",
+                                             plot_categorical_types = "all", assay = "RNA", text_expansion = 1,
+                                             nudge_nonzero = 0.35, y_limit_expansion_factor = 0.5,
+                                             condition = "media", condition_cat = "condition")
+pdf(file = "J:/U54_grant/sc/out_figures/flu_violin_genes_1.pdf", width = 10, height = 12)
+lapply(X = sfv_genes, FUN = function(x) x)
+dev.off()
+
+feature_prot <- c("Hu.CD4-RPA.T4","Hu.CD8","Hu.CD56","Hu.CD57","Hu.CD11c","Hu.CD62L","Hu.CLEC12A","Hu.CD123")
+sfv_prot <- seutools::seurat_feature_violin(seurat_object = seu_adt, plot_features = feature_prot,
+                                             categorical_column = "cell_type",
+                                             plot_categorical_types = "all", assay = "ADT", text_expansion = 1,
+                                             nudge_nonzero = 0.35, y_limit_expansion_factor = 0.5,
+                                             condition = "media", condition_cat = "condition")
+pdf(file = "J:/U54_grant/sc/out_figures/flu_violin_adt_1.pdf", width = 10, height = 12)
+lapply(X = sfv_prot, FUN = function(x) x)
+dev.off()
+
+
+# testing seutools::seurat_dge()
+seu <- readRDS(file = "J:/U54_grant/sc/inputs/pbmc_flu_seurat_object_all.rds")
+seu_adt <- readRDS(file = "J:/U54_grant/sc/inputs/pbmc_flu_adt_seurat_object.rds")
+
+
+# testing seutools::seurat_feature_violin_test()
+seu <- readRDS(file = "J:/U54_grant/sc/inputs/pbmc_flu_seurat_object_all.rds")
+seu_adt <- readRDS(file = "J:/U54_grant/sc/inputs/pbmc_flu_adt_seurat_object.rds")
+
+

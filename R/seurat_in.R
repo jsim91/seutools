@@ -1257,6 +1257,8 @@ seurat_feature_violin <- function(seurat_object, plot_features, categorical_colu
     # nudge_nz = nudge_nonzero
     # yle = y_limit_expansion_factor
 
+    require(ggrastr)
+
     freqs <- data.frame(cat = unique(indata$cat), freq = rep(NA,length(unique(indata$cat))))
     for(i in 1:nrow(freqs)) {
       freqs$freq[i] <- round(mean(indata$ct[which(indata$cat==freqs$cat[i])]!=0)*100,3)
@@ -1267,7 +1269,8 @@ seurat_feature_violin <- function(seurat_object, plot_features, categorical_colu
 
     plt <- ggplot(data = indata, aes(x = cat, y = ct, fill = cat)) +
       geom_violin(scale = "width", trim = TRUE, alpha = 0.7) +
-      geom_jitter(data = indata_jitter, width = 0.2, height = 0, size = 1, alpha = 0.5) +
+      # geom_jitter(data = indata_jitter, width = 0.2, height = 0, size = 1, alpha = 0.5) +
+      ggrastr::geom_jitter_rast(data = indata_jitter, width = 0.2, height = 0, size = 1, alpha = 0.5) +
       scale_fill_viridis_d() +
       coord_cartesian(ylim = c(0, max(indata$ct))) +
       coord_flip() +
