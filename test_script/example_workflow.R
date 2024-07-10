@@ -61,12 +61,12 @@ dev.off()
 # testing seutools::seurat_tile_reduction()
 seu <- readRDS(file = "J:/U54_grant/sc/inputs/pbmc_flu_seurat_object_all.rds")
 
-tr <- seutools:::seurat_tile_reduction(seurat_object = seu, condition_column = "condition", cluster_column = "cell_type", reduction = "umap",
-                                       color_clusters = "all", label_clusters = "all",
-                                       pt_alpha = 0.1, text_expansion = 1, pt_size = 1, color_seed = 123,
-                                       postfix_title_string = NA,
-                                       force_xlim = FALSE, force_ylim = FALSE, return_as_list = FALSE,
-                                       plot_order = c(1,2), annotation_method = "repel", # c("repel","text","shadowtext","none")
-                                       override_color_aes = NA, frameon = FALSE)
+tr <- seutools::seurat_tile_reduction(seurat_object = seu, condition_column = "condition", cluster_column = "cell_type", reduction = "umap",
+                                      color_clusters = "all", label_clusters = "all",
+                                      pt_alpha = 0.1, text_expansion = 1, pt_size = 1, color_seed = 123,
+                                      postfix_title_string = NA,
+                                      force_xlim = FALSE, force_ylim = FALSE, return_as_list = FALSE,
+                                      plot_order = c(1,2), annotation_method = "repel",
+                                      override_color_aes = NA, frameon = FALSE)
 ggsave(filename = "flu_umap_by_condition.png", plot = tr, device = "png", path = "J:/U54_grant/sc/out_figures",
        width = 16, height = 8, units = "in", dpi = 600, limitsize = F, bg = "white")

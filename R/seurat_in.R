@@ -1197,48 +1197,49 @@ umap_by_value <- function(coords = meta[,c("UMAP1","UMAP2")], values, feature = 
 }
 
 
-feature_violin <- function(feature_counts, plot_features,
-                           meta = py_meta,  meta_cat_column = "leiden2", # categorical column
-                           plot_cat_features = "all", text_expansion = 1, nudge_nonzero = 0.35,
-                           y_limit_expansion_factor = 0.5, condition = "Media", condition_cat = "Condition") {
+seurat_feature_violin <- function(seurat_object, plot_features, categorical_column = "leiden2",
+                                  plot_categorical_types = "all", assay = "RNA", text_expansion = 1,
+                                  nudge_nonzero = 0.35, y_limit_expansion_factor = 0.5,
+                                  condition = "media", condition_cat = "condition") {
   # testing
-  # feature_counts = rna_ct
-  # plot_features = clec_genes
-  # meta = py_meta
-  # meta_cat_column = "leiden2" # categorical column
-  # plot_cat_features = "all"
+  # seurat_object = seu
+  # plot_features = c("TNFRSF4","IFIT1","IFITM1","TNF","CD8A","CLEC12A","CD79A")
+  # categorical_column = "cell_type"
+  # plot_categorical_types = "all" # or a subset of seurat_object@meta.data[,categorical_column]
+  # assay = "RNA"
   # text_expansion = 1
   # nudge_nonzero = 0.35
   # y_limit_expansion_factor = 0.5
-  # condition = "Media"
-  # condition_cat = "Condition"
+  # condition = "media"
+  # condition_cat = "condition"
 
   require(ggplot2)
-  # require(dplyr)
+
+  feature_counts <- GetAssayData(object = seurat_object, assay = assay, layer = "data")
+  meta <- seurat_object@meta.data
 
   spl_mat2 <- vector("list", length = length(plot_features)); names(spl_mat2) <- plot_features
   for(i in 1:length(plot_features)) {
-    spl_mat2[[i]] <- feature_counts[which(row.names(feature_counts)==plot_features[i]),]
+    ct_index <- which(row.names(feature_counts)==plot_features[i])
+    if(length(ct_index)==0) {
+      spl_mat2[[i]] <- "not found"
+    } else {
+      spl_mat2[[i]] <- feature_counts[ct_index,]
+    }
+  }
+  if(plot_categorical_types[1]=="all") {
+    plot_categorical_types <- unique(meta[,categorical_column])
+  } else {
+    plot_categorical_types <- plot_categorical_types[which(plot_categorical_types %in% meta[,categorical_column])]
   }
   spl_mat <- vector("list",length(spl_mat2)); names(spl_mat) <- names(spl_mat2)
   for(i in 1:length(spl_mat2)) {
-    # spl_mat[[i]] <- data.frame(ct = spl_mat2[[i]], cat = factor(meta[,meta_cat_column]),
-    spl_mat[[i]] <- data.frame(ct = spl_mat2[[i]], cat = meta[,meta_cat_column],
+    spl_mat[[i]] <- data.frame(ct = spl_mat2[[i]], cat = meta[,categorical_column],
                                condition = meta[,condition_cat])
     if(!is.na(condition[1])) {
       spl_mat[[i]] <- spl_mat[[i]][which(spl_mat[[i]]$condition %in% condition),]
     }
-    if(plot_cat_features[1]!="all") {
-      spl_mat[[i]] <- spl_mat[[i]][which(spl_mat[[i]]$cat %in% plot_cat_features),]
-      # spl_mat[[i]]$cat <- factor(as.character(spl_mat[[i]]$cat))
-    }
-    # cat_levels <- levels(spl_mat[[i]]$cat)
-    # spl_levels <- split(x = cat_levels, f = gsub(pattern = "[0-9]+", replacement = "", x = cat_levels))
-    # spl_levels <- lapply(X = spl_levels, FUN = function(arg1){
-    #   get_nums <- as.numeric(stringr::str_extract(string = arg1, pattern = "[0-9]+"))
-    #   return(arg1[order(get_nums)])
-    # })
-    # levels(spl_mat[[i]]$cat) <- unlist(spl_levels)
+    spl_mat[[i]] <- spl_mat[[i]][which(spl_mat[[i]]$cat %in% plot_categorical_types),]
     spl_mat[[i]]$gene <- names(spl_mat)[i]
   }
 
