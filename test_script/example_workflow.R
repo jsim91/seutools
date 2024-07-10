@@ -88,10 +88,10 @@ dev.off()
 
 feature_prot <- c("Hu.CD4-RPA.T4","Hu.CD8","Hu.CD56","Hu.CD57","Hu.CD11c","Hu.CD62L","Hu.CLEC12A","Hu.CD123")
 sfv_prot <- seutools::seurat_feature_violin(seurat_object = seu_adt, plot_features = feature_prot,
-                                             categorical_column = "cell_type",
-                                             plot_categorical_types = "all", assay = "ADT", text_expansion = 1,
-                                             nudge_nonzero = 0.35, y_limit_expansion_factor = 0.5,
-                                             condition = "media", condition_cat = "condition")
+                                            categorical_column = "cell_type",
+                                            plot_categorical_types = "all", assay = "ADT", text_expansion = 1,
+                                            nudge_nonzero = 0.35, y_limit_expansion_factor = 0.5,
+                                            condition = "media", condition_cat = "stim")
 pdf(file = "J:/U54_grant/sc/out_figures/flu_violin_adt_1.pdf", width = 10, height = 12)
 lapply(X = sfv_prot, FUN = function(x) x)
 dev.off()
@@ -107,3 +107,4 @@ seu <- readRDS(file = "J:/U54_grant/sc/inputs/pbmc_flu_seurat_object_all.rds")
 seu_adt <- readRDS(file = "J:/U54_grant/sc/inputs/pbmc_flu_adt_seurat_object.rds")
 
 
+#################

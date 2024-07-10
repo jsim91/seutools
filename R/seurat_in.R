@@ -1202,20 +1202,23 @@ seurat_feature_violin <- function(seurat_object, plot_features, categorical_colu
                                   nudge_nonzero = 0.35, y_limit_expansion_factor = 0.5,
                                   condition = "media", condition_cat = "condition") {
   # testing
-  # seurat_object = seu
-  # plot_features = c("TNFRSF4","IFIT1","IFITM1","TNF","CD8A","CLEC12A","CD79A")
+  # seurat_object = seu_adt
+  # plot_features = feature_prot
   # categorical_column = "cell_type"
-  # plot_categorical_types = "all" # or a subset of seurat_object@meta.data[,categorical_column]
-  # assay = "RNA"
+  # plot_categorical_types = "all"
+  # assay = "ADT"
   # text_expansion = 1
   # nudge_nonzero = 0.35
   # y_limit_expansion_factor = 0.5
   # condition = "media"
-  # condition_cat = "condition"
+  # condition_cat = "stim"
 
   require(ggplot2)
 
-  feature_counts <- GetAssayData(object = seurat_object, assay = assay, layer = "data")
+  # feature_counts <- GetAssayData(object = seurat_object, assay = assay, layer = "counts")
+  feature_counts <- seurat_object@assays[[assay]]@layers$data
+  row.names(feature_counts) <- row.names(seurat_object)
+  colnames(feature_counts) <- colnames(seurat_object)
   meta <- seurat_object@meta.data
 
   plot_features <- plot_features[which(plot_features %in% row.names(feature_counts))]
