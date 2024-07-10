@@ -1079,7 +1079,7 @@ seurat_test_clusters <- function(seurat_object, test_by_column = "condition", pi
   return(test_plots)
 }
 
-seurat_size_bar <- function(seurat_object, pid_column = "pid", condition_column = "condition", cluster_column = "cell_type", rm_legend = TRUE, bar_outline_lwd = 0.1)
+seurat_size_bar <- function(seurat_object, group_column = "pid", condition_column = "condition", cluster_column = "cell_type", rm_legend = TRUE, bar_outline_lwd = 0.1)
 {
   require(ggplot2)
   require(ggpubr)
@@ -1096,7 +1096,7 @@ seurat_size_bar <- function(seurat_object, pid_column = "pid", condition_column 
   # condition_column = "condition"
   # cluster_column = "cell_type"
 
-  plot_data <- data.frame(pid = seurat_object@meta.data[,pid_column],
+  plot_data <- data.frame(pid = seurat_object@meta.data[,group_column],
                           condition = seurat_object@meta.data[,condition_column],
                           cluster = seurat_object@meta.data[,cluster_column])
   plot_data$pid_condition <- paste0(plot_data$pid,"_",plot_data$condition)
