@@ -52,13 +52,14 @@ heatmap_calculate <- function(seurat_obj, gene_set, set_name, clusters)
   # return(grid::grid.grabExpr(draw(out_hm)))
 }
 
-tile_reduction <- function(seurat_object, condition_column, cluster_column,
-                           color_clusters = "all", label_clusters = "all",
-                           pt_alpha = 0.05, anno_text_size = 6, pt_size = 1, color_seed = 123,
-                           outline_method = c("nudge","fontsize"), postfix_title_string = NA,
-                           force_xlim = FALSE, force_ylim = FALSE, return_as_list = FALSE,
-                           plot_order = c(2,1,3), annotation_method = "repel", # c("repel","text","shadowtext","none")
-                           override_color_aes = NA, frameon = FALSE)
+seurat_tile_reduction <- function(seurat_object, condition_column, cluster_column, reduction = "umap",
+                                  color_clusters = "all", label_clusters = "all",
+                                  pt_alpha = 0.05, text_expansion = 1, pt_size = 1, color_seed = 123,
+                                  # outline_method = c("nudge","fontsize"),
+                                  postfix_title_string = NA,
+                                  force_xlim = FALSE, force_ylim = FALSE, return_as_list = FALSE,
+                                  plot_order = c(2,1,3), annotation_method = "repel", # c("repel","text","shadowtext","none")
+                                  override_color_aes = NA, frameon = FALSE)
 {
   require(ggplot2)
   require(ggpubr)
@@ -67,33 +68,41 @@ tile_reduction <- function(seurat_object, condition_column, cluster_column,
   require(ggrepel)
 
   # testing
-  # coords = py_rna_umap
-  # condition = py_meta$Condition
-  # cluster_numbers = type_cl
+  # seurat_object = seu_small
+  # condition_column = "condition"
+  # cluster_column = "cell_type"
+  # reduction = "umap"
   # color_clusters = "all"
   # label_clusters = "all"
   # pt_alpha = 0.05
-  # anno_text_size = 6
+  # text_expansion = 1
   # pt_size = 1
-  # plot_order = c(1,2,3)
-  # annotation_method = "repel"
   # color_seed = 123
+  # outline_method = c("nudge","fontsize")
+  # postfix_title_string = NA
+  # force_xlim = FALSE
+  # force_ylim = FALSE
+  # return_as_list = FALSE
+  # plot_order = c(2,1,3)
+  # annotation_method = "repel" # c("repel","text","shadowtext","none")
   # override_color_aes = NA
+  # frameon = FALSE
 
-  coords <- seurat_object@reductions$umap@cell.embeddings
+  coords <- seurat_object@reductions[[tolower(reduction)]]@cell.embeddings
 
-  plot_data <- data.frame(UMAP1 = coords$UMAP1, UMAP2 = coords$UMAP2,
-                          cluster = cluster_numbers, condition = condition)
+  plot_data <- data.frame(redx = coords[,1], redy = coords[,2],
+                          cluster = as.character(seurat_object@meta.data[,cluster_column]),
+                          condition = seurat_object@meta.data[,condition_column])
   unique_clus <- unique(plot_data$cluster)
   set.seed(color_seed)
   plot_data$cluster <- factor(x = plot_data$cluster, levels = sample(unique_clus,length(unique_clus),replace=F))
-  xrange <- range(plot_data$UMAP1); yrange = range(plot_data$UMAP2)
+  xrange <- range(plot_data$redx); yrange = range(plot_data$redy)
 
   uclus <- unique(plot_data$cluster); uclus <- uclus[order(uclus,decreasing=F)]
   clusx <- rep(NA,length(uclus)); names(clusx) <- uclus; clusy <- clusx
   for(i in 1:length(clusx)) {
-    clusx[i] <- median(plot_data$UMAP1[which(plot_data$cluster==names(clusx)[i])])
-    clusy[i] <- median(plot_data$UMAP2[which(plot_data$cluster==names(clusx)[i])])
+    clusx[i] <- median(plot_data$redx[which(plot_data$cluster==names(clusx)[i])])
+    clusy[i] <- median(plot_data$redy[which(plot_data$cluster==names(clusx)[i])])
   }
   if(label_clusters[1]!="all") {
     lab_ind <- which(names(clusx) %in% as.character(label_clusters))
@@ -113,26 +122,31 @@ tile_reduction <- function(seurat_object, condition_column, cluster_column,
   }
 
   plot_red <- function(input, color_clus = color_clusters, xanno = clusx, yanno = clusy,
-                       palpha = pt_alpha, anno_ts = anno_text_size, psize = pt_size,
+                       palpha = pt_alpha, texp = text_expansion, psize = pt_size,
                        plimx = xrange, plimy = yrange, amethod = annotation_method,
-                       cseed = color_seed,text_omethod=outline_method, oca = override_color_aes,
+                       cseed = color_seed,#text_omethod=outline_method,
+                       oca = override_color_aes,
                        flimx = force_xlim, flimy = force_ylim, pts = postfix_title_string,
                        fo = frameon)
   {
     # testing
-    # input <- spl_data[[1]]
+    # input = spl_data[[1]]
     # color_clus = color_clusters
     # xanno = clusx
     # yanno = clusy
     # palpha = pt_alpha
-    # anno_ts = anno_text_size
+    # texp = text_expansion
     # psize = pt_size
     # plimx = xrange
     # plimy = yrange
     # amethod = annotation_method
     # cseed = color_seed
-    # pts = postfix_title_string
+    # text_omethod=outline_method
     # oca = override_color_aes
+    # flimx = force_xlim
+    # flimy = force_ylim
+    # pts = postfix_title_string
+    # fo = frameon
 
     gg_color_hue <- function(n) {
       hues = seq(15, 375, length = n + 1)
@@ -199,7 +213,7 @@ tile_reduction <- function(seurat_object, condition_column, cluster_column,
           guides(color = guide_legend(override.aes = list(size = 6, alpha = 1))) +
           theme(legend.position = "none",
                 legend.title = element_blank(),
-                legend.text = element_text(size = 16))
+                legend.text = element_text(size = 16*texp))
         if(!isFALSE(flimx[1])) {
           plt <- plt + xlim(flimx)
         }
@@ -212,12 +226,12 @@ tile_reduction <- function(seurat_object, condition_column, cluster_column,
         #   xlim(plimx) + ylim(plimy)
         plt <- ggplot() + theme_void() + xlim(plimx) + ylim(plimy) +
           geom_point(data = foreground,
-                     mapping = aes(x = UMAP1, y = UMAP2, color = cluster),
+                     mapping = aes(x = redx, y = redy, color = cluster),
                      alpha = palpha, size = psize) +
           guides(color = guide_legend(override.aes = list(size = 6, alpha = 1))) +
           theme(legend.position = "none",
                 legend.title = element_blank(),
-                legend.text = element_text(size = 16))
+                legend.text = element_text(size = 16*texp))
         if(!isFALSE(flimx[1])) {
           plt <- plt + xlim(flimx)
         }
@@ -229,29 +243,25 @@ tile_reduction <- function(seurat_object, condition_column, cluster_column,
         plt <- plt + scale_color_manual(values = oca)
       }
     }
-    # if(length(xanno)!=0) {
-    #   plt <- plt + annotate("shadowtext", x = xanno, y = yanno, label = names(xanno),
-    #                         aes(color = names(xanno)), size = anno_ts)
-    # }
     if(amethod[1]!="none") {
       if(nrow(text_add)!=0) {
         if(amethod[1]=="shadowtext") {
           plt <- plt + annotate("shadowtext", x = color_text_add$UMAP1, y = color_text_add$UMAP2,
-                                label = color_text_add$cluster, size = anno_ts)
+                                label = color_text_add$cluster, size = 3*texp)
         } else if(amethod[1]=="repel") {
           plt <- plt + ggrepel::geom_text_repel(data = color_text_add, mapping = aes(x = UMAP1, y = UMAP2, color = cluster, label = cluster),
-                                                size = anno_ts, bg.color = "black", bg.r = 0.05, seed = 123)
+                                                size = 3*texp, bg.color = "black", bg.r = 0.05, seed = 123)
         } else if(amethod[1]=="text") {
           plt <- plt + geom_text(data = color_text_add, mapping = aes(x = UMAP1, y = UMAP2, color = cluster, label = cluster),
-                                 size = anno_ts)
+                                 size = 3*texp)
         }
       } else if(nrow(color_text_add)!=0) {
         if(amethod[1]=="shadowtext") {
           plt <- plt + annotate("shadowtext", x = color_text_add$UMAP1, y = color_text_add$UMAP2,
-                                label = color_text_add$cluster, size = anno_ts)
+                                label = color_text_add$cluster, size = 3*texp)
         } else if(amethod[1]=="repel") {
           plt <- plt + ggrepel::geom_text_repel(data = color_text_add, mapping = aes(x = UMAP1, y = UMAP2, color = cluster, label = cluster),
-                                                size = anno_ts, bg.color = "black", bg.r = 0.05, seed = 123)
+                                                size = 3*texp, bg.color = "black", bg.r = 0.05, seed = 123)
         } #else if(amethod[1]=="text") {
         #   if(text_omethod[1]=="nudge") {
         #     plt <- plt + geom_text(data = color_text_add, mapping = aes(x = UMAP1, y = UMAP2, label = cluster),
@@ -267,13 +277,13 @@ tile_reduction <- function(seurat_object, condition_column, cluster_column,
         # }
       }
     } else {
-      plt <- plt + guides(color = guide_legend(override.aes = list(alpha = 1, stroke = 0.1, size = ifelse(psize<5,5,psize)))) +
-        theme(legend.position = "bottom", legend.text = element_text(size = 16), legend.title = element_blank())
+      plt <- plt + guides(color = guide_legend(override.aes = list(alpha = 1, stroke = 0.1, size = 6))) +
+        theme(legend.position = "bottom", legend.text = element_text(size = 16*texp), legend.title = element_blank())
     }
     plt <- plt + ggtitle(ifelse(!is.na(pts), paste0(input$condition[1]," - ",pts), input$condition[1])) +
       theme(axis.text = element_blank(),
             axis.title = element_blank(),
-            plot.title = element_text(hjust = 0.5, size = 22))
+            plot.title = element_text(hjust = 0.5, size = 26*texp))
     if(fo) {
       plt <- plt + theme_bw() + theme(axis.ticks = element_blank(),
                                       axis.title = element_blank(),
@@ -832,7 +842,7 @@ seurat_test_clusters <- function(seurat_object, test_by_column = "condition", pi
     if(!dp) {
       arg_melt <- arg_melt[!is.na(arg_melt$frequency),]
     }
-    
+
     if(is.null(comps)) {
       compare_these <- combinat::permn(unique(arg_melt$variable))
       for(i in 1:length(compare_these)) {
