@@ -1079,7 +1079,7 @@ seurat_test_clusters <- function(seurat_object, test_by_column = "condition", pi
   return(test_plots)
 }
 
-seurat_size_bar <- function(seurat_object, pid_column = "pid", condition_column = "condition", cluster_column = "cell_type")
+seurat_size_bar <- function(seurat_object, pid_column = "pid", condition_column = "condition", cluster_column = "cell_type", rm_legend = TRUE, bar_outline_lwd = 0.1)
 {
   require(ggplot2)
   require(ggpubr)
@@ -1096,9 +1096,9 @@ seurat_size_bar <- function(seurat_object, pid_column = "pid", condition_column 
   # condition_column = "condition"
   # cluster_column = "cell_type"
 
-  plot_data <- data.frame(pid = seu@meta.data[,pid_column],
-                          condition = seu@meta.data[,condition_column],
-                          cluster = seu@meta.data[,cluster_column])
+  plot_data <- data.frame(pid = seurat_object@meta.data[,pid_column],
+                          condition = seurat_object@meta.data[,condition_column],
+                          cluster = seurat_object@meta.data[,cluster_column])
   plot_data$pid_condition <- paste0(plot_data$pid,"_",plot_data$condition)
   plot_data$group_var <- factor(plot_data$cluster)
 
@@ -1115,8 +1115,7 @@ seurat_size_bar <- function(seurat_object, pid_column = "pid", condition_column 
   data.m$cluster <- factor(data.m$cluster)
 
   stack_bars <- ggplot(data = data.m, mapping = aes(x = cluster, y = size)) +
-    # geom_bar(aes(fill = PID), position = "dodge", stat = "identity") +
-    geom_bar(aes(fill = PID), stat = "identity") +
+    geom_bar(aes(fill = PID), stat = "identity", color = "black", linewidth = bar_outline_lwd) +
     theme_minimal() +
     ylab("number of cells") +
     theme(legend.position = "bottom",
@@ -1125,7 +1124,9 @@ seurat_size_bar <- function(seurat_object, pid_column = "pid", condition_column 
           axis.text.x = element_text(size = 14, angle = 90, hjust = 1, vjust = 0.5),
           # axis.title = element_text(size = 15, face = "bold"))
           axis.title = element_blank())
-
+  if(rm_legend) {
+    stack_bars <- stack_bars + theme(legend.position = "none")
+  }
   return(stack_bars)
 }
 
