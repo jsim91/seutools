@@ -70,3 +70,13 @@ tr <- seutools::seurat_tile_reduction(seurat_object = seu, condition_column = "c
                                       override_color_aes = NA, frameon = FALSE)
 ggsave(filename = "flu_umap_by_condition.png", plot = tr, device = "png", path = "J:/U54_grant/sc/out_figures",
        width = 16, height = 8, units = "in", dpi = 600, limitsize = F, bg = "white")
+
+
+# testing seutools::seurat_feature_violin()
+feature_genes <- c("LAG3","IL32","IFIT1","IFITM1")
+
+sfv <- seutools::seurat_feature_violin(seurat_object = seu, plot_features = feature_genes,
+                                       categorical_column = "cell_type",
+                                       plot_categorical_types = "all", assay = "RNA", text_expansion = 1,
+                                       nudge_nonzero = 0.35, y_limit_expansion_factor = 0.5,
+                                       condition = "media", condition_cat = "condition")

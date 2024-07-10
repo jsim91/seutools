@@ -1218,14 +1218,20 @@ seurat_feature_violin <- function(seurat_object, plot_features, categorical_colu
   feature_counts <- GetAssayData(object = seurat_object, assay = assay, layer = "data")
   meta <- seurat_object@meta.data
 
+  plot_features <- plot_features[which(plot_features %in% row.names(feature_counts))]
+  if(length(plot_features)==0) {
+    stop("no 'plot_features' found in counts matrix")
+  } else{
+    rm_features <- plot_features[which(!plot_features %in% row.names(feature_counts))]
+    if(length(rm_features)!=0) {
+      warning(paste0("one or more 'plot_features' not found in counts matrix: ",paste0(rm_features, collapse = ", ")))
+    }
+  }
+
   spl_mat2 <- vector("list", length = length(plot_features)); names(spl_mat2) <- plot_features
   for(i in 1:length(plot_features)) {
     ct_index <- which(row.names(feature_counts)==plot_features[i])
-    if(length(ct_index)==0) {
-      spl_mat2[[i]] <- "not found"
-    } else {
-      spl_mat2[[i]] <- feature_counts[ct_index,]
-    }
+    spl_mat2[[i]] <- feature_counts[ct_index,]
   }
   if(plot_categorical_types[1]=="all") {
     plot_categorical_types <- unique(meta[,categorical_column])
