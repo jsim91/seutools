@@ -80,7 +80,7 @@ tile_reduction <- function(seurat_object, condition_column, cluster_column,
   # color_seed = 123
   # override_color_aes = NA
 
-  coords <- seurat_object@reductions$
+  coords <- seurat_object@reductions$umap@cell.embeddings
 
   plot_data <- data.frame(UMAP1 = coords$UMAP1, UMAP2 = coords$UMAP2,
                           cluster = cluster_numbers, condition = condition)
