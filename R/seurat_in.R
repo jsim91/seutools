@@ -325,6 +325,7 @@ seurat_footprint <- function(seurat_object, cluster_column, pid_column, conditio
     require(gtools)
     require(ggrepel)
     require(FCSimple)
+    require(combinat)
   })
 
   # testing
