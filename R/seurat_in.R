@@ -1573,13 +1573,13 @@ feature_violin_test <- function(feature_counts, plot_features, meta, meta_cat_co
                                    nudge_nz = nudge_nonzero, yle = y_limit_expansion_factor,
                                    cit = condition_in_title, stat_off = stat_text_offset) {
     # testing
-    indata <- spl_mat[[1]]
-    texp = text_expansion
-    my_compares = stat_compares
-    nudge_nz = nudge_nonzero
-    yle = y_limit_expansion_factor
-    cit = condition_in_title
-    stat_off = stat_text_offset
+    # indata <- spl_mat[[1]]
+    # texp = text_expansion
+    # my_compares = stat_compares
+    # nudge_nz = nudge_nonzero
+    # yle = y_limit_expansion_factor
+    # cit = condition_in_title
+    # stat_off = stat_text_offset
 
     rm_compares <- c()
     for(i in 1:length(my_compares)) {
