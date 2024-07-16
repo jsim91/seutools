@@ -310,6 +310,194 @@ seurat_tile_reduction <- function(seurat_object, condition_column, cluster_colum
 }
 
 
+seurat_footprint <- function(seurat_object, cluster_column, pid_column, condition_column,
+                             condition, media_condition, subtract_media, color_by_column,
+                             scale.factor = 1000, pca_fraction_variance = 0.95,
+                             umap_n_neighbors = 5, leiden_resolution = 0.2, umap_min_dist = 0.3,
+                             report_values_as = "normalized counts",
+                             feature_reduction_method = "pca") # prepare feature input with either 'pca' or 'boruta' as feature reduction method
+{
+  suppressPackageStartupMessages({
+    require(ggplot2)
+    require(ggpubr)
+    require(Boruta)
+    require(uwot)
+    require(gtools)
+    require(ggrepel)
+    require(FCSimple)
+  })
+
+  # testing
+  # seurat_object <- seu
+  # cluster_column <- 'leiden'
+  # pid_column <- 'pid'
+  # condition_column <- 'condition'
+  # media_condition <- 'media'
+  # subtract_media <- TRUE
+  # scale.factor <- 1000
+  # pca_fraction_variance <- 0.95
+  # umap_n_neighbors <- 5
+  # leiden_resolution <- 0.2
+  # umap_min_dist <- 0.3
+  # color_by_column <- "age_group"
+  # report_values_as = "normalized counts"
+
+  metadata <- seurat_object@meta.data
+  metadata[,cluster_column] <- as.character(metadata[,cluster_column])
+  metadata[,pid_column] <- as.character(metadata[,pid_column])
+  small_meta <- metadata[!duplicated(metadata[,pid_column]),][,c(pid_column, color_by_column)]
+  colnames(small_meta)[2] <- "meta_col"
+  unique_condition <- unique(metadata[,condition_column])
+
+  if(subtract_media) {
+    upid_list <- vector("list", length = length(unique_condition))
+    for(i in 1:length(unique_condition)) {
+      upid_list[[i]] <- unique(metadata[which(metadata[,condition_column]==unique_condition[i]),][,pid_column])
+    }
+    upid_all <- unlist(upid_list)
+    upid_table <- table(upid_all)
+    keep_id <- names(upid_table)[which(upid_table==max(upid_table))]
+    if(length(keep_id)<length(unique(metadata[,pid_column]))) {
+      metadata <- metadata[which(metadata[,pid_column] %in% keep_id),]
+    }
+  }
+
+  clus_list <- vector("list", length = length(unique_condition)); names(clus_list) <- unique_condition
+
+  for(i in 1:length(unique_condition)) {
+    tmp_meta <- metadata[metadata[,condition_column]==unique_condition[i],]
+    if(report_values_as=="normalized counts") {
+      freq_table <- table(tmp_meta[,pid_column], tmp_meta[,cluster_column])
+
+      freq_matrix <- matrix(freq_table, nrow = length(unique(tmp_meta[,pid_column])), ncol = length(unique(tmp_meta[,cluster_column])))
+
+      rownames(freq_matrix) <- sort(unique(tmp_meta[,pid_column]))
+      colnames(freq_matrix) <- sort(unique(tmp_meta[,cluster_column]))
+      freq_df <- as.data.frame.matrix(freq_matrix)
+      row_sums <- rowSums(freq_matrix)
+      normalized_matrix <- sweep(freq_matrix, 1, row_sums, FUN="/") * scale.factor
+
+      clus_list[[i]] <- normalized_matrix
+    } else {
+      upid <- unique(tmp_meta[,pid_column]); upid <- upid[order(upid)]; uclus <- unique(tmp_meta[,cluster_column]); uclus <- uclus[order(uclus)]
+      freq_matrix <- matrix(data = NA, nrow = length(upid), ncol = length(uclus))
+      row.names(freq_matrix) <- upid; colnames(freq_matrix) <- uclus
+      if(report_values_as=="fraction") {
+        for(i in 1:nrow(freq_matrix)) {
+          tmpnum <- tmp_meta[,cluster_column][tmp_meta[,pid_column]==row.names(freq_matrix)[i]]
+          for(j in 1:ncol(freq_matrix)) {
+            freq_matrix[i,j] <- mean(tmpnum==colnames(freq_matrix)[j])
+          }
+        }
+      } else if(report_values_as=="frequency") {
+        for(i in 1:nrow(freq_matrix)) {
+          tmpnum <- tmp_meta[,cluster_column][tmp_meta[,pid_column]==row.names(freq_matrix)[i]]
+          for(j in 1:ncol(freq_matrix)) {
+            freq_matrix[i,j] <- mean(tmpnum==colnames(freq_matrix)[j]) * 100
+          }
+        }
+      }
+    }
+  }
+
+  rnames <- sapply(X = clus_list, FUN = row.names); check_rnames <- apply(X = rnames, MARGIN = 1, FUN = unique)
+  cnames <- sapply(X = clus_list, FUN = colnames); check_cnames <- apply(X = cnames, MARGIN = 1, FUN = unique)
+  if("list" %in% class(rnames)) {
+    stop("row names don't match")
+  }
+  if("list" %in% class(cnames)) {
+    stop("column names don't match")
+  }
+
+  if(subtract_media) {
+    which_media <- which(names(clus_list)==media_condition)
+    perms <- permutations(n = length(clus_list), r = 2, v = 1:length(clus_list), repeats.allowed = TRUE)
+    drop_perms <- intersect(which(perms[,1]==which_media), which(perms[,2]!=which_media))
+    if(length(drop_perms)!=0) {
+      perms <- perms[-drop_perms,]
+    }
+    subtr_list <- vector("list", length = nrow(perms))
+    for(i in 1:length(subtr_list)) {
+      if(perms[i,1]==perms[i,2]) {
+        subtr_list[[i]] <- clus_list[[perms[i,1]]]
+        names(subtr_list)[i] <- names(clus_list)[perms[i,1]]
+      } else {
+        subtr_list[[i]] <- clus_list[[perms[i,1]]] - clus_list[[perms[i,2]]]
+        names(subtr_list)[i] <- paste0(names(clus_list)[perms[i,1]], " - ", names(clus_list)[perms[i,2]])
+      }
+    }
+    umap_inputs <- subtr_list[order(nchar(names(subtr_list)))]
+  } else {
+    umap_inputs <- clus_list
+  }
+
+  pca_list <- vector("list", length = length(umap_inputs)); names(pca_list) <- names(umap_inputs)
+  for(i in 1:length(umap_inputs)) {
+    pca_result <- prcomp(umap_inputs[[i]], scale. = TRUE)
+    var_explained <- (pca_result$sdev)^2
+    total_variance <- sum(var_explained)
+    cumulative_var_explained <- cumsum(var_explained)
+    fraction_cumulative_var_explained <- cumulative_var_explained / total_variance
+    pca_list[[i]] <- pca_result$x[,1:which(fraction_cumulative_var_explained>pca_fraction_variance)[1]]
+  }
+
+  analysis_list <- vector("list", length = length(pca_list)); names(analysis_list) <- names(pca_list)
+  for(i in 1:length(analysis_list)) {
+    umap_out <- uwot::umap(X = pca_list[[i]], n_neighbors = umap_n_neighbors, init = "spca",
+                           min_dist = umap_min_dist, batch = TRUE, seed = 123)
+    tmp_obj <- list(data = pca_list[[i]],
+                    raw = "",
+                    source = row.names(pca_list[[i]]))
+    tmp_obj <- FCSimple::fcs_update(fcs_join_obj = tmp_obj)
+    tmp_obj <- FCSimple::fcs_cluster(fcs_join_obj = tmp_obj, language = "r", algorithm = "leiden",
+                                     leiden_louvain_resolution = leiden_resolution,
+                                     adjacency_knn = umap_n_neighbors, search_only = FALSE,
+                                     search_method = "RANN", num_cores = 1)
+    colnames(umap_out) <- c("UMAP1","UMAP2"); umap_out <- as.data.frame(umap_out)
+    umap_out$pid <- row.names(pca_list[[i]])
+    umap_out <- merge(x = umap_out, y = small_meta, by.x = 'pid', by.y = pid_column, sort = FALSE, all.x = TRUE)
+    umap_out$group <- as.character(tmp_obj$leiden$clusters)
+    umap_out$type <- names(analysis_list)[i]
+    analysis_list[[i]] <- umap_out
+  }
+
+  plot_umap_embed <- function(arg1, text_expansion_factor = 1, label_points = TRUE,
+                              point_expansion_factor = 1) {
+    # testing
+    # arg1 = analysis_list[[1]]
+    # text_expansion_factor = 1
+    # label_points = TRUE
+    # point_expansion_factor = 1
+
+    plot_title <- arg1$type[1]
+
+    plt <- ggplot() +
+      geom_point(data = arg1, mapping = aes(x = UMAP1, y = UMAP2, fill = meta_col),
+                 size = 6*point_expansion_factor, pch = 21, alpha = 0.7) +
+      theme_minimal() +
+      guides(fill = guide_legend(override.aes = list(size = ifelse((6*point_expansion_factor)>8,(6*point_expansion_factor),8), alpha = 1))) +
+      ggtitle(plot_title)
+    if(label_points) {
+      tmpdf <- arg1; tmpdf$ptlab <- gsub("_.+$","",arg1$pid)
+      plt <- plt + ggrepel::geom_label_repel(data = tmpdf, mapping = aes(x = UMAP1, y = UMAP2, label = ptlab, color = group),
+                                             seed = 123, max.overlaps = Inf, size = 4*text_expansion_factor, verbose = FALSE,
+                                             fontface = "bold")
+    }
+    plt <- plt +
+      theme(axis.title = element_text(size = 20*text_expansion_factor, face = "bold"),
+            plot.title = element_text(size = 22*text_expansion_factor, face = "bold", hjust = 0.5),
+            axis.text = element_blank(),
+            legend.position = "bottom",
+            legend.title = element_blank(),
+            legend.text = element_text(size = 22*text_expansion_factor))
+    return(plt)
+  }
+  umaps <- lapply(X = analysis_list, FUN = plot_umap_embed)
+  umaps_arr <- ggpubr::ggarrange(plotlist = umaps, nrow = 1, common.legend = TRUE, legend = "bottom")
+  return(umaps_arr)
+}
+
+
 mean_count_hm <- function(exprs_matrix, cluster_numbers, include_clusters, gene_set, pid,
                           low_mid_high_cols = c("#DA29D9","black","#fff176"), show_other = TRUE,
                           scale_per_gene = TRUE, split_by_pid = TRUE, cluster_rows = FALSE,

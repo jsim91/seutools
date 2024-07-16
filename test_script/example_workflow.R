@@ -1,3 +1,5 @@
+# rm(list = ls()); gc()
+
 # example workflow
 library(seutools)
 
@@ -95,6 +97,11 @@ sfv_prot <- seutools::seurat_feature_violin(seurat_object = seu_adt, plot_featur
 pdf(file = "J:/U54_grant/sc/out_figures/flu_violin_adt_1.pdf", width = 10, height = 12)
 lapply(X = sfv_prot, FUN = function(x) x)
 dev.off()
+
+
+# testing seutools::seurat_feature_violin_test()
+seu <- readRDS(file = "J:/U54_grant/sc/inputs/pbmc_flu_seurat_object_all.rds")
+seu_adt <- readRDS(file = "J:/U54_grant/sc/inputs/pbmc_flu_adt_seurat_object.rds")
 
 
 # testing seutools::seurat_dge()
