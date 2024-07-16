@@ -311,7 +311,7 @@ seurat_tile_reduction <- function(seurat_object, condition_column, cluster_colum
 
 
 seurat_footprint <- function(seurat_object, cluster_column, pid_column, condition_column,
-                             condition, media_condition, subtract_media, color_by_column,
+                             media_condition, subtract_media, color_by_column, cluster_data = FALSE,
                              scale.factor = 1000, pca_fraction_variance = 0.95,
                              umap_n_neighbors = 5, leiden_resolution = 0.2, umap_min_dist = 0.3,
                              report_values_as = "normalized counts",
@@ -329,19 +329,21 @@ seurat_footprint <- function(seurat_object, cluster_column, pid_column, conditio
   })
 
   # testing
-  # seurat_object <- seu
-  # cluster_column <- 'leiden'
-  # pid_column <- 'pid'
-  # condition_column <- 'condition'
-  # media_condition <- 'media'
-  # subtract_media <- TRUE
-  # scale.factor <- 1000
-  # pca_fraction_variance <- 0.95
-  # umap_n_neighbors <- 5
-  # leiden_resolution <- 0.2
-  # umap_min_dist <- 0.3
-  # color_by_column <- "age_group"
+  # seurat_object = seu
+  # cluster_column = "res1p5_by_type"
+  # pid_column = "pid"
+  # condition_column = "condition"
+  # media_condition = "media"
+  # subtract_media = TRUE
+  # color_by_column = "age_group"
+  # scale.factor = 1000
+  # pca_fraction_variance = 0.95
+  # umap_n_neighbors = 5
+  # cluster_data = FALSE
+  # leiden_resolution = 0.5
+  # umap_min_dist = 0.25
   # report_values_as = "normalized counts"
+  # feature_reduction_method = "pca"
 
   metadata <- seurat_object@meta.data
   metadata[,cluster_column] <- as.character(metadata[,cluster_column])
@@ -398,16 +400,15 @@ seurat_footprint <- function(seurat_object, cluster_column, pid_column, conditio
           }
         }
       }
+      clus_list[[i]] <- freq_matrix
     }
   }
 
-  rnames <- sapply(X = clus_list, FUN = row.names); check_rnames <- apply(X = rnames, MARGIN = 1, FUN = unique)
-  cnames <- sapply(X = clus_list, FUN = colnames); check_cnames <- apply(X = cnames, MARGIN = 1, FUN = unique)
-  if("list" %in% class(rnames)) {
-    stop("row names don't match")
-  }
-  if("list" %in% class(cnames)) {
-    stop("column names don't match")
+  rnames <- lapply(X = clus_list, FUN = row.names); rname_table <- table(unlist(rnames)); keepid <- names(which(rname_table==max(rname_table)))
+  cnames <- lapply(X = clus_list, FUN = colnames); cname_table <- table(unlist(cnames)); keepcl <- names(which(cname_table==max(cname_table)))
+  for(i in 1:length(clus_list)) {
+    clus_list[[i]] <- clus_list[[i]][which(row.names(clus_list[[i]]) %in% keepid),]
+    clus_list[[i]] <- clus_list[[i]][,which(colnames(clus_list[[i]]) %in% keepcl)]
   }
 
   if(subtract_media) {
@@ -463,7 +464,7 @@ seurat_footprint <- function(seurat_object, cluster_column, pid_column, conditio
   }
 
   plot_umap_embed <- function(arg1, text_expansion_factor = 1, label_points = TRUE,
-                              point_expansion_factor = 1) {
+                              point_expansion_factor = 1, consider_clustered_clusters = cluster_data) {
     # testing
     # arg1 = analysis_list[[1]]
     # text_expansion_factor = 1
@@ -480,9 +481,15 @@ seurat_footprint <- function(seurat_object, cluster_column, pid_column, conditio
       ggtitle(plot_title)
     if(label_points) {
       tmpdf <- arg1; tmpdf$ptlab <- gsub("_.+$","",arg1$pid)
-      plt <- plt + ggrepel::geom_label_repel(data = tmpdf, mapping = aes(x = UMAP1, y = UMAP2, label = ptlab, color = group),
-                                             seed = 123, max.overlaps = Inf, size = 4*text_expansion_factor, verbose = FALSE,
-                                             fontface = "bold")
+      if(all(consider_clustered_clusters, "group" %in% colnames(arg1))) {
+        plt <- plt + ggrepel::geom_label_repel(data = tmpdf, mapping = aes(x = UMAP1, y = UMAP2, label = ptlab, color = group),
+                                               seed = 123, max.overlaps = Inf, size = 3.5*text_expansion_factor, verbose = FALSE,
+                                               fontface = "bold")
+      } else {
+        plt <- plt + ggrepel::geom_label_repel(data = tmpdf, mapping = aes(x = UMAP1, y = UMAP2, label = ptlab), color = "black",
+                                               seed = 123, max.overlaps = Inf, size = 3.5*text_expansion_factor, verbose = FALSE,
+                                               fontface = "bold")
+      }
     }
     plt <- plt +
       theme(axis.title = element_text(size = 20*text_expansion_factor, face = "bold"),

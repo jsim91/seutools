@@ -17,6 +17,7 @@ und_seu_mast <- seurat_mast(seurat_object = seu, freq_expressed = 0.1, fc_thresh
 library(Matrix)
 library(seutools)
 library(Seurat)
+library(SeuratObject)
 
 seu_adt <- readRDS(file = "J:/U54_grant/sc/inputs/pbmc_flu_adt_seurat_object.rds")
 
@@ -99,6 +100,39 @@ lapply(X = sfv_prot, FUN = function(x) x)
 dev.off()
 
 
+# testing seutools::seurat_footprint()
+leiden_foot <- seutools::seurat_footprint(seurat_object = seu, cluster_column = "leiden", pid_column = "pid", condition_column = "condition",
+                                          media_condition = "media", subtract_media = TRUE, color_by_column = "age_group",
+                                          scale.factor = 1000, pca_fraction_variance = 0.95, umap_n_neighbors = 5, cluster_data = FALSE,
+                                          leiden_resolution = 0.5, umap_min_dist = 0.25, report_values_as = "normalized counts",
+                                          feature_reduction_method = "pca")
+ggsave(filename = "flu_umap_leiden_cluster_size.pdf", plot = leiden_foot, device = "pdf", path = "J:/U54_grant/sc/out_figures",
+       width = 24, height = 8, units = "in", dpi = 600, limitsize = F, bg = "white")
+
+annotation_foot <- seutools::seurat_footprint(seurat_object = seu, cluster_column = "cell_type", pid_column = "pid", condition_column = "condition",
+                                              media_condition = "media", subtract_media = TRUE, color_by_column = "age_group",
+                                              scale.factor = 1000, pca_fraction_variance = 0.95, umap_n_neighbors = 5, cluster_data = FALSE,
+                                              leiden_resolution = 0.5, umap_min_dist = 0.25, report_values_as = "normalized counts",
+                                              feature_reduction_method = "pca")
+ggsave(filename = "flu_umap_cell_type_size.pdf", plot = annotation_foot, device = "pdf", path = "J:/U54_grant/sc/out_figures",
+       width = 24, height = 8, units = "in", dpi = 600, limitsize = F, bg = "white")
+
+res1p5_by_group <- read.csv(file = "J:/10x/JOflu/scbp/all/all_by_type_res1p5.csv", check.names = FALSE, row.names = 1)
+clnum <- res1p5_by_group$leiden_res1p5; names(clnum) <- res1p5_by_group$barcode
+mapped_num <- clnum[seu@meta.data$barcode]
+mapped_num[which(seu$annotated_type=="Undecided2")] <- "U2"
+mapped_num[which(seu$annotated_type=="Undecided3")] <- "U3"
+seu <- SeuratObject::AddMetaData(object = seu, metadata = as.character(mapped_num), col.name = "res1p5_by_type")
+
+annotation_type_1p5 <- seutools::seurat_footprint(seurat_object = seu, cluster_column = "res1p5_by_type", pid_column = "pid",
+                                                  condition_column = "condition", media_condition = "media", subtract_media = TRUE,
+                                                  color_by_column = "age_group", scale.factor = 1000, pca_fraction_variance = 0.95,
+                                                  umap_n_neighbors = 5, cluster_data = FALSE, leiden_resolution = 0.5, umap_min_dist = 0.25,
+                                                  report_values_as = "normalized counts", feature_reduction_method = "pca")
+ggsave(filename = "flu_umap_cell_type_size.pdf", plot = annotation_type_1p5, device = "pdf", path = "J:/U54_grant/sc/out_figures",
+       width = 24, height = 8, units = "in", dpi = 600, limitsize = F, bg = "white")
+
+
 # testing seutools::seurat_feature_violin_test()
 seu <- readRDS(file = "J:/U54_grant/sc/inputs/pbmc_flu_seurat_object_all.rds")
 seu_adt <- readRDS(file = "J:/U54_grant/sc/inputs/pbmc_flu_adt_seurat_object.rds")
@@ -113,5 +147,3 @@ seu_adt <- readRDS(file = "J:/U54_grant/sc/inputs/pbmc_flu_adt_seurat_object.rds
 seu <- readRDS(file = "J:/U54_grant/sc/inputs/pbmc_flu_seurat_object_all.rds")
 seu_adt <- readRDS(file = "J:/U54_grant/sc/inputs/pbmc_flu_adt_seurat_object.rds")
 
-
-#################
