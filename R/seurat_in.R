@@ -311,8 +311,8 @@ seurat_tile_reduction <- function(seurat_object, condition_column, cluster_colum
 
 
 seurat_footprint <- function(seurat_object, cluster_column, pid_column, condition_column,
-                             media_condition, subtract_media, color_by_column, cluster_data = FALSE,
-                             scale.factor = 1000, pca_fraction_variance = 0.95,
+                             media_condition, subtract_media, color_by_column, reduction = "umap",
+                             scale.factor = 1000, pca_fraction_variance = 0.95, cluster_data = FALSE,
                              umap_n_neighbors = 5, leiden_resolution = 0.2, umap_min_dist = 0.3,
                              report_values_as = "normalized counts",
                              feature_reduction_method = "pca") # prepare feature input with either 'pca' or 'boruta' as feature reduction method
@@ -336,6 +336,7 @@ seurat_footprint <- function(seurat_object, cluster_column, pid_column, conditio
   # media_condition = "media"
   # subtract_media = TRUE
   # color_by_column = "age_group"
+  # reduction = "umap"
   # scale.factor = 1000
   # pca_fraction_variance = 0.95
   # umap_n_neighbors = 5
@@ -411,6 +412,16 @@ seurat_footprint <- function(seurat_object, cluster_column, pid_column, conditio
     clus_list[[i]] <- clus_list[[i]][,which(colnames(clus_list[[i]]) %in% keepcl)]
   }
 
+  for(i in 1:length(clus_list)) {
+    if(any(i==1, length(clus_list)==1)) {
+      next
+    } else {
+      if(mean(row.names(clus_list[[i]])==row.names(clus_list[[i-1]]))!=1) {
+        stop("row mismatch")
+      }
+    }
+  }
+
   if(subtract_media) {
     which_media <- which(names(clus_list)==media_condition)
     perms <- permutations(n = length(clus_list), r = 2, v = 1:length(clus_list), repeats.allowed = TRUE)
@@ -432,6 +443,98 @@ seurat_footprint <- function(seurat_object, cluster_column, pid_column, conditio
   } else {
     umap_inputs <- clus_list
   }
+
+  small_meta_vector <- small_meta[,2]; names(small_meta_vector) <- small_meta[,1]
+  bor_class <- small_meta_vector[row.names(umap_inputs[[1]])]
+
+  bor_fun <- function(arg1, split_group = factor(as.character(bor_class))) {
+    # testing
+    # arg1 = umap_inputs[[1]]
+    # split_group = factor(as.character(bor_class))
+
+    bor_out <- Boruta::Boruta(x = arg1, y = split_group, maxRuns = 300, doTrace = 0, holdHistory = TRUE)
+
+    imp <- bor_out$ImpHistory; colnames(imp) <- gsub("^(X|x)","",colnames(imp))
+    imp <- imp[,order(colMeans(imp, na.rm = TRUE))]
+    imp_score <- colMeans(imp)
+    imp_df <- data.frame(cluster = names(imp_score), importance = as.numeric(imp_score))
+
+    dec <- data.frame(cluster = names(bor_out$finalDecision), decision = as.character(bor_out$finalDecision))
+    dec$cluster <- gsub("^(X|x)","",dec$cluster)
+
+    bor_df <- merge(x = imp_df, y = dec, by = "cluster", sort = FALSE)
+    bor_df <- bor_df[order(bor_df$importance, decreasing = TRUE),]
+
+    bor_att <- Boruta::attStats(bor_out); row.names(bor_att) <- gsub("^(X|x)","",row.names(bor_att))
+    bor_imp <- as.data.frame(bor_out$ImpHistory); colnames(bor_imp) <- gsub("^(X|x)","",colnames(bor_imp))
+    colmed1 <- unlist(sapply(X = bor_imp, FUN = median))
+    bor_imp <- bor_imp[,gsub("^c","",dec$cluster[which(dec$decision=="Confirmed")])]
+    colmed <- unlist(sapply(X = bor_imp, FUN = median))
+    bor_imp <- reshape2::melt(data = bor_imp)
+    bor_imp$variable <- factor(x = bor_imp$variable, levels = names(colmed)[order(colmed)])
+    bor_imp <- bor_imp[!grepl(pattern = "^shadowM", x = bor_imp$variable),]
+
+    borplot_expansion <- 1
+
+    borplt <- ggplot(data = bor_imp) +
+      geom_boxplot(mapping = aes(x = variable, y = value), fill = "grey") +
+      ylab("Importance") +
+      theme_minimal() +
+      theme(axis.text.x = element_text(angle = 90, size = 14*borplot_expansion, face = "bold", vjust = 0.8),
+            axis.text.y = element_text(size = 12*borplot_expansion),
+            axis.title.y = ggtext::element_markdown(size = 16*borplot_expansion, margin = margin(r = 10)),
+            axis.title.x = element_blank(),
+            legend.title = element_blank())
+
+    borscore <- data.frame(cluster = row.names(bor_att), score = bor_att$medianImp, decision = bor_att$decision)
+
+    return(list(boruta_box = borplt, boruta_scores = borscore))
+  }
+
+  bor_list <- lapply(X = umap_inputs, FUN = bor_fun, factor(as.character(bor_class)))
+
+  bor_plots <- lapply(X = bor_list, FUN = function(x) return(x[[1]]))
+  bor_plot_arr <- ggpubr::ggarrange(plotlist = bor_plots, nrow = 1)
+
+  seu_embeds <- as.data.frame(seurat_object@reductions[[tolower(reduction)]]@cell.embeddings); colnames(seu_embeds) <- c("redx","redy")
+  seu_embeds$cluster <- metadata[,cluster_column]
+
+  umap_by_boruta <- function(arg1, embeds = seu_embeds, byred = reduction) {
+    # testing
+    # arg1 <- bor_list[[1]]
+    # embeds <- seu_embeds
+    # byred = reduction
+
+    arg1 <- arg1[[2]]
+    df <- merge(x = embeds, y = arg1, by.x = 'cluster', by.y = 'cluster', all.x = TRUE, sort = FALSE)
+    df <- df[!is.na(df$decision),]
+    df$score <- ifelse(df$decision=="Confirmed", df$score, NA)
+
+    text_expansion_factor <- 1
+
+    mapplt <- ggplot(data = df, mapping = aes(x = redx, y = redy, color = score)) +
+      geom_point(size = 0.5, alpha = 0.2) +
+      scale_colour_gradientn(colours = c("blue", "red"),
+                             na.value = "grey",
+                             limits = c(min(df$score, na.rm = TRUE), max(df$score, na.rm = TRUE))) +
+      xlab(toupper(paste0(byred,"1"))) + ylab(toupper(paste0(byred,"2"))) +
+      theme_minimal() +
+      guides(color = guide_colourbar(title.position = "top", frame.colour = "black", ticks.colour = "black",
+                                     draw.ulim = T, draw.llim = T, ticks.linewidth = 0.5)) +
+      theme(axis.title = element_text(size = 20*text_expansion_factor, face = "bold"),
+            plot.title = element_text(size = 22*text_expansion_factor, face = "bold", hjust = 0.5),
+            axis.text = element_blank(),
+            legend.title = element_text(size = 14*text_expansion_factor, hjust = 0.5),
+            legend.key.height = unit(5, "mm"),
+            legend.key.width = unit(15, "mm"),
+            legend.direction = "horizontal",
+            legend.position = "bottom",
+            legend.text = element_text(size = 12*text_expansion_factor))
+    return(mapplt)
+  }
+
+  map_plots <- lapply(X = bor_list, FUN = umap_by_boruta, embeds = seu_embeds, byred = reduction)
+  map_plot_arr <- ggpubr::ggarrange(plotlist = map_plots, nrow = 1)
 
   pca_list <- vector("list", length = length(umap_inputs)); names(pca_list) <- names(umap_inputs)
   for(i in 1:length(umap_inputs)) {
@@ -502,7 +605,10 @@ seurat_footprint <- function(seurat_object, cluster_column, pid_column, conditio
   }
   umaps <- lapply(X = analysis_list, FUN = plot_umap_embed)
   umaps_arr <- ggpubr::ggarrange(plotlist = umaps, nrow = 1, common.legend = TRUE, legend = "bottom")
-  return(umaps_arr)
+
+  all_arr <- ggpubr::ggarrange(plotlist = list(umaps_arr, map_plot_arr, bor_plot_arr), nrow = 3, heights = c(0.5, 0.5, 0.2))
+
+  return(all_arr)
 }
 
 

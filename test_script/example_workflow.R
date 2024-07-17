@@ -105,17 +105,17 @@ leiden_foot <- seutools::seurat_footprint(seurat_object = seu, cluster_column = 
                                           media_condition = "media", subtract_media = TRUE, color_by_column = "age_group",
                                           scale.factor = 1000, pca_fraction_variance = 0.95, umap_n_neighbors = 5, cluster_data = FALSE,
                                           leiden_resolution = 0.5, umap_min_dist = 0.25, report_values_as = "normalized counts",
-                                          feature_reduction_method = "pca")
-ggsave(filename = "flu_umap_leiden_cluster_size.pdf", plot = leiden_foot, device = "pdf", path = "J:/U54_grant/sc/out_figures",
-       width = 24, height = 8, units = "in", dpi = 600, limitsize = F, bg = "white")
+                                          feature_reduction_method = "pca", reduction = "umap")
+ggsave(filename = "flu_umap_leiden_cluster_footprint.pdf", plot = leiden_foot, device = "pdf", path = "J:/U54_grant/sc/out_figures",
+       width = 24, height = 22, units = "in", dpi = 600, limitsize = F, bg = "white")
 
 annotation_foot <- seutools::seurat_footprint(seurat_object = seu, cluster_column = "cell_type", pid_column = "pid", condition_column = "condition",
                                               media_condition = "media", subtract_media = TRUE, color_by_column = "age_group",
                                               scale.factor = 1000, pca_fraction_variance = 0.95, umap_n_neighbors = 5, cluster_data = FALSE,
                                               leiden_resolution = 0.5, umap_min_dist = 0.25, report_values_as = "normalized counts",
-                                              feature_reduction_method = "pca")
-ggsave(filename = "flu_umap_cell_type_size.pdf", plot = annotation_foot, device = "pdf", path = "J:/U54_grant/sc/out_figures",
-       width = 24, height = 8, units = "in", dpi = 600, limitsize = F, bg = "white")
+                                              feature_reduction_method = "pca", reduction = "umap")
+ggsave(filename = "flu_umap_cell_type_footprint.pdf", plot = annotation_foot, device = "pdf", path = "J:/U54_grant/sc/out_figures",
+       width = 24, height = 22, units = "in", dpi = 600, limitsize = F, bg = "white")
 
 res1p5_by_group <- read.csv(file = "J:/10x/JOflu/scbp/all/all_by_type_res1p5.csv", check.names = FALSE, row.names = 1)
 clnum <- res1p5_by_group$leiden_res1p5; names(clnum) <- res1p5_by_group$barcode
@@ -129,8 +129,8 @@ annotation_type_1p5 <- seutools::seurat_footprint(seurat_object = seu, cluster_c
                                                   color_by_column = "age_group", scale.factor = 1000, pca_fraction_variance = 0.95,
                                                   umap_n_neighbors = 5, cluster_data = FALSE, leiden_resolution = 0.5, umap_min_dist = 0.25,
                                                   report_values_as = "normalized counts", feature_reduction_method = "pca")
-ggsave(filename = "flu_umap_cell_type_size.pdf", plot = annotation_type_1p5, device = "pdf", path = "J:/U54_grant/sc/out_figures",
-       width = 24, height = 8, units = "in", dpi = 600, limitsize = F, bg = "white")
+ggsave(filename = "flu_umap_cluster_1p5_by_type_footprint.png", plot = annotation_type_1p5, device = "png", path = "J:/U54_grant/sc/out_figures",
+       width = 24, height = 22, units = "in", dpi = 600, limitsize = F, bg = "white")
 
 
 # testing seutools::seurat_feature_violin_test()
