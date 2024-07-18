@@ -106,7 +106,7 @@ leiden_foot <- seutools::seurat_footprint(seurat_object = seu, cluster_column = 
                                           scale.factor = 1000, pca_fraction_variance = 0.95, umap_n_neighbors = 5, cluster_data = FALSE,
                                           leiden_resolution = 0.5, umap_min_dist = 0.25, report_values_as = "normalized counts",
                                           feature_reduction_method = "pca", reduction = "umap")
-ggsave(filename = "flu_umap_leiden_cluster_footprint.pdf", plot = leiden_foot, device = "pdf", path = "J:/U54_grant/sc/out_figures",
+ggsave(filename = "flu_umap_leiden_cluster_footprint.png", plot = leiden_foot, device = "png", path = "J:/U54_grant/sc/out_figures",
        width = 24, height = 22, units = "in", dpi = 600, limitsize = F, bg = "white")
 
 annotation_foot <- seutools::seurat_footprint(seurat_object = seu, cluster_column = "cell_type", pid_column = "pid", condition_column = "condition",
@@ -114,7 +114,7 @@ annotation_foot <- seutools::seurat_footprint(seurat_object = seu, cluster_colum
                                               scale.factor = 1000, pca_fraction_variance = 0.95, umap_n_neighbors = 5, cluster_data = FALSE,
                                               leiden_resolution = 0.5, umap_min_dist = 0.25, report_values_as = "normalized counts",
                                               feature_reduction_method = "pca", reduction = "umap")
-ggsave(filename = "flu_umap_cell_type_footprint.pdf", plot = annotation_foot, device = "pdf", path = "J:/U54_grant/sc/out_figures",
+ggsave(filename = "flu_umap_cell_type_footprint.png", plot = annotation_foot, device = "png", path = "J:/U54_grant/sc/out_figures",
        width = 24, height = 22, units = "in", dpi = 600, limitsize = F, bg = "white")
 
 res1p5_by_group <- read.csv(file = "J:/10x/JOflu/scbp/all/all_by_type_res1p5.csv", check.names = FALSE, row.names = 1)
@@ -122,6 +122,8 @@ clnum <- res1p5_by_group$leiden_res1p5; names(clnum) <- res1p5_by_group$barcode
 mapped_num <- clnum[seu@meta.data$barcode]
 mapped_num[which(seu$annotated_type=="Undecided2")] <- "U2"
 mapped_num[which(seu$annotated_type=="Undecided3")] <- "U3"
+type_df <- data.frame(barcode = names(mapped_num), cluster = as.character(mapped_num))
+write.csv(x = type_df, file = "J:/10x/JOflu/scbp/all/lineages_reclustered_res1p5.csv", row.names = FALSE)
 seu <- SeuratObject::AddMetaData(object = seu, metadata = as.character(mapped_num), col.name = "res1p5_by_type")
 
 annotation_type_1p5 <- seutools::seurat_footprint(seurat_object = seu, cluster_column = "res1p5_by_type", pid_column = "pid",
