@@ -139,6 +139,15 @@ ggsave(filename = "flu_umap_cluster_1p5_by_type_footprint.png", plot = annotatio
 seu <- readRDS(file = "J:/U54_grant/sc/inputs/pbmc_flu_seurat_object_all.rds")
 seu_adt <- readRDS(file = "J:/U54_grant/sc/inputs/pbmc_flu_adt_seurat_object.rds")
 
+sfvt_1 <- seutools::seurat_feature_violin_test(seurat_object = seu,
+                                               plot_features = c("TRAV1-2","CD8A","CLEC12A","CD79A"),
+                                               categorical_column = "cell_type",
+                                               plot_categorical_types = c("MAIT/gd","Naive_CD8","CD14_Mono","CD16_Mono","B"),  # or "all"
+                                               assay = "RNA",
+                                               text_expansion = 1,
+                                               condition = "media",
+                                               condition_cat = "condition",
+                                               test_cat = "age_group")
 
 # testing seutools::seurat_dge()
 seu <- readRDS(file = "J:/U54_grant/sc/inputs/pbmc_flu_seurat_object_all.rds")

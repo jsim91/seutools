@@ -1599,169 +1599,113 @@ seurat_feature_violin <- function(seurat_object, plot_features, categorical_colu
   return(vplots)
 }
 
-feature_violin_test <- function(feature_counts, plot_features, meta, meta_cat_column = "leiden2", # categorical column
-                                plot_cat_features = c("m0","m1","m2","m3","m4","m5"), # or "all"
-                                text_expansion = 1, condition = "Media", condition_cat = "Condition",
-                                test_cat = "progr_contr", stat_compares = c(), nudge_nonzero = 0.35,
-                                y_limit_expansion_factor = 0.5, condition_in_title = FALSE,
-                                stat_text_offset = 1) {
+seurat_feature_violin_test <- function(seurat_object,
+                                       plot_features,
+                                       categorical_column = "cell_type",
+                                       plot_categorical_types = c("MAIT/gd","Naive_CD8","CD14_Mono","CD16_Mono","B"),  # or "all"
+                                       assay = "RNA",
+                                       text_expansion = 1,
+                                       condition = "media",
+                                       condition_cat = "condition",
+                                       test_cat = "age_group") {
   # testing
-  # feature_counts = rna_ct
-  # meta = py_meta
-  # plot_features = cc_trail_genes
-  # meta_cat_column = "leiden2"
-  # plot_cat_features = tnkclus
+  # seurat_object = seu
+  # plot_features = c("TRAV1-2","CD8A","CLEC12A","CD79A")
+  # categorical_column = "cell_type"
+  # plot_categorical_types = c("MAIT/gd","Naive_CD8","CD14_Mono","CD16_Mono","B") # or "all"
+  # assay = "RNA"
   # text_expansion = 1
-  # condition = "Media"
-  # condition_cat = "Condition"
-  # test_cat = "progr_contr"
-  # stat_compares = v5_compares
-  # nudge_nonzero = 1
-  # y_limit_expansion_factor = 1.1
-
-  # feature_counts = rna_ct
-  # plot_features = cc_trail_genes
-  # meta = py_meta
-  # meta_cat_column = "leiden2"
-  # plot_cat_features = tnkclus
-  # text_expansion = 1
-  # condition = "Media"
-  # condition_cat = "Condition"
-  # test_cat = "progr_contr"
-  # stat_compares = v4_compares
-  # nudge_nonzero = 1
-  # y_limit_expansion_factor = 1.1
-
-  # testing
-  # feature_counts = rna_ct
-  # meta = py_meta
-  # plot_features = gene_1
-  # meta_cat_column = "annotation"
-  # plot_cat_features = cat_1
-  # text_expansion = 1
-  # condition = "GRV"
+  # condition = "media"
   # condition_cat = "condition"
-  # test_cat = "progr_contr"
-  # stat_compares = compares_1
-  # nudge_nonzero = 1
-  # y_limit_expansion_factor = 2
-  # condition_in_title = FALSE
-  # stat_text_offset = 1
+  # test_cat = "age_group"
 
 
   require(ggplot2)
 
-  # mat_ct <- as.matrix(feature_counts[which(row.names(feature_counts) %in% plot_features),])
+  feature_counts <- seurat_object@assays[[assay]]@layers$data
+  row.names(feature_counts) <- row.names(seurat_object)
+  colnames(feature_counts) <- colnames(seurat_object)
+  meta <- seurat_object@meta.data
 
-  # spl_mat2 <- split(x = mat_ct, f = row.names(mat_ct))
+  plot_features <- plot_features[which(plot_features %in% row.names(feature_counts))]
+  if(length(plot_features)==0) {
+    stop("no 'plot_features' found in counts matrix")
+  } else{
+    rm_features <- plot_features[which(!plot_features %in% row.names(feature_counts))]
+    if(length(rm_features)!=0) {
+      warning(paste0("one or more 'plot_features' not found in counts matrix: ",paste0(rm_features, collapse = ", ")))
+    }
+  }
+
   spl_mat2 <- vector("list", length = length(plot_features)); names(spl_mat2) <- plot_features
   for(i in 1:length(plot_features)) {
-    spl_mat2[[i]] <- feature_counts[which(row.names(feature_counts)==plot_features[i]),]
+    ct_index <- which(row.names(feature_counts)==plot_features[i])
+    spl_mat2[[i]] <- feature_counts[ct_index,]
+  }
+  if(plot_categorical_types[1]=="all") {
+    plot_categorical_types <- unique(meta[,categorical_column])
+  } else {
+    plot_categorical_types <- plot_categorical_types[which(plot_categorical_types %in% meta[,categorical_column])]
   }
   spl_mat <- vector("list",length(spl_mat2)); names(spl_mat) <- names(spl_mat2)
   for(i in 1:length(spl_mat2)) {
-    # spl_mat[[i]] <- data.frame(ct = spl_mat2[[i]], cat = factor(meta[,meta_cat_column]),
-    spl_mat[[i]] <- data.frame(ct = spl_mat2[[i]], cat = meta[,meta_cat_column],
-                               test_col = meta[,test_cat], condition = meta[,condition_cat])
+    spl_mat[[i]] <- data.frame(ct = spl_mat2[[i]], cat = meta[,categorical_column],
+                               condition = meta[,condition_cat],
+                               test_cat = meta[,test_cat])
     if(!is.na(condition[1])) {
       spl_mat[[i]] <- spl_mat[[i]][which(spl_mat[[i]]$condition %in% condition),]
     }
-    if(plot_cat_features[1]!="all") {
-      spl_mat[[i]] <- spl_mat[[i]][which(spl_mat[[i]]$cat %in% plot_cat_features),]
-      # spl_mat[[i]]$cat <- factor(as.character(spl_mat[[i]]$cat))
-    }
-    # cat_levels <- levels(spl_mat[[i]]$cat)
-    # spl_levels <- split(x = cat_levels, f = gsub(pattern = "[0-9]+", replacement = "", x = cat_levels))
-    # spl_levels <- lapply(X = spl_levels, FUN = function(arg1){
-    #   get_nums <- as.numeric(stringr::str_extract(string = arg1, pattern = "[0-9]+"))
-    #   return(arg1[order(get_nums)])
-    # })
-    # levels(spl_mat[[i]]$cat) <- unlist(spl_levels)
+    spl_mat[[i]] <- spl_mat[[i]][which(spl_mat[[i]]$cat %in% plot_categorical_types),]
     spl_mat[[i]]$gene <- names(spl_mat)[i]
-    spl_mat[[i]]$compare_col <- paste0(spl_mat[[i]]$cat,"_",spl_mat[[i]]$test_col)
   }
-  # spl_mat <- spl_mat[plot_features]
-  # mean(spl_mat$TNFSF10$ct[which(spl_mat$TNFSF10$compare_col=="tnk17_controller")]!=0)
 
-  violin_internal_test <- function(indata, texp = text_expansion, my_compares = stat_compares,
-                                   nudge_nz = nudge_nonzero, yle = y_limit_expansion_factor,
-                                   cit = condition_in_title, stat_off = stat_text_offset) {
+  violin_internal <- function(indata,
+                              texp = text_expansion,
+                              nudge_nz = nudge_nonzero,
+                              yle = y_limit_expansion_factor) {
     # testing
     # indata <- spl_mat[[1]]
     # texp = text_expansion
-    # my_compares = stat_compares
     # nudge_nz = nudge_nonzero
     # yle = y_limit_expansion_factor
-    # cit = condition_in_title
-    # stat_off = stat_text_offset
 
-    rm_compares <- c()
-    for(i in 1:length(my_compares)) {
-      sum_nonzero <- rep(NA,length(my_compares[[i]])); names(sum_nonzero) <- my_compares[[i]]
-      for(j in 1:length(my_compares[[i]])) {
-        sum_nonzero[j] <- sum(indata$ct[which(indata$compare_col==my_compares[[i]][j])]!=0)
-      }
-      if(sum(sum_nonzero)==0) {
-        rm_compares <- append(rm_compares, i)
-      }
-    }
-    if(length(rm_compares)!=0) {
-      my_compares <- my_compares[-rm_compares]
-    }
+    require(ggrastr)
+    require(ggpubr)
+    require(rstatix)
 
-    # freqs <- indata %>%
-    #   group_by(compare_col) %>%
-    #   summarise(freq = round(sum(ct > 0) / n() * 100, 3))
-    freqs <- data.frame(compare_col = unique(indata$compare_col), freq = rep(NA,length(unique(indata$compare_col))))
+    indata$add_col <- paste0(indata$cat, "\n", indata$test_cat)
+    concat_table_names <- names(table(indata$add_col))
+    comps <- split(concat_table_names, f = gsub(pattern = "\n.+$", replacement = "", x = concat_table_names))
+
+    freqs <- data.frame(cat = unique(indata$cat), freq = rep(NA,length(unique(indata$cat))))
     for(i in 1:nrow(freqs)) {
-      freqs$freq[i] <- round(mean(indata$ct[which(indata$compare_col==freqs$compare_col[i])]!=0)*100,3)
+      freqs$freq[i] <- round(mean(indata$ct[which(indata$cat==freqs$cat[i])]!=0)*100,3)
     }
-
-    # format_pvalue <- function(p) {
-    #   if(is.na(p)) {
-    #     return(NA)
-    #   }
-    #   if(p > 0.0001) {
-    #     return(format(p, digits = 4, scientific = FALSE))
-    #   } else {
-    #     return(format(p, digits = 4, scientific = TRUE))
-    #   }
-    # }
-
     indata_jitter <- indata[which(indata$ct!=0),]
 
     expand_out <- max(indata$ct)*(yle/max(indata$ct) + 1)
 
-    plt <- ggplot(data = indata, aes(x = compare_col, y = ct, fill = compare_col)) +
-      geom_violin(scale = "width", trim = TRUE, alpha = 0.7) +
-      geom_jitter(data = indata_jitter, width = 0.2, height = 0, size = 1, alpha = 0.5) +
-      scale_fill_viridis_d() +
-      coord_cartesian(ylim = c(0, max(indata$ct)))
-    if(length(my_compares)!=0) {
-      plt <- plt +
-        stat_compare_means(paired = FALSE, method = "wilcox", comparisons = my_compares, size = 7.6*texp, label.y = max(indata$ct)*stat_off)
-    }
-    plt <- plt +
-      coord_flip() +
+    test_res <- rstatix::wilcox_test(data = indata, formula = ct ~ add_col, paired = FALSE, comparisons = comps)
+    test_res <- rstatix::add_y_position(test = test_res, step.increase = 0)
+
+    plt <- ggplot() +
+      geom_violin(data = indata, aes(x = add_col, y = ct, fill = test_cat), scale = "width", trim = TRUE, alpha = 0.7) +
+      ggrastr::geom_jitter_rast(data = indata_jitter, aes(x = add_col, y = ct), width = 0.2, height = 0, size = 1, alpha = 0.5) +
+      # scale_fill_viridis_d() +
+      stat_pvalue_manual(as.data.frame(test_res), label = "p.adj.signif", tip.length = 0.01, size = 7) +
       theme_minimal() +
-      theme(axis.text.x = element_text(angle = 0),
-            legend.position = "none") +
-      geom_text(data = freqs, aes(x = compare_col, y = max(indata$ct), label = freq), size = 5*texp,
-                # nudge_y = ifelse(max(freqs$freq)>=10, nudge_nz*1, nudge_nz)) +
-                nudge_y = nudge_nz) +
-      expand_limits(y = c(0, ifelse(max(freqs$freq)>=10, expand_out*1.025, expand_out))) +
       ylab("normalized count") +
-      ggtitle(ifelse(cit, paste0(indata$gene[1]," - ", indata$condition[1]), indata$gene[1])) +
-      theme(axis.text.y = element_text(size = 15*texp, face = "bold"),
-            axis.title.y = element_blank(),
-            axis.text.x = element_text(size = 14*texp),
-            axis.title.x = element_text(size = 15*texp, face = "bold"),
+      ggtitle(indata$gene[1]) +
+      theme(legend.position = "none",
+            axis.text.y = element_text(size = 14*texp),
+            axis.title.y = element_text(size = 15*texp, face = "bold"),
+            axis.text.x = element_text(size = 15*texp, face = "bold"),
+            axis.title.x = element_blank(),
             plot.title = element_text(size = 18*texp, face = "bold", hjust = 0.5))
     return(plt)
   }
-  vplots <- lapply(X = spl_mat, FUN = violin_internal_test, texp = text_expansion,
-                   my_compares = stat_compares, nudge_nz = nudge_nonzero,
-                   yle = y_limit_expansion_factor, cit = condition_in_title)
+  vplots <- lapply(X = spl_mat, FUN = violin_internal, texp = text_expansion,
+                   nudge_nz = nudge_nonzero, yle = y_limit_expansion_factor)
   return(vplots)
 }
 
