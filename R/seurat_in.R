@@ -625,6 +625,7 @@ seurat_mean_count_hm <- function(seurat_object,
                                  auto_order_genes = TRUE,
                                  get_legend = FALSE,
                                  split_by_pid = TRUE,
+                                 hm_title_size = 18,
                                  cluster_annotation_color = NULL,
                                  cluster_annotation_ref = "none")
 {
@@ -648,6 +649,7 @@ seurat_mean_count_hm <- function(seurat_object,
   # split_by_pid <- TRUE
   # cluster_annotation_ref <- "none"
   # cluster_annotation_color = NULL
+  # hm_title_size = 18
 
   cluster_numbers <- seurat_object@meta.data[,cluster_column]
   exprs_matrix <- seurat_object[[assay]]$data
@@ -900,7 +902,7 @@ seurat_mean_count_hm <- function(seurat_object,
                                                                  title_gp=gpar(fontsize=0,fontface="bold")),
                                        show_row_dend = FALSE, show_column_dend = FALSE, cluster_rows = cluster_rows,
                                        cluster_columns = FALSE, top_annotation = ha, show_heatmap_legend = FALSE,
-                                       column_title_gp = gpar(fontsize=18), column_title_side = "top",
+                                       column_title_gp = gpar(fontsize=hm_title_size), column_title_side = "top",
                                        show_column_names = FALSE, row_names_side = "left", cluster_column_slices = FALSE)
     } else {
       outhm <- ComplexHeatmap::Heatmap(matrix = large_mat, name = "GEX", column_split = hm_groups, # ComplexHeatmap doc 2.7.2 split single heatmap
@@ -913,7 +915,7 @@ seurat_mean_count_hm <- function(seurat_object,
                                                                  title_gp=gpar(fontsize=0,fontface="bold")),
                                        show_row_dend = FALSE, show_column_dend = FALSE, cluster_rows = cluster_rows,
                                        cluster_columns = FALSE, show_heatmap_legend = FALSE,
-                                       column_title_gp = gpar(fontsize=18), column_title_side = "top",
+                                       column_title_gp = gpar(fontsize=hm_title_size), column_title_side = "top",
                                        show_column_names = FALSE, row_names_side = "left", cluster_column_slices = FALSE)
     }
     if(get_legend) {
@@ -931,7 +933,7 @@ seurat_mean_count_hm <- function(seurat_object,
                              grid_height = unit(7, "mm"), grid_width = unit(0.6,"cm"))
       return(list(discrete_leg,scaled_leg))
     } else {
-      return(list(hm = outhm,
+      return(list(hm = grid::grid.grabExpr(draw(outhm)),
                   tile_data = large_mat))
     }
   } else {
@@ -945,7 +947,7 @@ seurat_mean_count_hm <- function(seurat_object,
                                                                labels_gp=gpar(fontsize=14),
                                                                title_gp=gpar(fontsize=15,fontface="bold")),
                                      show_row_dend = FALSE, row_names_gp=gpar(fontsize=13,fontface="bold"),
-                                     column_names_gp = gpar(fontsize=18,fontface="bold"), column_names_side = "top")
+                                     column_names_gp = gpar(fontsize=hm_title_size,fontface="bold"), column_names_side = "top")
     if(get_legend) {
       scaled_leg <- Legend(at=round(c(min(range(large_mat)),max(range(large_mat))),2),
                            labels = c("low", "high"), col_fun = col_fun,

@@ -162,7 +162,8 @@ smch <- seutools::seurat_mean_count_hm(seurat_object = seu,
                                        plot_clusters = c('CM_CD4','Mono','EM_CD8','MAIT/gd'),
                                        pid_column = 'pid',
                                        gene_set = c('CD8A','TNF','IL7R','IL32','SELL','LEF1','CD14','CLEC12A','TRAV1-2'),
-                                       low_mid_high_cols = c("#DA29D9","black","#fff176"),
+                                       # low_mid_high_cols = c("#DA29D9","black","#fff176"),
+                                       low_mid_high_cols = c("#1976D2","black","#FF1D23"),
                                        scale_per_gene = TRUE,
                                        cluster_rows = FALSE,
                                        auto_order_genes = TRUE,
@@ -171,7 +172,7 @@ smch <- seutools::seurat_mean_count_hm(seurat_object = seu,
                                        cluster_annotation_color = NULL,
                                        cluster_annotation_ref = "none")
 ggsave(filename = "flu_mean_hm_1.pdf", plot = smch$hm, device = "pdf", path = "J:/U54_grant/sc/out_figures",
-       width = 10, height = 5, units = "in", dpi = 300, limitsize = F, bg = "white")
+       width = 5, height = 2, units = "in", dpi = 300, limitsize = F, bg = "white")
 
 
 # testing seutools::seurat_dge()
