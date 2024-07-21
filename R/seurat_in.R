@@ -625,7 +625,7 @@ seurat_mean_count_hm <- function(seurat_object,
                                  auto_order_genes = TRUE,
                                  get_legend = FALSE,
                                  split_by_pid = TRUE,
-                                 hm_title_size = 18,
+                                 text_expansion_factor = 1,
                                  cluster_annotation_color = NULL,
                                  cluster_annotation_ref = "none")
 {
@@ -635,21 +635,21 @@ seurat_mean_count_hm <- function(seurat_object,
   # need to update so that bar annotation across top is working correctly
 
   # testing
-  # seurat_object <- seu
-  # assay <- 'RNA'
-  # cluster_column <- 'cell_type'
-  # plot_clusters <- c('CM_CD4','EM_CD8')
-  # pid_column <- 'pid'
-  # gene_set <- c('CD8A','TNF','IL7R','IL32','SELL','LEF1')
-  # low_mid_high_cols <- c("#DA29D9","black","#fff176")
-  # scale_per_gene <- TRUE
-  # cluster_rows <- FALSE
-  # auto_order_genes <- TRUE
-  # get_legend <- FALSE
-  # split_by_pid <- TRUE
-  # cluster_annotation_ref <- "none"
+  # seurat_object = seu
+  # assay = 'RNA'
+  # cluster_column = 'cell_type'
+  # plot_clusters = c('CM_CD4','Mono','EM_CD8','MAIT/gd')
+  # pid_column = 'pid'
+  # gene_set = c('CD8A','TNF','IL7R','IL32','SELL','LEF1','CD14','CLEC12A','TRAV1-2')
+  # low_mid_high_cols = c("#1976D2","black","#FF1D23")
+  # scale_per_gene = TRUE
+  # cluster_rows = FALSE
+  # auto_order_genes = TRUE
+  # get_legend = FALSE
+  # split_by_pid = TRUE
+  # hm_title_size = 8
   # cluster_annotation_color = NULL
-  # hm_title_size = 18
+  # cluster_annotation_ref = ref
 
   cluster_numbers <- seurat_object@meta.data[,cluster_column]
   exprs_matrix <- seurat_object[[assay]]$data
@@ -869,40 +869,56 @@ seurat_mean_count_hm <- function(seurat_object,
       hcl(h = hues, l = 65, c = 100)[1:n]
     }
     cluster_annotation_color <- gg_color_hue(length(split_clus_mats))
-    names(cluster_annotation_color) <- names(split_clus_mats)
-  }
+    for(i in 1:length(cluster_annotation_color)) {
+      if(i>length(ref)) {
+        names(cluster_annotation_color)[i] <- "other"
+      } else {
+        names(cluster_annotation_color)[i] <- names(ref)[i]
+      }
+    }
+  } #else {
+  #   for(i in 1:length(cluster_annotation_color)) {
+  #     if(i>length(ref)) {
+  #       names(cluster_annotation_color)[i] <- "other"
+  #     } else {
+  #       names(cluster_annotation_color)[i] <- names(ref)[i]
+  #     }
+  #   }
+  # }
   if(split_by_pid) {
     col_fun = colorRamp2(breaks = c(min(range(large_mat)), mean(range(large_mat)), max(range(large_mat))),
                          colors = low_mid_high_cols)
     if(unlist(cluster_annotation_ref)[1]!="none") {
       type_anno <- rep(NA,length(hm_groups))
       for(i in 1:length(cluster_annotation_ref)) {
-        if(prefix_cluster) {
-          anno_pos_match <- which(hm_groups %in% paste0("cluster ",cluster_annotation_ref[[i]]))
-        } else {
-          anno_pos_match <- which(hm_groups %in% cluster_annotation_ref[[i]])
-        }
+        anno_pos_match <- which(hm_groups %in% cluster_annotation_ref[[i]])
         type_anno[anno_pos_match] <- names(cluster_annotation_ref)[i]
       }
+      na_pos <- which(is.na(type_anno))
+      if(length(na_pos)!=0) {
+        type_anno[na_pos] <- "other"
+      }
 
-      ha <- HeatmapAnnotation(bar = factor(type_anno, levels = names(cluster_annotation_color)),
+      # ha <- HeatmapAnnotation(bar = factor(type_anno, levels = names(cluster_annotation_color)),
+      ha <- HeatmapAnnotation(bar = factor(type_anno),
                               col = list(bar = cluster_annotation_color), show_legend = FALSE,
                               show_annotation_name = FALSE, which = "column", simple_anno_size = unit(3, "mm"),
                               annotation_legend_param = list(legend_height=unit(3,"cm"),
                                                              grid_width=unit(0.6,"cm"),title_position="topleft",
-                                                             labels_gp=gpar(fontsize=16),
-                                                             title_gp=gpar(fontsize=0)))
+                                                             labels_gp=gpar(fontsize=16*text_expansion_factor),
+                                                             title_gp=gpar(fontsize=0*text_expansion_factor)))
       outhm <- ComplexHeatmap::Heatmap(matrix = large_mat, name = "GEX", column_split = hm_groups, # ComplexHeatmap doc 2.7.2 split single heatmap
                                        na_col = "black", col = col_fun,
                                        heatmap_legend_param=list(at=round(c(min(range(large_mat)),max(range(large_mat))),2),
                                                                  labels = c("low", "high"),
                                                                  legend_height=unit(3,"cm"),
                                                                  grid_width=unit(0.6,"cm"),title_position="topleft",
-                                                                 labels_gp=gpar(fontsize=14),
-                                                                 title_gp=gpar(fontsize=0,fontface="bold")),
+                                                                 labels_gp=gpar(fontsize=14*text_expansion_factor),
+                                                                 title_gp=gpar(fontsize=0*text_expansion_factor,fontface="bold")),
                                        show_row_dend = FALSE, show_column_dend = FALSE, cluster_rows = cluster_rows,
                                        cluster_columns = FALSE, top_annotation = ha, show_heatmap_legend = FALSE,
-                                       column_title_gp = gpar(fontsize=hm_title_size), column_title_side = "top",
+                                       row_names_gp = gpar(fontsize=12*text_expansion_factor),
+                                       column_title_gp = gpar(fontsize=14*text_expansion_factor, vjust = 20), column_title_side = "top",
                                        show_column_names = FALSE, row_names_side = "left", cluster_column_slices = FALSE)
     } else {
       outhm <- ComplexHeatmap::Heatmap(matrix = large_mat, name = "GEX", column_split = hm_groups, # ComplexHeatmap doc 2.7.2 split single heatmap
@@ -911,11 +927,12 @@ seurat_mean_count_hm <- function(seurat_object,
                                                                  labels = c("low", "high"),
                                                                  legend_height=unit(3,"cm"),
                                                                  grid_width=unit(0.6,"cm"),title_position="topleft",
-                                                                 labels_gp=gpar(fontsize=14),
-                                                                 title_gp=gpar(fontsize=0,fontface="bold")),
+                                                                 labels_gp=gpar(fontsize=14*text_expansion_factor),
+                                                                 title_gp=gpar(fontsize=0*text_expansion_factor,fontface="bold")),
                                        show_row_dend = FALSE, show_column_dend = FALSE, cluster_rows = cluster_rows,
                                        cluster_columns = FALSE, show_heatmap_legend = FALSE,
-                                       column_title_gp = gpar(fontsize=hm_title_size), column_title_side = "top",
+                                       row_names_gp = gpar(fontsize=12*text_expansion_factor),
+                                       column_title_gp = gpar(fontsize=14*text_expansion_factor, vjust = 20), column_title_side = "top",
                                        show_column_names = FALSE, row_names_side = "left", cluster_column_slices = FALSE)
     }
     if(get_legend) {
@@ -923,17 +940,18 @@ seurat_mean_count_hm <- function(seurat_object,
                            labels = c("low", "high"), col_fun = col_fun,
                            legend_height=unit(3,"cm"),
                            grid_width=unit(0.6,"cm"),title_position="topleft",
-                           labels_gp=gpar(fontsize=14),
-                           title_gp=gpar(fontsize=0,fontface="bold"))
+                           labels_gp=gpar(fontsize=14*text_expansion_factor),
+                           title_gp=gpar(fontsize=0*text_expansion_factor,fontface="bold"))
       discrete_leg <- Legend(at = names(cluster_annotation_color), title = "none",
-                             title_position="topleft", labels_gp=gpar(fontsize=14),
+                             title_position="topleft", labels_gp=gpar(fontsize=14*text_expansion_factor),
                              # title_gp=gpar(fontsize=14,fontface="bold"),
-                             title_gp = gpar(fontsize=0, alpha = 0),
+                             title_gp = gpar(fontsize=0*text_expansion_factor, alpha = 0),
                              legend_gp = gpar(fill = cluster_annotation_color),
                              grid_height = unit(7, "mm"), grid_width = unit(0.6,"cm"))
       return(list(discrete_leg,scaled_leg))
     } else {
-      return(list(hm = grid::grid.grabExpr(draw(outhm)),
+      return(list(out_figure = grid::grid.grabExpr(ComplexHeatmap::draw(outhm)),
+                  hm = outhm,
                   tile_data = large_mat))
     }
   } else {
@@ -944,20 +962,22 @@ seurat_mean_count_hm <- function(seurat_object,
                                      heatmap_legend_param=list(at=round(c(min(range(hm_matrix)),max(range(hm_matrix))),2),
                                                                legend_height=unit(3,"cm"),
                                                                grid_width=unit(0.6,"cm"),title_position="topleft",
-                                                               labels_gp=gpar(fontsize=14),
-                                                               title_gp=gpar(fontsize=15,fontface="bold")),
-                                     show_row_dend = FALSE, row_names_gp=gpar(fontsize=13,fontface="bold"),
-                                     column_names_gp = gpar(fontsize=hm_title_size,fontface="bold"), column_names_side = "top")
+                                                               labels_gp=gpar(fontsize=14*text_expansion_factor),
+                                                               title_gp=gpar(fontsize=15*text_expansion_factor,fontface="bold")),
+                                     show_row_dend = FALSE, row_names_gp=gpar(fontsize=13*text_expansion_factor,fontface="bold"),
+                                     row_names_gp = gpar(fontsize=12*text_expansion_factor),
+                                     column_names_gp = gpar(fontsize=14,fontface="bold"), column_names_side = "top")
     if(get_legend) {
       scaled_leg <- Legend(at=round(c(min(range(large_mat)),max(range(large_mat))),2),
                            labels = c("low", "high"), col_fun = col_fun,
                            legend_height=unit(3,"cm"),
                            grid_width=unit(0.6,"cm"),title_position="topleft",
-                           labels_gp=gpar(fontsize=14),
-                           title_gp=gpar(fontsize=0,fontface="bold"))
+                           labels_gp=gpar(fontsize=14*text_expansion_factor),
+                           title_gp=gpar(fontsize=0*text_expansion_factor,fontface="bold"))
       return(scaled_leg)
     } else {
-      return(list(hm = grid::grid.grabExpr(draw(outhm)),
+      return(list(out_figure = grid::grid.grabExpr(ComplexHeatmap::draw(outhm)),
+                  hm = outhm,
                   tile_data = hm_matrix))
     }
   }

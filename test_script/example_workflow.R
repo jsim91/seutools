@@ -152,9 +152,23 @@ sfvt_1 <- seutools::seurat_feature_violin_test(seurat_object = seu,
 
 # testing seutools::seurat_mean_count_hm()
 library(ggplot2)
+library(Matrix)
+library(seutools)
+library(Seurat)
+library(SeuratObject)
 
 seu <- readRDS(file = "J:/U54_grant/sc/inputs/pbmc_flu_seurat_object_all.rds")
 seu_adt <- readRDS(file = "J:/U54_grant/sc/inputs/pbmc_flu_adt_seurat_object.rds")
+
+ref <- list('T cell' = 'CM_CD4',
+            'Myeloid' = 'Mono',
+            'T cell' = 'EM_CD8',
+            'T cell' = 'MAIT/gd')
+annocol <- c('T cell' = 'red',
+             'Myeloid' = 'blue',
+             'T cell' = 'red',
+             'T cell' = 'red',
+             'other' = 'grey')
 
 smch <- seutools::seurat_mean_count_hm(seurat_object = seu,
                                        assay = 'RNA',
@@ -162,16 +176,16 @@ smch <- seutools::seurat_mean_count_hm(seurat_object = seu,
                                        plot_clusters = c('CM_CD4','Mono','EM_CD8','MAIT/gd'),
                                        pid_column = 'pid',
                                        gene_set = c('CD8A','TNF','IL7R','IL32','SELL','LEF1','CD14','CLEC12A','TRAV1-2'),
-                                       # low_mid_high_cols = c("#DA29D9","black","#fff176"),
                                        low_mid_high_cols = c("#1976D2","black","#FF1D23"),
                                        scale_per_gene = TRUE,
                                        cluster_rows = FALSE,
                                        auto_order_genes = TRUE,
                                        get_legend = FALSE,
                                        split_by_pid = TRUE,
-                                       cluster_annotation_color = NULL,
-                                       cluster_annotation_ref = "none")
-ggsave(filename = "flu_mean_hm_1.pdf", plot = smch$hm, device = "pdf", path = "J:/U54_grant/sc/out_figures",
+                                       text_expansion_factor = 0.5,
+                                       cluster_annotation_color = annocol, # or NULL
+                                       cluster_annotation_ref = ref)
+ggsave(filename = "flu_mean_hm_1.pdf", plot = smch$out_figure, device = "pdf", path = "J:/U54_grant/sc/out_figures",
        width = 5, height = 2, units = "in", dpi = 300, limitsize = F, bg = "white")
 
 

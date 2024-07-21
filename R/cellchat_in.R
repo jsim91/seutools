@@ -1,6 +1,6 @@
 cellchat_netAnalysis_signalingRole_heatmap <- function(object, signaling = NULL, pattern = c("outgoing", "incoming", "all"),
                                                        slot.name = "netP", color.use = NULL, color.heatmap = "BuGn", title = NULL,
-                                                       font.size = 8, font.size.title = 10, cluster.rows = FALSE, cluster.cols = FALSE) {
+                                                       font.size.expansion = 1, cluster.rows = FALSE, cluster.cols = FALSE) {
   pattern <- match.arg(pattern)
   if (length(slot(object, slot.name)$centr) == 0) {
     stop("Please run `netAnalysis_computeCentrality` to compute the network centrality scores! ")
@@ -73,13 +73,15 @@ cellchat_netAnalysis_signalingRole_heatmap <- function(object, signaling = NULL,
                 name = "Relative strength", bottom_annotation = col_annotation,
                 top_annotation = ha2, right_annotation = ha1, cluster_rows = cluster.rows,
                 cluster_columns = cluster.rows, row_names_side = "left",
-                row_names_rot = 0, row_names_gp = gpar(fontsize = font.size),
-                column_names_gp = gpar(fontsize = font.size), column_title = title,
-                column_title_gp = gpar(fontsize = font.size.title),
-                column_names_rot = 90, heatmap_legend_param = list(title_gp = gpar(fontsize = 8, fontface = "plain"),
-                                                                   title_position = "leftcenter-rot", border = NA,
-                                                                   at = legend.break, legend_height = unit(20, "mm"),
-                                                                   labels_gp = gpar(fontsize = 8), grid_width = unit(2,"mm")))
+                row_names_rot = 0, row_names_gp = gpar(fontsize = 8*font.size.expansion),
+                column_names_gp = gpar(fontsize = 8*font.size.expansion), column_title = title,
+                column_title_gp = gpar(fontsize = 10*font.size.expansion),
+                rect_gp = gpar(lwd = 0.2, col = "black"), border = "black",
+                column_names_rot = 90, heatmap_legend_param = list(title_gp = gpar(fontsize = 8*font.size.expansion, fontface = "plain"),
+                                                                   title_position = "leftcenter-rot", border = "black",
+                                                                   at = legend.break, legend_height = unit(20, "mm"), grid_width = unit(2.5*font.size.expansion, "mm"),
+                                                                   legend_height = unit(24*font.size.expansion, "mm"), labels_gp = gpar(fontsize = 10*font.size.expansion),
+                                                                   labels_gp = gpar(fontsize = 8*font.size.expansion)))
   return(ht1)
 }
 
