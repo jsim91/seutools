@@ -612,81 +612,47 @@ seurat_footprint <- function(seurat_object, cluster_column, pid_column, conditio
 }
 
 
-mean_count_hm <- function(exprs_matrix, cluster_numbers, include_clusters, gene_set, pid,
-                          low_mid_high_cols = c("#DA29D9","black","#fff176"), show_other = TRUE,
-                          scale_per_gene = TRUE, split_by_pid = TRUE, cluster_rows = FALSE,
-                          cluster_annotation_ref = "none", cluster_annotation_color = NA,
-                          prefix_cluster = TRUE, auto_order_genes = FALSE, get_legend = FALSE)
+seurat_mean_count_hm <- function(seurat_object,
+                                 assay = 'RNA',
+                                 cluster_column = 'cell_type',
+                                 plot_clusters = c('CM_CD4','EM_CD8'),
+                                 pid_column = 'pid',
+                                 gene_set = c('CD8A','TNF','IL7R','IL32','SELL','LEF1'),
+                                 low_mid_high_cols = c("#DA29D9","black","#fff176"),
+                                 scale_per_gene = TRUE,
+                                 cluster_rows = FALSE,
+                                 auto_order_genes = TRUE,
+                                 get_legend = FALSE,
+                                 split_by_pid = TRUE,
+                                 cluster_annotation_color = NULL,
+                                 cluster_annotation_ref = "none")
 {
   require(ComplexHeatmap)
   require(grid)
-  library(circlize)
+  require(circlize)
+  # need to update so that bar annotation across top is working correctly
 
   # testing
-  # exprs_matrix = readRDS("J:/10x/TB7233/TNK_server_exports/TNK_RNA_exprs_data.rds")$rna_data;
-  # cluster_numbers = meta$seurat_clusters
-  # include_clusters = c(14,23,31,34,21,28,25)
+  # seurat_object <- seu
+  # assay <- 'RNA'
+  # cluster_column <- 'cell_type'
+  # plot_clusters <- c('CM_CD4','EM_CD8')
+  # pid_column <- 'pid'
+  # gene_set <- c('CD8A','TNF','IL7R','IL32','SELL','LEF1')
+  # low_mid_high_cols <- c("#DA29D9","black","#fff176")
+  # scale_per_gene <- TRUE
+  # cluster_rows <- FALSE
+  # auto_order_genes <- TRUE
+  # get_legend <- FALSE
+  # split_by_pid <- TRUE
+  # cluster_annotation_ref <- "none"
+  # cluster_annotation_color = NULL
 
-  # exprs_matrix = rna_exprs_data
-  # cluster_numbers = meta$seurat_clusters
-  # include_clusters = c(14,23,31,34,21,28)
-  # gene_set = unique(prio_genes)
-  # pid = meta$ptid
-  # low_mid_high_cols = c("#313695","#FFFFBF","#A50026")
-  # scale_per_gene = TRUE
-  # split_by_pid = TRUE
-  # show_other = FALSE
-  # cluster_rows = FALSE
-  # prefix_cluster = TRUE
-  # cluster_annotation_ref = list('CD4 T cell' = c(14,23,31), 'NK' = c(21,28), 'MAIT/gdT' = 34)
-  # cluster_annotation_color = c("CD4 T cell" = "red", "MAIT/gdT" = "orange", "NK" = "blue")
-  # auto_order_genes = TRUE
-  # get_legend = FALSE
+  cluster_numbers <- seurat_object@meta.data[,cluster_column]
+  exprs_matrix <- seurat_object[[assay]]$data
+  pid <- seurat_object@meta.data[,pid_column]
 
-  # pathways_2 <- as.data.frame(readxl::read_xlsx(path = "J:/10x/TB7233/TNK7233_outs/pathways_and_genes.xlsx",
-  #                                               sheet = 2))
-  # gene_set <- strsplit(x = pathways_2$geneID[grep("R-HSA-168898",pathways_2$ID)], split = "/")[[1]]
-
-  # gene_set = unique(prio_genes)
-  # pid = meta$soc_b_id
-  # low_mid_high_cols = c("#DA29D9","#000000","#fff176");
-  # low_mid_high_cols = c(PurpleAndYellow()[1],"black",PurpleAndYellow()[length(PurpleAndYellow())]);
-  # scale_per_gene = TRUE
-  # split_by_pid = TRUE
-  # cluster_annotation_ref <- list('CD4' = c(14,23,31), 'NK' = c(21,28), 'MAIT/gdT' = 34)
-  # cluster_annotation_color <- c("CD4" = "red", "NK" = "blue", "MAIT/gdT" = "orange")
-  # show_other = FALSE; prefix_cluster = FALSE
-
-  # testing
-  # exprs_matrix = readRDS("./TNK_server_exports/TNK_RNA_exprs_data.rds")$rna_data;
-  # cluster_numbers =meta$seurat_clusters; include_clusters = "all";
-  # gene_set = unique(prio_genes); scale_per_gene = TRUE
-
-  # testing no cluster
-  # exprs_matrix = readRDS("./TNK_server_exports/TNK_RNA_exprs_data.rds")$rna_data;
-  # cluster_numbers = meta$seurat_clusters;
-  # include_clusters = hm_clusters;
-  # gene_set = top_genes_hm; pid = meta$soc_b_id;
-  # low_mid_high_cols = c(Seurat::PurpleAndYellow()[1],"black",
-  #                       Seurat::PurpleAndYellow()[length(Seurat::PurpleAndYellow())]);
-  # scale_per_gene = TRUE; split_by_pid = TRUE; cluster_rows = FALSE
-  # cluster_annotation_ref <- list('CD4' = c(14,23,31), 'NK' = c(21,28), 'MAIT/gdT' = 34)
-  # cluster_annotation_color <- c("CD4" = "red", "NK" = "blue", "MAIT/gdT" = "orange")
-  # show_other = FALSE; prefix_cluster = FALSE
-
-  # testing
-  # exprs_matrix = hm_data
-  # cluster_numbers = hm_clusters
-  # include_clusters <- gsub(pattern = "_", replacement = "-", x = names(rename_clus))
-  # gene_set = unique(prio_genes); pid = hm_pid
-  # low_mid_high_cols = c("#313695","#FFFFBF","#A50026")
-  # scale_per_gene = TRUE; split_by_pid = TRUE; show_other = FALSE
-  # cluster_rows = FALSE; prefix_cluster = TRUE
-  # cluster_annotation_ref = list('CD4 T cell' = c("CD4-1", "CD4-2", "CD4-3"), 'NK' = c("NK-1","NK-2"), 'MAIT/gdT' = "MAIT/gdT")
-  # cluster_annotation_color = c("CD4 T cell" = "red", "MAIT/gdT" = "orange", "NK" = "blue")
-  # auto_order_genes = TRUE; get_legend = FALSE
-
-  # include_clusters <- include_clusters[order(include_clusters)]
+  include_clusters <- plot_clusters[order(plot_clusters)]
   matrix_keep_row <- which(row.names(exprs_matrix) %in% gene_set)
   gene_set_in <- gene_set[which(gene_set %in% row.names(exprs_matrix))]
   if(length(gene_set_in)==0) {
@@ -741,28 +707,15 @@ mean_count_hm <- function(exprs_matrix, cluster_numbers, include_clusters, gene_
           hm_groups <- append(hm_groups, rep(x = include_clusters[i], times = length(upid)))
         }
       }
-      if(prefix_cluster) {
-        hm_groups <- paste0("cluster ",hm_groups)
-        hm_groups <- c(hm_groups, rep(x = "other", times=length(upid)))
-        hm_groups <- factor(hm_groups,levels=c(paste0("cluster ",include_clusters),"other"))
-        if(!show_other) {
-          other_ind <- which(hm_groups=="other")
-          if(length(other_ind)!=0) {
-            large_mat <- large_mat[,-other_ind]
-            hm_groups <- hm_groups[-other_ind]
-          }
-        }
-      } else {
-        hm_groups <- c(hm_groups, rep(x = "other", times=length(upid)))
-        hm_groups <- factor(hm_groups,levels=c(include_clusters,"other"))
-        if(!show_other) {
-          other_ind <- which(hm_groups=="other")
-          if(length(other_ind)!=0) {
-            large_mat <- large_mat[,-other_ind]
-            hm_groups <- hm_groups[-other_ind]
-          }
-        }
-      }
+      hm_groups <- c(hm_groups, rep(x = "other", times=length(upid)))
+      hm_groups <- factor(hm_groups,levels=c(include_clusters,"other"))
+      # if(!show_other) {
+      #   other_ind <- which(hm_groups=="other")
+      #   if(length(other_ind)!=0) {
+      #     large_mat <- large_mat[,-other_ind]
+      #     hm_groups <- hm_groups[-other_ind]
+      #   }
+      # }
       if(auto_order_genes) {
         unique_col <- as.character(unique(hm_groups))
         mean_expr_matrix <- matrix(data = NA, nrow = nrow(large_mat), ncol = length(unique_col))
@@ -907,6 +860,14 @@ mean_count_hm <- function(exprs_matrix, cluster_numbers, include_clusters, gene_
       }
     }
   }
+  if(is.null(cluster_annotation_color[1])) {
+    gg_color_hue <- function(n) {
+      hues = seq(15, 375, length = n + 1)
+      hcl(h = hues, l = 65, c = 100)[1:n]
+    }
+    cluster_annotation_color <- gg_color_hue(length(split_clus_mats))
+    names(cluster_annotation_color) <- names(split_clus_mats)
+  }
   if(split_by_pid) {
     col_fun = colorRamp2(breaks = c(min(range(large_mat)), mean(range(large_mat)), max(range(large_mat))),
                          colors = low_mid_high_cols)
@@ -973,7 +934,10 @@ mean_count_hm <- function(exprs_matrix, cluster_numbers, include_clusters, gene_
                   tile_data = large_mat))
     }
   } else {
+    col_fun = colorRamp2(breaks = c(min(range(hm_matrix)), mean(range(hm_matrix)), max(range(hm_matrix))),
+                         colors = low_mid_high_cols)
     outhm <- ComplexHeatmap::Heatmap(name = "feature\nmean\ncount", matrix = hm_matrix, cluster_rows = cluster_rows,
+                                     col = col_fun,
                                      heatmap_legend_param=list(at=round(c(min(range(hm_matrix)),max(range(hm_matrix))),2),
                                                                legend_height=unit(3,"cm"),
                                                                grid_width=unit(0.6,"cm"),title_position="topleft",
@@ -1607,7 +1571,8 @@ seurat_feature_violin_test <- function(seurat_object,
                                        text_expansion = 1,
                                        condition = "media",
                                        condition_cat = "condition",
-                                       test_cat = "age_group") {
+                                       test_cat = "age_group",
+                                       test_method = "wilcox") {
   # testing
   # seurat_object = seu
   # plot_features = c("TRAV1-2","CD8A","CLEC12A","CD79A")
@@ -1662,12 +1627,14 @@ seurat_feature_violin_test <- function(seurat_object,
   violin_internal <- function(indata,
                               texp = text_expansion,
                               nudge_nz = nudge_nonzero,
-                              yle = y_limit_expansion_factor) {
+                              yle = y_limit_expansion_factor,
+                              tm = test_method) {
     # testing
     # indata <- spl_mat[[1]]
     # texp = text_expansion
     # nudge_nz = nudge_nonzero
     # yle = y_limit_expansion_factor
+    # tm = test_method
 
     require(ggrastr)
     require(ggpubr)
@@ -1685,8 +1652,12 @@ seurat_feature_violin_test <- function(seurat_object,
 
     expand_out <- max(indata$ct)*(yle/max(indata$ct) + 1)
 
-    test_res <- rstatix::wilcox_test(data = indata, formula = ct ~ add_col, paired = FALSE, comparisons = comps)
-    test_res <- rstatix::add_y_position(test = test_res, step.increase = 0)
+    if(tm=="wilcox") {
+      test_res <- rstatix::wilcox_test(data = indata, formula = ct ~ add_col, paired = FALSE, comparisons = comps)
+      test_res <- rstatix::add_y_position(test = test_res, step.increase = 0)
+    } else {
+      stop("only wilcox testing supported for now")
+    }
 
     plt <- ggplot() +
       geom_violin(data = indata, aes(x = add_col, y = ct, fill = test_cat), scale = "width", trim = TRUE, alpha = 0.7) +
@@ -1838,79 +1809,6 @@ test_clusters_cat <- function(pid, clusters, condition, cat, stat_compares, y_ax
                      yax_lab = y_axis_subset, over_col = color_map,
                      ptsize = point_size, ysm = y_stretch_method)
   return(outplots)
-}
-
-scvi_volcano <- function(indata, plotx = c("lfc","fc"), gene_set = "none", text_size_factor = 1) #order_by = "fold", # gene_set one of c("none","all","top n") or 1d-array of genes to label // sort_by one of c("fold","bayes")
-{
-  library(ggplot2)
-  library(ggrepel)
-  library(stringr)
-  # testing
-  # indata <- dge_list$cl17
-  # plotx = c("lfc","fc")
-  # gene_set = "top5"
-  # text_size_factor = 1
-  # order_by = "fc"
-
-  if(length(plotx)!=1) {
-    plotx <- "lfc"
-  }
-
-  df_segment <- data.frame(
-    xstart = c(0,min(min(indata$lfc_mean),0)),
-    xend = c(0,max(indata$lfc_mean)),
-    ystart = c(min(min(indata$bayes_factor),0),min(min(indata$bayes_factor),0)),
-    yend = c(max(indata$bayes_factor),min(min(indata$bayes_factor),0))
-  )
-
-  if(length(gene_set)==1) {
-    if(gene_set=="all") {
-      labdata <- indata
-    } else if(regexpr(pattern = "top", text = gene_set)!=-1) {
-      topn <- as.numeric(stringr::str_extract(string = gene_set, pattern = "[0-9]+"))
-      indata_n <- indata[which(indata$lfc_mean<0),]
-      indata_p <- indata[which(indata$lfc_mean>0),]
-      if(nrow(indata_n)<topn) {
-        lows_lfc <- indata_n$gene[order(indata_n$lfc_mean, decreasing = FALSE)][1:nrow(indata_n)]
-        lows_bf <- indata_n$gene[order(indata_n$bayes_factor, decreasing = TRUE)][1:nrow(indata_n)]
-      } else {
-        lows_lfc <- indata_n$gene[order(indata_n$lfc_mean, decreasing = FALSE)][1:topn]
-        lows_bf <- indata_n$gene[order(indata_n$bayes_factor, decreasing = TRUE)][1:topn]
-      }
-      if(nrow(indata_p)<topn) {
-        highs_lfc <- indata_p$gene[order(indata_p$lfc_mean, decreasing = TRUE)][1:nrow(indata_p)]
-        highs_bf <- indata_p$gene[order(indata_p$bayes_factor, decreasing = TRUE)][1:nrow(indata_p)]
-      } else {
-        highs_lfc <- indata_p$gene[order(indata_p$lfc_mean, decreasing = TRUE)][1:topn]
-        highs_bf <- indata_p$gene[order(indata_p$bayes_factor, decreasing = TRUE)][1:topn]
-      }
-      labdata <- indata[which(indata$gene %in% c(lows_lfc, lows_bf, highs_lfc, highs_bf)),]
-    }
-  } else {
-    labdata <- indata[which(indata$gene %in% gene_set),]
-  }
-
-  plt <- ggplot() +
-    geom_segment(data = df_segment, mapping = aes(x = xstart, y = ystart, xend = xend, yend = yend), lwd = 0.2) +
-    geom_point(data = indata, mapping = aes(x = lfc_mean, y = bayes_factor), pch = 21, stroke = 0.3, color = "black", size = 1) +
-    theme_minimal() +
-    labs(x = "logFC", y = "bayes factor", title = indata$group1[1]) +
-    theme(axis.title = element_text(size = 15*text_size_factor),
-          axis.text = element_text(size = 12*text_size_factor),
-          plot.title = element_text(size = 18*text_size_factor, hjust = 0.5))
-  if(gene_set[1]!="none" && nrow(labdata)!=0) {
-    plt <- plt +
-      geom_point(data = labdata,
-                 mapping = aes(x = lfc_mean, y = bayes_factor),
-                 pch = 21, fill = "red", color = "black", stroke = 0.3, size = 2) +
-      ggrepel::geom_label_repel(data = labdata,
-                                mapping = aes(x = lfc_mean, y = bayes_factor,
-                                              label = gene), seed = 123,
-                                max.overlaps = 15, size = 4*text_size_factor,
-                                verbose = FALSE, color = "red", fontface = "bold")
-  }
-  # plt
-  return(plt)
 }
 
 seurat_dge <- function(seurat_object,
