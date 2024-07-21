@@ -4,11 +4,12 @@ heatmap_calculate <- function(seurat_obj, gene_set, set_name, clusters)
   require(FCSimple)
   require(ggplot2)
 
-  # seurat_obj = sobj
-  # gene_set = gene_set_list[[8]]
-  # gene_set = gene_set_list[["Cytokine Signaling"]]
-  # clusters = c(14,23,31)
-  # set_name = "Cytokine Signaling"
+  # testing
+  # seurat_obj = seu
+  # gene_set = c("")
+  # set_name =
+  # clusters =
+
 
   ct = seurat_obj@assays[["RNA"]]@data
 

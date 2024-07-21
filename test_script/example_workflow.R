@@ -149,6 +149,24 @@ sfvt_1 <- seutools::seurat_feature_violin_test(seurat_object = seu,
                                                condition_cat = "condition",
                                                test_cat = "age_group")
 
+
+# testing seutools::seurat_mean_count_hm()
+smch <- seutools::seurat_mean_count_hm(seurat_object = seu,
+                                       assay = 'RNA',
+                                       cluster_column = 'cell_type',
+                                       plot_clusters = c('CM_CD4','Mono','EM_CD8','MAIT/gd'),
+                                       pid_column = 'pid',
+                                       gene_set = c('CD8A','TNF','IL7R','IL32','SELL','LEF1','CD14','CLEC12A','TRAV1-2'),
+                                       low_mid_high_cols = c("#DA29D9","black","#fff176"),
+                                       scale_per_gene = TRUE,
+                                       cluster_rows = FALSE,
+                                       auto_order_genes = TRUE,
+                                       get_legend = FALSE,
+                                       split_by_pid = TRUE,
+                                       cluster_annotation_color = NULL,
+                                       cluster_annotation_ref = "none")
+
+
 # testing seutools::seurat_dge()
 seu <- readRDS(file = "J:/U54_grant/sc/inputs/pbmc_flu_seurat_object_all.rds")
 seu_adt <- readRDS(file = "J:/U54_grant/sc/inputs/pbmc_flu_adt_seurat_object.rds")
