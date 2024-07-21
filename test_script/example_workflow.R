@@ -151,6 +151,11 @@ sfvt_1 <- seutools::seurat_feature_violin_test(seurat_object = seu,
 
 
 # testing seutools::seurat_mean_count_hm()
+library(ggplot2)
+
+seu <- readRDS(file = "J:/U54_grant/sc/inputs/pbmc_flu_seurat_object_all.rds")
+seu_adt <- readRDS(file = "J:/U54_grant/sc/inputs/pbmc_flu_adt_seurat_object.rds")
+
 smch <- seutools::seurat_mean_count_hm(seurat_object = seu,
                                        assay = 'RNA',
                                        cluster_column = 'cell_type',
@@ -165,6 +170,8 @@ smch <- seutools::seurat_mean_count_hm(seurat_object = seu,
                                        split_by_pid = TRUE,
                                        cluster_annotation_color = NULL,
                                        cluster_annotation_ref = "none")
+ggsave(filename = "flu_mean_hm_1.pdf", plot = smch$hm, device = "pdf", path = "J:/U54_grant/sc/out_figures",
+       width = 10, height = 5, units = "in", dpi = 300, limitsize = F, bg = "white")
 
 
 # testing seutools::seurat_dge()

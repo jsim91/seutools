@@ -955,7 +955,7 @@ seurat_mean_count_hm <- function(seurat_object,
                            title_gp=gpar(fontsize=0,fontface="bold"))
       return(scaled_leg)
     } else {
-      return(list(hm = outhm,
+      return(list(hm = grid::grid.grabExpr(draw(outhm)),
                   tile_data = hm_matrix))
     }
   }
