@@ -1601,7 +1601,8 @@ seurat_feature_violin_test <- function(seurat_object,
                                        rotate_x = TRUE,
                                        comparison_list = NULL,
                                        apply_p.adjust = TRUE,
-                                       add_pvalue_step = FALSE)
+                                       add_pvalue_step = FALSE,
+                                       show_quantiles = TRUE)
 {
   # testing
   # seurat_object = seu_rna
@@ -1673,7 +1674,8 @@ seurat_feature_violin_test <- function(seurat_object,
                               comps = comparison_list,
                               cond = condition,
                               apa = apply_p.adjust,
-                              astep = add_pvalue_step) {
+                              astep = add_pvalue_step,
+                              shq = show_quantiles) {
     # testing
     # indata = spl_mat[[4]]
     # texp = text_expansion
@@ -1761,17 +1763,30 @@ seurat_feature_violin_test <- function(seurat_object,
       test_res <- rstatix::add_y_position(test = test_res, step.increase = 0)
     }
 
-    plt <- ggplot() +
-      geom_violin(data = indata, aes(x = add_col, y = ct, fill = test_cat), scale = "width", trim = TRUE, alpha = 0.7) +
-      ggrastr::geom_jitter_rast(data = indata_jitter, aes(x = add_col, y = ct), width = 0.2, height = 0, size = 1, alpha = 0.5) +
-      # scale_fill_viridis_d() +
-      stat_pvalue_manual(as.data.frame(test_res), label = "p.adj.signif", tip.length = 0.01, size = 7*texp) +
-      theme_minimal() +
-      ylab("normalized count") +
-      theme(legend.position = "none",
-            axis.title.y = element_text(size = 15*texp, face = "bold"),
-            axis.text.x = element_text(size = 15*texp, face = "bold", angle = ifelse(rotx, 90, 0), hjust = 0.5, vjust = 0.5),
-            axis.title.x = element_blank())
+    plt <- ggplot()
+    if(shq) {
+      plt <- plt + geom_violin(data = indata, aes(x = add_col, y = ct, fill = test_cat), scale = "width", trim = TRUE, alpha = 0.7, draw_quantiles = TRUE) +
+        ggrastr::geom_jitter_rast(data = indata_jitter, aes(x = add_col, y = ct), width = 0.2, height = 0, size = 1, alpha = 0.5) +
+        # scale_fill_viridis_d() +
+        stat_pvalue_manual(as.data.frame(test_res), label = "p.adj.signif", tip.length = 0.01, size = 7*texp) +
+        theme_minimal() +
+        ylab("normalized count") +
+        theme(legend.position = "none",
+              axis.title.y = element_text(size = 15*texp, face = "bold"),
+              axis.text.x = element_text(size = 15*texp, face = "bold", angle = ifelse(rotx, 90, 0), hjust = 0.5),
+              axis.title.x = element_blank())
+    } else {
+      plt <- plt + geom_violin(data = indata, aes(x = add_col, y = ct, fill = test_cat), scale = "width", trim = TRUE, alpha = 0.7) +
+        ggrastr::geom_jitter_rast(data = indata_jitter, aes(x = add_col, y = ct), width = 0.2, height = 0, size = 1, alpha = 0.5) +
+        # scale_fill_viridis_d() +
+        stat_pvalue_manual(as.data.frame(test_res), label = "p.adj.signif", tip.length = 0.01, size = 7*texp) +
+        theme_minimal() +
+        ylab("normalized count") +
+        theme(legend.position = "none",
+              axis.title.y = element_text(size = 15*texp, face = "bold"),
+              axis.text.x = element_text(size = 15*texp, face = "bold", angle = ifelse(rotx, 90, 0), hjust = 0.5),
+              axis.title.x = element_blank())
+    }
     if(!is.null(cond)) {
       plt <- plt + ggtitle(paste0("**",indata$gene[1],"** (",cond,")")) + theme(plot.title = ggtext::element_markdown(size = 18*texp, face = "bold", hjust = 0.5))
     } else {
