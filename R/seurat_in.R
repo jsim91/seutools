@@ -1652,7 +1652,7 @@ seurat_feature_violin_test <- function(seurat_object,
   violin_internal <- function(indata,
                               texp = text_expansion,
                               nudge_nz = nudge_nonzero,
-                              yle = y_limit_expansion_factor,
+                              # yle = y_limit_expansion_factor,
                               tm = test_method) {
     # testing
     # indata <- spl_mat[[1]]
@@ -1675,7 +1675,7 @@ seurat_feature_violin_test <- function(seurat_object,
     }
     indata_jitter <- indata[which(indata$ct!=0),]
 
-    expand_out <- max(indata$ct)*(yle/max(indata$ct) + 1)
+    # expand_out <- max(indata$ct)*(yle/max(indata$ct) + 1)
 
     if(tm=="wilcox") {
       test_res <- rstatix::wilcox_test(data = indata, formula = ct ~ add_col, paired = FALSE, comparisons = comps)
