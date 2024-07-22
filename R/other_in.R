@@ -275,3 +275,42 @@ plot_volcano <- function(dge_input, plot_clusters = "all",
 
   return(out_volc)
 }
+
+mast_venns <- function(mast_output, venn_colors = c("#F57336","#32671D","#3398DB","#7B1FA3"),
+                       venn_groups = c("controller","progressor","progr less","progr more"),
+                       repl_patterns = c("^c$","^p$","^l$","^m$")) { # '\n' will be paste0'd in front of repl_patterns, order matches venn_groups
+  require(VennDiagram)
+  #### mast_output should take the form of
+  # "J:/10x/TB_sc/scbp2/r_out_report/mast_Media_dge_permuted_comparisons.rds"
+  ####
+  mast <- mast_output
+  for(i in 1:length(mast)) {
+    mast[[i]] <- append(mast[[i]], list(ct = names(mast)[i]))
+  }
+  venns <- lapply(X = mast, FUN = function(arg1, vc = venn_colors, vg = venn_groups, rp = repl_patterns) {
+    gene_sets <- lapply(X = arg1[1:4], FUN = function(arg2) return(arg2$gene))
+    cat_names <- names(gene_sets)
+    repl_df <- data.frame(var1 = rp, var2 = vg)
+    for(i in 1:length(cat_names)) {
+      tmp_name <- strsplit(x = gsub("mast_","",cat_names[i]), split = "")[[1]]
+      for(j in 1:nrow(repl_df)) {
+        tmp_name[1] <- gsub(pattern = repl_df$var1[j], replacement = paste0(repl_df$var2[j],"\n"), x = tmp_name[1])
+        tmp_name[2] <- gsub(pattern = repl_df$var1[j], replacement = repl_df$var2[j], x = tmp_name[2])
+      }
+      cat_names[i] <- paste0(tmp_name[1], tmp_name[2])
+    }
+    vd <- venn.diagram(x = gene_sets, filename = NULL, category.names = cat_names,
+                       output = TRUE, fill = vc,
+                       cat.cex = 1.25, main = arg1[[5]], main.cex = 2.5)
+    return(vd)
+  })
+  return(venns)
+  #### example of how to plot mast_venns output
+  # pdf(paste0("J:/10x/TB_sc/scbp2/r_figure/venn/",stim_condition,"/",stim_condition,"_mast_dge_overlapping_genes.pdf"), width = 6, height = 6)
+  # lapply(venns, function(gList) {
+  #   grid.newpage()
+  #   grid.draw(gList)
+  # })
+  # dev.off()
+  ####
+}

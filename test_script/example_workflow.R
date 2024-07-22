@@ -198,3 +198,11 @@ seu_adt <- readRDS(file = "J:/U54_grant/sc/inputs/pbmc_flu_adt_seurat_object.rds
 seu <- readRDS(file = "J:/U54_grant/sc/inputs/pbmc_flu_seurat_object_all.rds")
 seu_adt <- readRDS(file = "J:/U54_grant/sc/inputs/pbmc_flu_adt_seurat_object.rds")
 
+
+cc <- readRDS(file = "J:/10x/TB_sc/scbp2/final_annotations_outs/cellchat/GRV_p_cluster_less4_more3/cellchat_p_GRV.rds")
+cc_list <- readRDS(file = "J:/10x/TB_sc/scbp2/final_annotations_outs/cellchat/GRV_p_cluster_less4_more3/cellchat_p_GRV_list.rds")
+lr.union <- union(cc_list[[1]]@net$LRs, cc_list[[2]]@net$LRs)
+cnsh <- cellchat_netAnalysis_signalingRole_heatmap(object = cc_list[[1]], signaling = lr.union, pattern = "outgoing",
+                                                   slot.name = "net", color.use = NULL, color.heatmap = "BuGn", title = NULL,
+                                                   font.size.expansion = 1, cluster.rows = FALSE, cluster.cols = FALSE)
+cnsh
