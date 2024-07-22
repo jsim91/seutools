@@ -1695,7 +1695,7 @@ seurat_feature_violin_test <- function(seurat_object,
       theme(legend.position = "none",
             axis.text.y = element_text(size = 14*texp),
             axis.title.y = element_text(size = 15*texp, face = "bold"),
-            axis.text.x = element_text(size = 15*texp, face = "bold"),
+            axis.text.x = element_text(size = 15*texp, face = "bold", angle = 90, hjust = 0.5, vjust = 0.5),
             axis.title.x = element_blank(),
             plot.title = element_text(size = 18*texp, face = "bold", hjust = 0.5))
     return(plt)
@@ -1824,7 +1824,7 @@ test_clusters_cat <- function(pid, clusters, condition, cat, stat_compares, y_ax
       theme_minimal() +
       theme(axis.title.x = element_blank(),
             axis.title.y = element_text(size = 23*tsf, color = "black"),
-            axis.text.x = element_text(size = 18*tsf, face = "bold", color = "black", angle = 90, hjust = 0.5, vjust = 0.5),
+            axis.text.x = element_text(size = 18*tsf, face = "bold", color = "black"),
             axis.text.y = element_text(size = 20*tsf),
             plot.title = element_text(size = 25*tsf, hjust = 0.5, face = "bold"),
             legend.position = "none")
