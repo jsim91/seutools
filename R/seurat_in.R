@@ -1597,7 +1597,8 @@ seurat_feature_violin_test <- function(seurat_object,
                                        condition = "media",
                                        condition_cat = "condition",
                                        test_cat = "age_group",
-                                       test_method = "wilcox") {
+                                       test_method = "wilcox",
+                                       rotate_x = TRUE) {
   # testing
   # seurat_object = seu
   # plot_features = c("TRAV1-2","CD8A","CLEC12A","CD79A")
@@ -1653,7 +1654,8 @@ seurat_feature_violin_test <- function(seurat_object,
                               texp = text_expansion,
                               nudge_nz = nudge_nonzero,
                               # yle = y_limit_expansion_factor,
-                              tm = test_method) {
+                              tm = test_method,
+                              rotx = rotate_x) {
     # testing
     # indata <- spl_mat[[1]]
     # texp = text_expansion
@@ -1695,7 +1697,7 @@ seurat_feature_violin_test <- function(seurat_object,
       theme(legend.position = "none",
             axis.text.y = element_text(size = 14*texp),
             axis.title.y = element_text(size = 15*texp, face = "bold"),
-            axis.text.x = element_text(size = 15*texp, face = "bold", angle = 90, hjust = 0.5, vjust = 0.5),
+            axis.text.x = element_text(size = 15*texp, face = "bold", angle = ifelse(rotx, 90, 0), hjust = 0.5, vjust = 0.5),
             axis.title.x = element_blank(),
             plot.title = element_text(size = 18*texp, face = "bold", hjust = 0.5))
     return(plt)
@@ -1708,8 +1710,7 @@ seurat_feature_violin_test <- function(seurat_object,
 test_clusters_cat <- function(pid, clusters, condition, cat, stat_compares, y_axis_subset = "PBMC",
                               coord_stretch_factor = 0.1, text_size_factor = 0.8, color_map = NA,
                               dot_size = 0.5, bin_width = 0.5, point_size = 1, x_levels = NA,
-                              subtract_background = FALSE, y_stretch_method = c("multiply","add"),
-                              rotate_x = TRUE) {
+                              subtract_background = FALSE, y_stretch_method = c("multiply","add")) {
   require(ggplot2)
   require(ggpubr)
 
@@ -1786,7 +1787,7 @@ test_clusters_cat <- function(pid, clusters, condition, cat, stat_compares, y_ax
 
   iter_boxpl <- function(arg1, tsf = text_size_factor, my_compares = stat_compares, ptsize = point_size,
                          csf = coord_stretch_factor, yax_lab = y_axis_subset, over_col = color_map,
-                         ysm = y_stretch_method, xlev = x_levels, xrot = rotate_x) {
+                         ysm = y_stretch_method, xlev = x_levels) {
     # testing
     # arg1 <- melted_list[[1]]
     # tsf = text_size_factor
