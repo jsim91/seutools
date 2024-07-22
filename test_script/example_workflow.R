@@ -208,16 +208,21 @@ cnsh <- cellchat_netAnalysis_signalingRole_heatmap(object = cc_list[[1]], signal
 
 
 obj <- readRDS(file = "J:/10x/TB_sc/scbp2/final_annotations_outs/cellchat/GRV_p_cluster_less4_more3/cellchat_p_GRV.rds"); names(obj@var.features)
-# obj <- readRDS(file = "J:/10x/TB_sc/scbp2/final_annotations_outs/cellchat/GRV_pc_cluster_contr9_progr7/cellchat_pc_GRV.rds")
-# obj <- readRDS(file = "J:/10x/TB_sc/scbp2/final_annotations_outs/cellchat/Media_cl_cluster_controller11_less5/cellchat_cl_Media.rds")
-# obj <- readRDS(file = "J:/10x/TB_sc/scbp2/final_annotations_outs/cellchat/Media_p_cluster_less5_more3/cellchat_p_Media.rds")
-# obj <- readRDS(file = "J:/10x/TB_sc/scbp2/final_annotations_outs/cellchat/Media_pc_cluster_contr11_progr8/cellchat_pc_Media.rds")
-# obj <- readRDS(file = "J:/10x/TB_sc/scbp2/final_annotations_outs/cellchat/MTB300_p_cluster_less5_more3/cellchat_p_MTB300.rds")
-# obj <- readRDS(file = "J:/10x/TB_sc/scbp2/final_annotations_outs/cellchat/MTB300_pc_cluster_contr11_progr8/cellchat_pc_MTB300.rds")
+obj <- readRDS(file = "J:/10x/TB_sc/scbp2/final_annotations_outs/cellchat/GRV_pc_cluster_contr9_progr7/cellchat_pc_GRV.rds"); names(obj@var.features)
+obj <- readRDS(file = "J:/10x/TB_sc/scbp2/final_annotations_outs/cellchat/Media_cl_cluster_controller11_less5/cellchat_cl_Media.rds"); names(obj@var.features)
+obj <- readRDS(file = "J:/10x/TB_sc/scbp2/final_annotations_outs/cellchat/Media_p_cluster_less5_more3/cellchat_p_Media.rds"); names(obj@var.features)
+obj <- readRDS(file = "J:/10x/TB_sc/scbp2/final_annotations_outs/cellchat/Media_pc_cluster_contr11_progr8/cellchat_pc_Media.rds"); names(obj@var.features)
+obj <- readRDS(file = "J:/10x/TB_sc/scbp2/final_annotations_outs/cellchat/MTB300_p_cluster_less5_more3/cellchat_p_MTB300.rds"); names(obj@var.features)
+obj <- readRDS(file = "J:/10x/TB_sc/scbp2/final_annotations_outs/cellchat/MTB300_pc_cluster_contr11_progr8/cellchat_pc_MTB300.rds"); names(obj@var.features)
 
-merged_hm <- seutools::cellchat_netAnalysis_signalingRole_merged_heatmap(cellchat_object = obj, slot.name = "net", color.use = NULL,
-                                                                         name_vector_key = c("progr_less_4" = "progressor <12mo", "progr_more_3" = "progressor >12mo"),
-                                                                         font.size.expansion = 0.5)
-pdf(file = "J:/10x/TB_sc/scbp2/final_annotations_outs/cellchat/GRV_p_cluster_less4_more3/cellchat_p_GRV_signaling_merge.pdf", width = 16, height = 15)
+what_net <- "net"
+merged_hm <- seutools::cellchat_netAnalysis_signalingRole_merged_heatmap(cellchat_object = obj, slot.name = what_net, color.use = NULL,
+                                                                         name_vector_key = c("progr_less_4"="progressor <12mo","progr_more_3"="progressor",
+                                                                                             "controller_9"="controller","progressor_7"="progressor",
+                                                                                             "controller_11"="controller","progr_less_5"="progressor <12mo",
+                                                                                             "progressor_8"="progressor"),
+                                                                         font.size.expansion = ifelse(what_net=="net",0.5,0.8))
+pdf(file = paste0("J:/10x/TB_sc/scbp2/final_annotations_outs/cellchat/MTB300_pc_cluster_contr11_progr8/cellchat_pc_MTB300_signaling_merge_",what_net,".pdf"),
+    width = ifelse(what_net=="net",16,16), height = ifelse(what_net=="net",15,10))
 merged_hm
 dev.off()

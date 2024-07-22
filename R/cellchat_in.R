@@ -361,7 +361,7 @@ cellchat_netAnalysis_signalingRole_merged_heatmap <- function(cellchat_object,
                          #                           labels_gp=gpar(fontsize=11),title_gp=gpar(alpha = 0, fontsize = 0.1)),
                          row_names_gp=gpar(fontsize=13*font.size.expansion,fontface="bold"), column_title = "Outgoing Signal",
                          column_title_gp = gpar(fontface = "bold", cex = 2*font.size.expansion),
-                         column_names_gp=gpar(fontsize=12*font.size.expansion,fontface="bold"), show_heatmap_legend = FALSE,
+                         column_names_gp=gpar(fontsize=14*font.size.expansion,fontface="bold"), show_heatmap_legend = FALSE,
                          row_gap=unit(1,"mm"),column_gap=unit(1,"mm"),row_dend_gp=gpar(lwd=1.2),row_dend_width=unit(1,"cm"),
                          column_dend_gp = gpar(lwd=1.2), column_dend_height = unit(1,"cm"), rect_gp = gpar(lwd = 0.5, col = "black"), border = "black")
 
@@ -372,7 +372,7 @@ cellchat_netAnalysis_signalingRole_merged_heatmap <- function(cellchat_object,
                         #                           labels_gp=gpar(fontsize=11),title_gp=gpar(alpha = 0, fontsize = 0.1)),
                         row_names_gp=gpar(fontsize=13*font.size.expansion,fontface="bold"), column_title = "Incoming Signal",
                         column_title_gp = gpar(fontface = "bold", cex = 2*font.size.expansion),
-                        column_names_gp=gpar(fontsize=12*font.size.expansion,fontface="bold"), show_heatmap_legend = FALSE,
+                        column_names_gp=gpar(fontsize=14*font.size.expansion,fontface="bold"), show_heatmap_legend = FALSE,
                         row_gap=unit(1,"mm"),column_gap=unit(1,"mm"),row_dend_gp=gpar(lwd=1.2),row_dend_width=unit(1,"cm"),
                         column_dend_gp = gpar(lwd=1.2), column_dend_height = unit(1,"cm"), rect_gp = gpar(lwd = 0.5, col = "black"), border = "black")
 
