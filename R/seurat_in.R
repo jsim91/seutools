@@ -992,7 +992,7 @@ seurat_test_clusters <- function(seurat_object, test_by_column = "condition", pi
                                  connect_points = TRUE, data_paired = TRUE,
                                  return_plots = TRUE, return_plot_data = FALSE,
                                  coord_stretch_factor = 0.11, text_size_factor = 1,
-                                 shape_key = NULL)
+                                 shape_key = NULL, compare_step_distance = 0)
 {
   require(ggplot2)
   require(ggpubr)
@@ -1093,7 +1093,8 @@ seurat_test_clusters <- function(seurat_object, test_by_column = "condition", pi
                               yax_lab = y_axis_subset,
                               csf = coord_stretch_factor,
                               tsf = text_size_factor,
-                              shp = shape_key)
+                              shp = shape_key,
+                              csd = compare_step_distance)
   {
     require(reshape2)
     require(combinat)
@@ -1115,6 +1116,7 @@ seurat_test_clusters <- function(seurat_object, test_by_column = "condition", pi
     # csf = coord_stretch_factor
     # tsf = text_size_factor
     # shp = shape_key
+    # csd = compare_step_distance
 
     if(!is.null(shp[1])) {
       shp <- colnames(shape_key)[which(colnames(shape_key)!=pidc)]
@@ -1168,10 +1170,10 @@ seurat_test_clusters <- function(seurat_object, test_by_column = "condition", pi
     }
     if(dp) {
       pl <- pl +
-        stat_compare_means(paired = TRUE, method = "wilcox", comparisons = compare_these, size = 7.6*tsf)
+        stat_compare_means(paired = TRUE, method = "wilcox", comparisons = compare_these, size = 7.6*tsf, step.increase = csd)
     } else {
       pl <- pl +
-        stat_compare_means(paired = FALSE, method = "wilcox", comparisons = compare_these, size = 7.6*tsf)
+        stat_compare_means(paired = FALSE, method = "wilcox", comparisons = compare_these, size = 7.6*tsf, step.increase = csd)
     }
     pl <- pl + coord_cartesian(ylim = c(min(arg_melt$frequency, na.rm = TRUE), max(arg_melt$frequency, na.rm = TRUE)*(1 + length(compare_these)*csf)))
     pl <- pl +
