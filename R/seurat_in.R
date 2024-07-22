@@ -1600,7 +1600,8 @@ seurat_feature_violin_test <- function(seurat_object,
                                        test_method = "wilcox",
                                        rotate_x = TRUE,
                                        comparison_list = NULL,
-                                       apply_p.adjust = TRUE)
+                                       apply_p.adjust = TRUE,
+                                       add_pvalue_step = FALSE)
 {
   # testing
   # seurat_object = seu_rna
@@ -1671,9 +1672,10 @@ seurat_feature_violin_test <- function(seurat_object,
                               rotx = rotate_x,
                               comps = comparison_list,
                               cond = condition,
-                              apa = apply_p.adjust) {
+                              apa = apply_p.adjust,
+                              astep = add_pvalue_step) {
     # testing
-    # indata = spl_mat[[1]]
+    # indata = spl_mat[[4]]
     # texp = text_expansion
     # # nudge_nz = nudge_nonzero
     # # yle = y_limit_expansion_factor,
@@ -1681,6 +1683,7 @@ seurat_feature_violin_test <- function(seurat_object,
     # rotx = rotate_x
     # comps = comparison_list
     # apa = apply_p.adjust
+    # astep = add_pvalue_step
 
     indata$add_col <- paste0(indata$cat, "\n", indata$test_cat)
     concat_table_names <- names(table(indata$add_col))
@@ -1752,7 +1755,11 @@ seurat_feature_violin_test <- function(seurat_object,
     }
 
     indata_range <- diff(range(indata$ct)) # smaller range = smaller step.increase; larger range = larger step.increase
-    test_res <- rstatix::add_y_position(test = test_res, step.increase = indata_range*.1)
+    if(astep) {
+      test_res <- rstatix::add_y_position(test = test_res, step.increase = indata_range*.1)
+    } else {
+      test_res <- rstatix::add_y_position(test = test_res, step.increase = 0)
+    }
 
     plt <- ggplot() +
       geom_violin(data = indata, aes(x = add_col, y = ct, fill = test_cat), scale = "width", trim = TRUE, alpha = 0.7) +
