@@ -1708,7 +1708,8 @@ seurat_feature_violin_test <- function(seurat_object,
 test_clusters_cat <- function(pid, clusters, condition, cat, stat_compares, y_axis_subset = "PBMC",
                               coord_stretch_factor = 0.1, text_size_factor = 0.8, color_map = NA,
                               dot_size = 0.5, bin_width = 0.5, point_size = 1, x_levels = NA,
-                              subtract_background = FALSE, y_stretch_method = c("multiply","add")) {
+                              subtract_background = FALSE, y_stretch_method = c("multiply","add"),
+                              rotate_x = TRUE) {
   require(ggplot2)
   require(ggpubr)
 
@@ -1785,7 +1786,7 @@ test_clusters_cat <- function(pid, clusters, condition, cat, stat_compares, y_ax
 
   iter_boxpl <- function(arg1, tsf = text_size_factor, my_compares = stat_compares, ptsize = point_size,
                          csf = coord_stretch_factor, yax_lab = y_axis_subset, over_col = color_map,
-                         ysm = y_stretch_method, xlev = x_levels) {
+                         ysm = y_stretch_method, xlev = x_levels, xrot = rotate_x) {
     # testing
     # arg1 <- melted_list[[1]]
     # tsf = text_size_factor
@@ -1823,7 +1824,7 @@ test_clusters_cat <- function(pid, clusters, condition, cat, stat_compares, y_ax
       theme_minimal() +
       theme(axis.title.x = element_blank(),
             axis.title.y = element_text(size = 23*tsf, color = "black"),
-            axis.text.x = element_text(size = 18*tsf, face = "bold", color = "black"),
+            axis.text.x = element_text(size = 18*tsf, face = "bold", color = "black", angle = 90, hjust = 0.5, vjust = 0.5),
             axis.text.y = element_text(size = 20*tsf),
             plot.title = element_text(size = 25*tsf, hjust = 0.5, face = "bold"),
             legend.position = "none")
