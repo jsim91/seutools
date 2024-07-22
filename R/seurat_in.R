@@ -89,6 +89,7 @@ seurat_tile_reduction <- function(seurat_object, condition_column, cluster_colum
   # override_color_aes = NA
   # frameon = FALSE
 
+
   coords <- seurat_object@reductions[[tolower(reduction)]]@cell.embeddings
 
   plot_data <- data.frame(redx = coords[,1], redy = coords[,2],
@@ -131,133 +132,107 @@ seurat_tile_reduction <- function(seurat_object, condition_column, cluster_colum
                        fo = frameon)
   {
     # testing
-    seurat_object = seu_rna
-    condition_column = "condition"
-    cluster_column = "annotation"
-    reduction = "umap"
-    color_clusters = reactive_anno
-    label_clusters = reactive_anno
-    pt_alpha = 0.1
-    text_expansion = 1
-    pt_size = 1
-    color_seed = 123
-    postfix_title_string = NA
-    force_xlim = FALSE
-    force_ylim = FALSE
-    return_as_list = FALSE
-    plot_order = c(1,2,3)
-    annotation_method = "repel"
-    override_color_aes = NA
-    frameon = FALSE
-    xanno = clusx
-    yanno = clusy
+    # input = spl_data[[1]]
+    # color_clus = color_clusters
+    # xanno = clusx
+    # yanno = clusy
+    # palpha = pt_alpha
+    # texp = text_expansion
+    # psize = pt_size
+    # plimx = xrange
+    # plimy = yrange
+    # amethod = annotation_method
+    # cseed = color_seed
+    # oca = override_color_aes
+    # flimx = force_xlim
+    # flimy = force_ylim
+    # pts = postfix_title_string
+    # fo = frameon
 
-    coords <- seurat_object@reductions[[tolower(reduction)]]@cell.embeddings
-
-    plot_data <- data.frame(redx = coords[,1], redy = coords[,2],
-                            cluster = as.character(seurat_object@meta.data[,cluster_column]),
-                            condition = seurat_object@meta.data[,condition_column])
-    unique_clus <- unique(plot_data$cluster)
-    set.seed(color_seed)
-    plot_data$cluster <- factor(x = plot_data$cluster, levels = sample(unique_clus,length(unique_clus),replace=F))
-    xrange <- range(plot_data$redx); yrange = range(plot_data$redy)
-
-    uclus <- unique(plot_data$cluster); uclus <- uclus[order(uclus,decreasing=F)]
-    clusx <- rep(NA,length(uclus)); names(clusx) <- uclus; clusy <- clusx
-    for(i in 1:length(clusx)) {
-      clusx[i] <- median(plot_data$redx[which(plot_data$cluster==names(clusx)[i])])
-      clusy[i] <- median(plot_data$redy[which(plot_data$cluster==names(clusx)[i])])
-    }
-    if(label_clusters[1]!="all") {
-      lab_ind <- which(names(clusx) %in% as.character(label_clusters))
-      if(length(lab_ind)!=0) {
-        clusx <- clusx[lab_ind]
-        clusy <- clusy[lab_ind]
-      } else {
-        clusx <- c(); clusy <- c()
-      }
+    gg_color_hue <- function(n) {
+      hues = seq(15, 375, length = n + 1)
+      hcl(h = hues, l = 65, c = 100)[1:n]
     }
 
-    spl_data <- split(x = plot_data, f = plot_data$condition)
-    ds_to <- min(sapply(X = spl_data, FUN = function(x) return(nrow(x))))
-    for(i in 1:length(spl_data)) {
-      set.seed(123)
-      spl_data[[i]] <- spl_data[[i]][sample(x = 1:nrow(spl_data[[i]]), size = ds_to, replace = FALSE),]
+    if(length(xanno)!=0) {
+      text_add <- data.frame(UMAP1 = xanno, UMAP2 = yanno, cluster = names(xanno))
+    } else {
+      text_add <- as.data.frame(matrix(data=NA,nrow=0,ncol=2))
     }
-
-    plot_red <- function(input, color_clus = color_clusters, xanno = clusx, yanno = clusy,
-                         palpha = pt_alpha, texp = text_expansion, psize = pt_size,
-                         plimx = xrange, plimy = yrange, amethod = annotation_method,
-                         cseed = color_seed,#text_omethod=outline_method,
-                         oca = override_color_aes,
-                         flimx = force_xlim, flimy = force_ylim, pts = postfix_title_string,
-                         fo = frameon)
-    {
-      # testing
-      input = spl_data[[1]]
-      color_clus = color_clusters
-      xanno = clusx
-      yanno = clusy
-      palpha = pt_alpha
-      texp = text_expansion
-      psize = pt_size
-      plimx = xrange
-      plimy = yrange
-      amethod = annotation_method
-      cseed = color_seed
-      oca = override_color_aes
-      flimx = force_xlim
-      flimy = force_ylim
-      pts = postfix_title_string
-      fo = frameon
-
-      gg_color_hue <- function(n) {
-        hues = seq(15, 375, length = n + 1)
-        hcl(h = hues, l = 65, c = 100)[1:n]
-      }
-
-      if(length(xanno)!=0) {
-        text_add <- data.frame(UMAP1 = xanno, UMAP2 = yanno, cluster = names(xanno))
+    # if(length(color_clus)!=0) {
+    if(color_clus[1]!="none") {
+      if(color_clus[1]=="all") {
+        subs_rows <- 1:nrow(text_add)
       } else {
-        text_add <- as.data.frame(matrix(data=NA,nrow=0,ncol=2))
+        subs_rows <- which(text_add$cluster %in% as.character(color_clus))
       }
-      # if(length(color_clus)!=0) {
-      if(color_clus[1]!="none") {
-        if(color_clus[1]=="all") {
-          subs_rows <- 1:nrow(text_add)
-        } else {
-          subs_rows <- which(text_add$cluster %in% as.character(color_clus))
-        }
-        if(length(subs_rows)!=0) {
-          color_text_add <- text_add[subs_rows,]
-          text_add <- text_add[subs_rows,]
+      if(length(subs_rows)!=0) {
+        color_text_add <- text_add[subs_rows,]
+        text_add <- text_add[subs_rows,]
 
-          color_text_add$cluster <- factor(color_text_add$cluster)
-          text_add$cluster <- factor(text_add$cluster)
-          # set.seed(cseed)
-          # color_text_add <- color_text_add[sample(1:nrow(color_text_add),nrow(color_text_add),replace=F),]
-        } else {
-          color_text_add <- matrix(data=NA,nrow=0,ncol=2)
-        }
+        color_text_add$cluster <- factor(color_text_add$cluster)
+        text_add$cluster <- factor(text_add$cluster)
+        # set.seed(cseed)
+        # color_text_add <- color_text_add[sample(1:nrow(color_text_add),nrow(color_text_add),replace=F),]
       } else {
-        if(nrow(text_add)!=0) {
-          text_add$cluster <- factor(text_add$cluster)
-        }
         color_text_add <- matrix(data=NA,nrow=0,ncol=2)
       }
+    } else {
+      if(nrow(text_add)!=0) {
+        text_add$cluster <- factor(text_add$cluster)
+      }
+      color_text_add <- matrix(data=NA,nrow=0,ncol=2)
+    }
 
-      input$cluster <- factor(input$cluster)
-      if(color_clus[1]!="none") {
-        if(color_clus[1]!="all") {
-          foreground <- input[which(input$cluster %in% color_clus),]
-          input <- input[which(!input$cluster %in% color_clus),]
-        } else {
-          foreground <- input
-        }
+    input$cluster <- factor(input$cluster)
+    if(color_clus[1]!="none") {
+      if(color_clus[1]!="all") {
+        foreground <- input[which(input$cluster %in% color_clus),]
+        input <- input[which(!input$cluster %in% color_clus),]
       } else {
+        foreground <- input
+      }
+    } else {
+      plt <- ggplot(data = input, mapping = aes(x = redx, y = redy)) +
+        geom_point(pch = 19, alpha = palpha, size = psize) + theme_void() +
+        xlim(plimx) + ylim(plimy)
+      if(!isFALSE(flimx[1])) {
+        plt <- plt + xlim(flimx)
+      }
+      if(!isFALSE(flimy[1])) {
+        plt <- plt + ylim(flimy)
+      }
+    }
+    if(color_clus[1]!="none") {
+      if(color_clus[1]!="all") {
         plt <- ggplot(data = input, mapping = aes(x = redx, y = redy)) +
           geom_point(pch = 19, alpha = palpha, size = psize) + theme_void() +
           xlim(plimx) + ylim(plimy)
+        plt <- plt + geom_point(data = foreground,
+                                mapping = aes(x = redx, y = redy, color = cluster),
+                                alpha = palpha, size = psize) +
+          guides(color = guide_legend(override.aes = list(size = 6, alpha = 1))) +
+          theme(legend.position = "none",
+                legend.title = element_blank(),
+                legend.text = element_text(size = 16*texp))
+        if(!isFALSE(flimx[1])) {
+          plt <- plt + xlim(flimx)
+        }
+        if(!isFALSE(flimy[1])) {
+          plt <- plt + ylim(flimy)
+        }
+      } else {
+        # plt <- ggplot(data = foreground, mapping = aes(x = UMAP1, y = UMAP2)) +
+        #   geom_point(pch = 19, alpha = palpha, size = psize) + theme_void() +
+        #   xlim(plimx) + ylim(plimy)
+        plt <- ggplot() + theme_void() + xlim(plimx) + ylim(plimy) +
+          geom_point(data = foreground,
+                     mapping = aes(x = redx, y = redy, color = cluster),
+                     alpha = palpha, size = psize) +
+          guides(color = guide_legend(override.aes = list(size = 6, alpha = 1))) +
+          theme(legend.position = "none",
+                legend.title = element_blank(),
+                legend.text = element_text(size = 16*texp))
         if(!isFALSE(flimx[1])) {
           plt <- plt + xlim(flimx)
         }
@@ -265,112 +240,74 @@ seurat_tile_reduction <- function(seurat_object, condition_column, cluster_colum
           plt <- plt + ylim(flimy)
         }
       }
-      if(color_clus[1]!="none") {
-        if(color_clus[1]!="all") {
-          plt <- ggplot(data = input, mapping = aes(x = redx, y = redy)) +
-            geom_point(pch = 19, alpha = palpha, size = psize) + theme_void() +
-            xlim(plimx) + ylim(plimy)
-          plt <- plt + geom_point(data = foreground,
-                                  mapping = aes(x = redx, y = redy, color = cluster),
-                                  alpha = palpha, size = psize) +
-            guides(color = guide_legend(override.aes = list(size = 6, alpha = 1))) +
-            theme(legend.position = "none",
-                  legend.title = element_blank(),
-                  legend.text = element_text(size = 16*texp))
-          if(!isFALSE(flimx[1])) {
-            plt <- plt + xlim(flimx)
-          }
-          if(!isFALSE(flimy[1])) {
-            plt <- plt + ylim(flimy)
-          }
-        } else {
-          # plt <- ggplot(data = foreground, mapping = aes(x = UMAP1, y = UMAP2)) +
-          #   geom_point(pch = 19, alpha = palpha, size = psize) + theme_void() +
-          #   xlim(plimx) + ylim(plimy)
-          plt <- ggplot() + theme_void() + xlim(plimx) + ylim(plimy) +
-            geom_point(data = foreground,
-                       mapping = aes(x = redx, y = redy, color = cluster),
-                       alpha = palpha, size = psize) +
-            guides(color = guide_legend(override.aes = list(size = 6, alpha = 1))) +
-            theme(legend.position = "none",
-                  legend.title = element_blank(),
-                  legend.text = element_text(size = 16*texp))
-          if(!isFALSE(flimx[1])) {
-            plt <- plt + xlim(flimx)
-          }
-          if(!isFALSE(flimy[1])) {
-            plt <- plt + ylim(flimy)
-          }
-        }
-        if(!is.na(oca[1])) {
-          plt <- plt + scale_color_manual(values = oca)
-        }
+      if(!is.na(oca[1])) {
+        plt <- plt + scale_color_manual(values = oca)
       }
-      if(amethod[1]!="none") {
-        if(nrow(text_add)!=0) {
-          if(amethod[1]=="shadowtext") {
-            plt <- plt + annotate("shadowtext", x = color_text_add$UMAP1, y = color_text_add$UMAP2,
-                                  label = color_text_add$cluster, size = 3*texp)
-          } else if(amethod[1]=="repel") {
-            plt <- plt + ggrepel::geom_text_repel(data = color_text_add, mapping = aes(x = UMAP1, y = UMAP2, color = cluster, label = cluster),
-                                                  size = 3*texp, bg.color = "black", bg.r = 0.05, seed = 123)
-          } else if(amethod[1]=="text") {
-            plt <- plt + geom_text(data = color_text_add, mapping = aes(x = UMAP1, y = UMAP2, color = cluster, label = cluster),
-                                   size = 3*texp)
-          }
-        } else if(nrow(color_text_add)!=0) {
-          if(amethod[1]=="shadowtext") {
-            plt <- plt + annotate("shadowtext", x = color_text_add$UMAP1, y = color_text_add$UMAP2,
-                                  label = color_text_add$cluster, size = 3*texp)
-          } else if(amethod[1]=="repel") {
-            plt <- plt + ggrepel::geom_text_repel(data = color_text_add, mapping = aes(x = UMAP1, y = UMAP2, color = cluster, label = cluster),
-                                                  size = 3*texp, bg.color = "black", bg.r = 0.05, seed = 123)
-          } #else if(amethod[1]=="text") {
-          #   if(text_omethod[1]=="nudge") {
-          #     plt <- plt + geom_text(data = color_text_add, mapping = aes(x = UMAP1, y = UMAP2, label = cluster),
-          #                            size = anno_ts, color = "black", nudge_x = 0.005, nudge_y = 0.005) +
-          #       plt <- plt + geom_text(data = color_text_add, mapping = aes(x = UMAP1, y = UMAP2, color = cluster, label = cluster),
-          #                              size = anno_ts)
-          #   } else if(text_omethod[1]=="fontsize") {
-          #     plt <- plt + geom_text(data = color_text_add, mapping = aes(x = UMAP1, y = UMAP2, label = cluster),
-          #                            size = anno_ts*1.05, color = "black") +
-          #       plt <- plt + geom_text(data = color_text_add, mapping = aes(x = UMAP1, y = UMAP2, color = cluster, label = cluster),
-          #                              size = anno_ts)
-          #   }
-          # }
-        }
-      } else {
-        plt <- plt + guides(color = guide_legend(override.aes = list(alpha = 1, stroke = 0.1, size = 6))) +
-          theme(legend.position = "bottom", legend.text = element_text(size = 16*texp), legend.title = element_blank())
-      }
-      plt <- plt + ggtitle(ifelse(!is.na(pts), paste0(input$condition[1]," - ",pts), input$condition[1])) +
-        theme(axis.text = element_blank(),
-              axis.title = element_blank(),
-              plot.title = element_text(hjust = 0.5, size = 26*texp))
-      if(fo) {
-        plt <- plt + theme_bw() + theme(axis.ticks = element_blank(),
-                                        axis.title = element_blank(),
-                                        axis.text = element_blank(),
-                                        legend.title = element_blank(),
-                                        panel.grid.major = element_blank(),
-                                        panel.grid.minor = element_blank())
-      }
-      return(plt)
     }
-
-    out_plots <- lapply(X = spl_data, FUN = plot_red)
-
-    if(return_as_list) {
-      return(out_plots[plot_order])
-    }
-
-    if(!is.na(plot_order[1])) {
-      arr_plot <- ggpubr::ggarrange(plotlist = out_plots[plot_order], nrow = 1)
+    if(amethod[1]!="none") {
+      if(nrow(text_add)!=0) {
+        if(amethod[1]=="shadowtext") {
+          plt <- plt + annotate("shadowtext", x = color_text_add$UMAP1, y = color_text_add$UMAP2,
+                                label = color_text_add$cluster, size = 3*texp)
+        } else if(amethod[1]=="repel") {
+          plt <- plt + ggrepel::geom_text_repel(data = color_text_add, mapping = aes(x = UMAP1, y = UMAP2, color = cluster, label = cluster),
+                                                size = 3*texp, bg.color = "black", bg.r = 0.05, seed = 123)
+        } else if(amethod[1]=="text") {
+          plt <- plt + geom_text(data = color_text_add, mapping = aes(x = UMAP1, y = UMAP2, color = cluster, label = cluster),
+                                 size = 3*texp)
+        }
+      } else if(nrow(color_text_add)!=0) {
+        if(amethod[1]=="shadowtext") {
+          plt <- plt + annotate("shadowtext", x = color_text_add$UMAP1, y = color_text_add$UMAP2,
+                                label = color_text_add$cluster, size = 3*texp)
+        } else if(amethod[1]=="repel") {
+          plt <- plt + ggrepel::geom_text_repel(data = color_text_add, mapping = aes(x = UMAP1, y = UMAP2, color = cluster, label = cluster),
+                                                size = 3*texp, bg.color = "black", bg.r = 0.05, seed = 123)
+        } #else if(amethod[1]=="text") {
+        #   if(text_omethod[1]=="nudge") {
+        #     plt <- plt + geom_text(data = color_text_add, mapping = aes(x = UMAP1, y = UMAP2, label = cluster),
+        #                            size = anno_ts, color = "black", nudge_x = 0.005, nudge_y = 0.005) +
+        #       plt <- plt + geom_text(data = color_text_add, mapping = aes(x = UMAP1, y = UMAP2, color = cluster, label = cluster),
+        #                              size = anno_ts)
+        #   } else if(text_omethod[1]=="fontsize") {
+        #     plt <- plt + geom_text(data = color_text_add, mapping = aes(x = UMAP1, y = UMAP2, label = cluster),
+        #                            size = anno_ts*1.05, color = "black") +
+        #       plt <- plt + geom_text(data = color_text_add, mapping = aes(x = UMAP1, y = UMAP2, color = cluster, label = cluster),
+        #                              size = anno_ts)
+        #   }
+        # }
+      }
     } else {
-      arr_plot <- ggpubr::ggarrange(plotlist = out_plots, nrow = 1)
+      plt <- plt + guides(color = guide_legend(override.aes = list(alpha = 1, stroke = 0.1, size = 6))) +
+        theme(legend.position = "bottom", legend.text = element_text(size = 16*texp), legend.title = element_blank())
     }
-    return(arr_plot)
+    plt <- plt + ggtitle(ifelse(!is.na(pts), paste0(input$condition[1]," - ",pts), input$condition[1])) +
+      theme(axis.text = element_blank(),
+            axis.title = element_blank(),
+            plot.title = element_text(hjust = 0.5, size = 26*texp))
+    if(fo) {
+      plt <- plt + theme_bw() + theme(axis.ticks = element_blank(),
+                                      axis.title = element_blank(),
+                                      axis.text = element_blank(),
+                                      legend.title = element_blank(),
+                                      panel.grid.major = element_blank(),
+                                      panel.grid.minor = element_blank())
+    }
+    return(plt)
   }
+
+  out_plots <- lapply(X = spl_data, FUN = plot_red)
+
+  if(return_as_list) {
+    return(out_plots[plot_order])
+  }
+
+  if(!is.na(plot_order[1])) {
+    arr_plot <- ggpubr::ggarrange(plotlist = out_plots[plot_order], nrow = 1)
+  } else {
+    arr_plot <- ggpubr::ggarrange(plotlist = out_plots, nrow = 1)
+  }
+  return(arr_plot)
 }
 
 
