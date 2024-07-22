@@ -360,7 +360,7 @@ cellchat_netAnalysis_signalingRole_merged_heatmap <- function(cellchat_object,
                          #                           grid_width=unit(0.6,"cm"),title_position="topleft", legend_direction = "vertical",
                          #                           labels_gp=gpar(fontsize=11),title_gp=gpar(alpha = 0, fontsize = 0.1)),
                          row_names_gp=gpar(fontsize=13*font.size.expansion,fontface="bold"), column_title = "Outgoing Signal",
-                         column_title_gp = gpar(fontface = "bold", cex = 1.7*font.size.expansion),
+                         column_title_gp = gpar(fontface = "bold", cex = 2*font.size.expansion),
                          column_names_gp=gpar(fontsize=12*font.size.expansion,fontface="bold"), show_heatmap_legend = FALSE,
                          row_gap=unit(1,"mm"),column_gap=unit(1,"mm"),row_dend_gp=gpar(lwd=1.2),row_dend_width=unit(1,"cm"),
                          column_dend_gp = gpar(lwd=1.2), column_dend_height = unit(1,"cm"), rect_gp = gpar(lwd = 0.5, col = "black"), border = "black")
@@ -371,7 +371,7 @@ cellchat_netAnalysis_signalingRole_merged_heatmap <- function(cellchat_object,
                         #                           grid_width=unit(0.6,"cm"),title_position="topleft", legend_direction = "vertical",
                         #                           labels_gp=gpar(fontsize=11),title_gp=gpar(alpha = 0, fontsize = 0.1)),
                         row_names_gp=gpar(fontsize=13*font.size.expansion,fontface="bold"), column_title = "Incoming Signal",
-                        column_title_gp = gpar(fontface = "bold", cex = 1.7*font.size.expansion),
+                        column_title_gp = gpar(fontface = "bold", cex = 2*font.size.expansion),
                         column_names_gp=gpar(fontsize=12*font.size.expansion,fontface="bold"), show_heatmap_legend = FALSE,
                         row_gap=unit(1,"mm"),column_gap=unit(1,"mm"),row_dend_gp=gpar(lwd=1.2),row_dend_width=unit(1,"cm"),
                         column_dend_gp = gpar(lwd=1.2), column_dend_height = unit(1,"cm"), rect_gp = gpar(lwd = 0.5, col = "black"), border = "black")
@@ -383,9 +383,9 @@ cellchat_netAnalysis_signalingRole_merged_heatmap <- function(cellchat_object,
                          title = "Relative Interaction Strength",
                          border = "black", direction = "horizontal",
                          at = c(min_out_diff, 0, max_out_diff), legend_width = unit(8, "cm"),
-                         legend_height = unit(1.2, "cm"), title_gp = gpar(fontface = "bold", cex = 1.5*font.size.expansion),
+                         legend_height = unit(1.2, "cm"), title_gp = gpar(fontface = "bold", cex = 1.7*font.size.expansion),
                          title_position = "topcenter", labels = c(name1_adj,"equal",name2_adj),
-                         labels_gp = gpar(fontface = "bold", cex = 1.5*font.size.expansion))
+                         labels_gp = gpar(fontface = "bold", cex = 1.7*font.size.expansion))
 
   grob_in_diff_hm = grid::grid.grabExpr(draw(hm_diff_in))
   grob_out_diff_hm = grid::grid.grabExpr(draw(hm_diff_out))
