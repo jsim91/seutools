@@ -207,13 +207,13 @@ cnsh <- cellchat_netAnalysis_signalingRole_heatmap(object = cc_list[[1]], signal
                                                    font.size.expansion = 1, cluster.rows = FALSE, cluster.cols = FALSE)
 
 
-obj <- readRDS(file = "J:/10x/TB_sc/scbp2/final_annotations_outs/cellchat/GRV_p_cluster_less4_more3/cellchat_p_GRV.rds"); names(obj@var.features)
-obj <- readRDS(file = "J:/10x/TB_sc/scbp2/final_annotations_outs/cellchat/GRV_pc_cluster_contr9_progr7/cellchat_pc_GRV.rds"); names(obj@var.features)
-obj <- readRDS(file = "J:/10x/TB_sc/scbp2/final_annotations_outs/cellchat/Media_cl_cluster_controller11_less5/cellchat_cl_Media.rds"); names(obj@var.features)
-obj <- readRDS(file = "J:/10x/TB_sc/scbp2/final_annotations_outs/cellchat/Media_p_cluster_less5_more3/cellchat_p_Media.rds"); names(obj@var.features)
-obj <- readRDS(file = "J:/10x/TB_sc/scbp2/final_annotations_outs/cellchat/Media_pc_cluster_contr11_progr8/cellchat_pc_Media.rds"); names(obj@var.features)
-obj <- readRDS(file = "J:/10x/TB_sc/scbp2/final_annotations_outs/cellchat/MTB300_p_cluster_less5_more3/cellchat_p_MTB300.rds"); names(obj@var.features)
-obj <- readRDS(file = "J:/10x/TB_sc/scbp2/final_annotations_outs/cellchat/MTB300_pc_cluster_contr11_progr8/cellchat_pc_MTB300.rds"); names(obj@var.features)
+# obj <- readRDS(file = "J:/10x/TB_sc/scbp2/final_annotations_outs/cellchat/GRV_p_cluster_less4_more3/cellchat_p_GRV.rds"); names(obj@var.features)
+# obj <- readRDS(file = "J:/10x/TB_sc/scbp2/final_annotations_outs/cellchat/GRV_pc_cluster_contr9_progr7/cellchat_pc_GRV.rds"); names(obj@var.features)
+# obj <- readRDS(file = "J:/10x/TB_sc/scbp2/final_annotations_outs/cellchat/Media_cl_cluster_controller11_less5/cellchat_cl_Media.rds"); names(obj@var.features)
+# obj <- readRDS(file = "J:/10x/TB_sc/scbp2/final_annotations_outs/cellchat/Media_p_cluster_less5_more3/cellchat_p_Media.rds"); names(obj@var.features)
+# obj <- readRDS(file = "J:/10x/TB_sc/scbp2/final_annotations_outs/cellchat/Media_pc_cluster_contr11_progr8/cellchat_pc_Media.rds"); names(obj@var.features)
+# obj <- readRDS(file = "J:/10x/TB_sc/scbp2/final_annotations_outs/cellchat/MTB300_p_cluster_less5_more3/cellchat_p_MTB300.rds"); names(obj@var.features)
+# obj <- readRDS(file = "J:/10x/TB_sc/scbp2/final_annotations_outs/cellchat/MTB300_pc_cluster_contr11_progr8/cellchat_pc_MTB300.rds"); names(obj@var.features)
 
 what_net <- "net"
 merged_hm <- seutools::cellchat_netAnalysis_signalingRole_merged_heatmap(cellchat_object = obj, slot.name = what_net, color.use = NULL,

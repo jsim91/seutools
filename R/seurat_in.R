@@ -1183,7 +1183,7 @@ seurat_test_clusters <- function(seurat_object, test_by_column = "condition", pi
       scale_color_manual(values = b_colors) +
       ylab(paste0("% of ",yax_lab)) +
       # ggtitle(ifelse(pl_type=="numeric", paste0("cluster ",arg_melt[,"cluster"][1]), arg_melt[,"cluster"][1])) +
-      ggtitle(paste0("cluster ",arg_melt[,"cluster"][1])) +
+      ggtitle(arg_melt[,"cluster"][1]) +
       theme_minimal() +
       theme(axis.title.x = element_blank(),
             axis.title.y = element_text(size = 23*tsf, color = "black"),
