@@ -131,24 +131,26 @@ seurat_tile_reduction <- function(seurat_object, condition_column, cluster_colum
                        fo = frameon)
   {
     # testing
-    # seurat_object = seu_rna
-    # condition_column = "condition"
-    # cluster_column = "annotation"
-    # reduction = "umap"
-    # color_clusters = "all"
-    # label_clusters = "all"
-    # pt_alpha = 0.1
-    # text_expansion = 1
-    # pt_size = 1
-    # color_seed = 123
-    # postfix_title_string = NA
-    # force_xlim = FALSE
-    # force_ylim = FALSE
-    # return_as_list = FALSE
-    # plot_order = c(1,2,3)
-    # annotation_method = "repel"
-    # override_color_aes = NA
-    # frameon = FALSE
+    seurat_object = seu_rna
+    condition_column = "condition"
+    cluster_column = "annotation"
+    reduction = "umap"
+    color_clusters = reactive_anno
+    label_clusters = reactive_anno
+    pt_alpha = 0.1
+    text_expansion = 1
+    pt_size = 1
+    color_seed = 123
+    postfix_title_string = NA
+    force_xlim = FALSE
+    force_ylim = FALSE
+    return_as_list = FALSE
+    plot_order = c(1,2,3)
+    annotation_method = "repel"
+    override_color_aes = NA
+    frameon = FALSE
+    xanno = clusx
+    yanno = clusy
 
     coords <- seurat_object@reductions[[tolower(reduction)]]@cell.embeddings
 
@@ -192,22 +194,22 @@ seurat_tile_reduction <- function(seurat_object, condition_column, cluster_colum
                          fo = frameon)
     {
       # testing
-      # input = spl_data[[1]]
-      # color_clus = color_clusters
-      # xanno = clusx
-      # yanno = clusy
-      # palpha = pt_alpha
-      # texp = text_expansion
-      # psize = pt_size
-      # plimx = xrange
-      # plimy = yrange
-      # amethod = annotation_method
-      # cseed = color_seed
-      # oca = override_color_aes
-      # flimx = force_xlim
-      # flimy = force_ylim
-      # pts = postfix_title_string
-      # fo = frameon
+      input = spl_data[[1]]
+      color_clus = color_clusters
+      xanno = clusx
+      yanno = clusy
+      palpha = pt_alpha
+      texp = text_expansion
+      psize = pt_size
+      plimx = xrange
+      plimy = yrange
+      amethod = annotation_method
+      cseed = color_seed
+      oca = override_color_aes
+      flimx = force_xlim
+      flimy = force_ylim
+      pts = postfix_title_string
+      fo = frameon
 
       gg_color_hue <- function(n) {
         hues = seq(15, 375, length = n + 1)
@@ -228,7 +230,7 @@ seurat_tile_reduction <- function(seurat_object, condition_column, cluster_colum
         }
         if(length(subs_rows)!=0) {
           color_text_add <- text_add[subs_rows,]
-          text_add <- text_add[-subs_rows,]
+          text_add <- text_add[subs_rows,]
 
           color_text_add$cluster <- factor(color_text_add$cluster)
           text_add$cluster <- factor(text_add$cluster)
@@ -253,7 +255,7 @@ seurat_tile_reduction <- function(seurat_object, condition_column, cluster_colum
           foreground <- input
         }
       } else {
-        plt <- ggplot(data = input, mapping = aes(x = UMAP1, y = UMAP2)) +
+        plt <- ggplot(data = input, mapping = aes(x = redx, y = redy)) +
           geom_point(pch = 19, alpha = palpha, size = psize) + theme_void() +
           xlim(plimx) + ylim(plimy)
         if(!isFALSE(flimx[1])) {
@@ -265,11 +267,11 @@ seurat_tile_reduction <- function(seurat_object, condition_column, cluster_colum
       }
       if(color_clus[1]!="none") {
         if(color_clus[1]!="all") {
-          plt <- ggplot(data = input, mapping = aes(x = UMAP1, y = UMAP2)) +
+          plt <- ggplot(data = input, mapping = aes(x = redx, y = redy)) +
             geom_point(pch = 19, alpha = palpha, size = psize) + theme_void() +
             xlim(plimx) + ylim(plimy)
           plt <- plt + geom_point(data = foreground,
-                                  mapping = aes(x = UMAP1, y = UMAP2, color = cluster),
+                                  mapping = aes(x = redx, y = redy, color = cluster),
                                   alpha = palpha, size = psize) +
             guides(color = guide_legend(override.aes = list(size = 6, alpha = 1))) +
             theme(legend.position = "none",
