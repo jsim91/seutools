@@ -1590,28 +1590,43 @@ seurat_feature_violin <- function(seurat_object, plot_features, categorical_colu
 
 seurat_feature_violin_test <- function(seurat_object,
                                        plot_features,
-                                       categorical_column = "cell_type",
-                                       plot_categorical_types = c("MAIT/gd","Naive_CD8","CD14_Mono","CD16_Mono","B"),  # or "all"
+                                       categorical_column,
+                                       plot_categorical_types,
                                        assay = "RNA",
                                        text_expansion = 1,
-                                       condition = "media",
+                                       condition = NULL,
                                        condition_cat = "condition",
-                                       test_cat = "age_group",
+                                       test_cat = "time_to_group",
                                        test_method = "wilcox",
-                                       rotate_x = TRUE) {
+                                       rotate_x = TRUE,
+                                       comparison_list = NULL,
+                                       apply_p.adjust = TRUE)
+{
   # testing
-  # seurat_object = seu
-  # plot_features = c("TRAV1-2","CD8A","CLEC12A","CD79A")
-  # categorical_column = "cell_type"
-  # plot_categorical_types = c("MAIT/gd","Naive_CD8","CD14_Mono","CD16_Mono","B") # or "all"
+  # seurat_object = seu_rna
+  # plot_features = feature_genes_2
+  # categorical_column = "annotation"
+  # plot_categorical_types = violin_celltypes # or "all"
   # assay = "RNA"
   # text_expansion = 1
-  # condition = "media"
+  # condition = "GRV"
   # condition_cat = "condition"
-  # test_cat = "age_group"
-
+  # test_cat = "time_to_group"
+  # test_method = "wilcox"
+  # rotate_x = TRUE
+  # coord_stretch_factor = 0.11
+  # comparison_list = NULL
+  # apply_p.adjust = TRUE
 
   require(ggplot2)
+  require(rstatix)
+  require(ggtext)
+  require(ggpubr)
+  require(ggrastr)
+
+  if(!is.null(condition)) {
+    seurat_object <- subset(x = seurat_object, subset = condition == condition)
+  }
 
   feature_counts <- seurat_object@assays[[assay]]@layers$data
   row.names(feature_counts) <- row.names(seurat_object)
@@ -1652,24 +1667,41 @@ seurat_feature_violin_test <- function(seurat_object,
 
   violin_internal <- function(indata,
                               texp = text_expansion,
-                              nudge_nz = nudge_nonzero,
-                              # yle = y_limit_expansion_factor,
                               tm = test_method,
-                              rotx = rotate_x) {
+                              rotx = rotate_x,
+                              comps = comparison_list,
+                              cond = condition,
+                              apa = apply_p.adjust) {
     # testing
-    # indata <- spl_mat[[1]]
+    # indata = spl_mat[[1]]
     # texp = text_expansion
-    # nudge_nz = nudge_nonzero
-    # yle = y_limit_expansion_factor
+    # # nudge_nz = nudge_nonzero
+    # # yle = y_limit_expansion_factor,
     # tm = test_method
-
-    require(ggrastr)
-    require(ggpubr)
-    require(rstatix)
+    # rotx = rotate_x
+    # comps = comparison_list
+    # apa = apply_p.adjust
 
     indata$add_col <- paste0(indata$cat, "\n", indata$test_cat)
     concat_table_names <- names(table(indata$add_col))
-    comps <- split(concat_table_names, f = gsub(pattern = "\n.+$", replacement = "", x = concat_table_names))
+
+    # comps <- split(concat_table_names, f = gsub(pattern = "\n.+$", replacement = "", x = concat_table_names))
+    if(is.null(comps)) {
+      compare_these <- combinat::permn(concat_table_names)
+      for(i in 1:length(compare_these)) {
+        compare_these[[i]] <- as.character(compare_these[[i]][1:2])
+      }
+      find_dupls <- rep(NA,length=length(compare_these))
+      for(i in 1:length(find_dupls)) {
+        find_dupls[i] <- paste0(compare_these[[i]][order(compare_these[[i]])],collapse="")
+      }
+      rm_elements <- which(duplicated(find_dupls))
+      if(length(rm_elements)>0) {
+        compare_these <- compare_these[-rm_elements]
+      }
+    } else {
+      compare_these <- comps
+    }
 
     freqs <- data.frame(cat = unique(indata$cat), freq = rep(NA,length(unique(indata$cat))))
     for(i in 1:nrow(freqs)) {
@@ -1677,35 +1709,73 @@ seurat_feature_violin_test <- function(seurat_object,
     }
     indata_jitter <- indata[which(indata$ct!=0),]
 
-    # expand_out <- max(indata$ct)*(yle/max(indata$ct) + 1)
-
-    if(tm=="wilcox") {
-      test_res <- rstatix::wilcox_test(data = indata, formula = ct ~ add_col, paired = FALSE, comparisons = comps)
-      test_res <- rstatix::add_y_position(test = test_res, step.increase = 0)
-    } else {
-      stop("only wilcox testing supported for now")
+    spl_indata <- split(x = indata, f = indata$add_col)
+    check_sums <- sapply(spl_indata, function(x) return(sum(x$ct)))
+    if(all(sum(check_sums==0)!=0,tolower(tm)!="zir")) {
+      warning("some data is all-zero: using zir to test")
+      tm <- "zir"
     }
+
+    if(tolower(tm)=="zir") {
+      zir_p <- rep(NA,length(spl_indata))
+      grp1s <- zir_p; grp2s <- zir_p; teststats <- zir_p
+      for(i in 1:length(zir_p)) {
+        grp1s[i] <- spl_indata[[compare_these[[i]][1]]]$add_col[1]
+        grp2s[i] <- spl_indata[[compare_these[[i]][2]]]$add_col[2]
+        zir_test <- ziw(x = spl_indata[[compare_these[[i]][1]]]$ct,
+                        y = spl_indata[[compare_these[[i]][2]]]$ct, perm = FALSE)
+        zir_p[i] <- zir_test$p.value
+        teststats[i] <- zir_test$statistics
+      }
+      zir_p <- ifelse(is.na(zir_p),1,zir_p)
+      teststats <- ifelse(is.na(teststats),0,teststats)
+      zir_grp1 <- sapply(X = spl_indata, FUN = function(x) return(x[1]))
+      test_res <- as_tibble(data.frame('.y.' = 'ct',
+                                       'group1' = grp1s,
+                                       'group2' = grp2s,
+                                       'n1' = 1,
+                                       'n2' = 1,
+                                       'statistic' = teststats,
+                                       'p' = zir_p))
+      if(all(length(zir_p)>1, apply_p.adjust)) {
+        test_res <- rstatix::adjust_pvalue(data = test_res, p.col = "p", output.col = "p.adj")
+        test_res <- rstatix::add_significance(data = test_res, p.col = "p.adj", output.col = "p.adj.signif")
+      } else {
+        test_res <- rstatix::add_significance(data = test_res, p.col = "p", output.col = "p.adj.signif")
+      }
+      attributes(test_res)$args$data <- indata[,c('ct','add_col')]
+      attributes(test_res)$args$formula <- formula(ct ~ add_col)
+    } else if(tm=="wilcox") {
+      test_res <- rstatix::wilcox_test(data = indata, formula = ct ~ add_col, paired = FALSE, comparisons = compare_these)
+    } else {
+      stop("only wilcox or zir (zero-inflated wilcox variant) testing supported for now")
+    }
+
+    indata_range <- diff(range(indata$ct)) # smaller range = smaller step.increase; larger range = larger step.increase
+    test_res <- rstatix::add_y_position(test = test_res, step.increase = indata_range*.1)
 
     plt <- ggplot() +
       geom_violin(data = indata, aes(x = add_col, y = ct, fill = test_cat), scale = "width", trim = TRUE, alpha = 0.7) +
       ggrastr::geom_jitter_rast(data = indata_jitter, aes(x = add_col, y = ct), width = 0.2, height = 0, size = 1, alpha = 0.5) +
       # scale_fill_viridis_d() +
-      stat_pvalue_manual(as.data.frame(test_res), label = "p.adj.signif", tip.length = 0.01, size = 7) +
+      stat_pvalue_manual(as.data.frame(test_res), label = "p.adj.signif", tip.length = 0.01, size = 7*texp) +
       theme_minimal() +
       ylab("normalized count") +
-      ggtitle(indata$gene[1]) +
       theme(legend.position = "none",
-            axis.text.y = element_text(size = 14*texp),
             axis.title.y = element_text(size = 15*texp, face = "bold"),
             axis.text.x = element_text(size = 15*texp, face = "bold", angle = ifelse(rotx, 90, 0), hjust = 0.5, vjust = 0.5),
-            axis.title.x = element_blank(),
-            plot.title = element_text(size = 18*texp, face = "bold", hjust = 0.5))
+            axis.title.x = element_blank())
+    if(!is.null(cond)) {
+      plt <- plt + ggtitle(paste0("**",indata$gene[1],"** (",cond,")")) + theme(plot.title = ggtext::element_markdown(size = 18*texp, face = "bold", hjust = 0.5))
+    } else {
+      plt <- plt + ggtitle(indata$gene[1]) + theme(plot.title = element_text(size = 18*texp, face = "bold", hjust = 0.5))
+    }
     return(plt)
   }
-  vplots <- lapply(X = spl_mat, FUN = violin_internal, texp = text_expansion,
-                   nudge_nz = nudge_nonzero)#yle = y_limit_expansion_factor)
+  vplots <- lapply(X = spl_mat, FUN = violin_internal, texp = text_expansion)
   return(vplots)
 }
+
 
 test_clusters_cat <- function(pid, clusters, condition, cat, stat_compares, y_axis_subset = "PBMC",
                               coord_stretch_factor = 0.1, text_size_factor = 0.8, color_map = NA,
@@ -1995,4 +2065,11 @@ seurat_dge <- function(seurat_object,
   }
   print(paste0("total test time: ",round(as.numeric(difftime(Sys.time(), start_test, units = "hours")),3)," hours"))
   return(dge_outs)
+}
+
+
+seurat_correlate <- function(seurat_object, pid_column, condition = "Media", condition_column = "condition",
+                             correlate_column = "time_to_progr", correlate_to_object, correlate_to_column,
+                             correlate_to_pid_column, correlation_method = "spearman") {
+  seurat_object <- ""
 }
