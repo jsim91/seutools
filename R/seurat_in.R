@@ -1701,7 +1701,7 @@ seurat_feature_violin_test <- function(seurat_object,
     return(plt)
   }
   vplots <- lapply(X = spl_mat, FUN = violin_internal, texp = text_expansion,
-                   nudge_nz = nudge_nonzero, yle = y_limit_expansion_factor)
+                   nudge_nz = nudge_nonzero)#yle = y_limit_expansion_factor)
   return(vplots)
 }
 
