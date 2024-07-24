@@ -2,15 +2,39 @@
 
 # example workflow
 library(seutools)
+library(Seurat)
+library(Matrix)
+
+seu <- readRDS(file = "J:/U54_grant/sc/inputs/pbmc_flu_seurat_object_all.rds")
 
 und_cl <- paste0("Undecided",1:5)
 
 # testing seutools::seurat_mast()
-und_seu_mast <- seurat_mast(seurat_object = seu, freq_expressed = 0.1, fc_threshold = log2(1.5),
-                            test_per_cluster = TRUE, test_clusters = und_cl, cluster_column = "cell_type",
-                            test_per_category = FALSE, test_categories = c("younger","older"),
-                            category_column = "age_group", test_per_condition = FALSE,
-                            test_condition = "all", condition_column = "condition", pid_column = "pid")
+if(F) {
+  und_seu_mast <- seurat_mast(seurat_object = seu, freq_expressed = 0.1, fc_threshold = log2(1.5),
+                              test_per_cluster = TRUE, test_clusters = und_cl, cluster_column = "cell_type",
+                              test_per_category = FALSE, test_categories = c("younger","older"),
+                              category_column = "age_group", test_per_condition = FALSE,
+                              test_condition = "all", condition_column = "condition", pid_column = "pid")
+}
+
+# c('ISG_Naive_CD4','IFN_CM_CD4','ISG_EM_CD4','ISG NK','ISG_Naive_CD8','ISG_CTL_CD8','ISG_Mono')
+if(F) {
+  seu_wilc_select <- seurat_dge(seurat_object = seu, dge_method = "wilcox", freq_expressed = 0.1,
+                                fc_threshold = log2(1.5), test_per_cluster = TRUE,
+                                test_clusters = c('ISG_Naive_CD4','IFN_CM_CD4','ISG_EM_CD4','ISG NK',
+                                                  'ISG_Naive_CD8','ISG_CTL_CD8','ISG_Mono'),
+                                cluster_column = "cell_type", test_per_category = FALSE,
+                                test_per_condition = FALSE, test_condition = "all")
+  # saveRDS(object = seu_wilc_select, file = "J:/U54_grant/sc/inputs/select_wilcox_dge.rds")
+} else {
+  seu_wilc_select <- readRDS("J:/U54_grant/sc/inputs/select_wilcox_dge.rds")
+}
+seu_wilc_collapsed <- do.call(rbind, seu_wilc_select[[1]])
+vol1 <- seutools:::plot_volcano(dge_input = seu_wilc_collapsed, plot_clusters = "all",
+                                gene_set = NA, prio_top_genes = 0, pval_threshold = 1,
+                                table_height = 50, fc_threshold = log2(1.5),
+                                de_method = "seurat_presto")
 
 
 # testing seutools::seurat_feature_overlay()
@@ -60,6 +84,26 @@ pdf(file = "J:/U54_grant/sc/out_figures/flu_test_condition_wide.pdf", width = 16
 lapply(X = stc4_tiled, FUN = function(x) x)
 dev.off()
 
+my_colors <- c('IFN_CM_CD4' = '#96CA2D',
+               'ISG NK' = '#E53935',
+               'ISG_CTL_CD8' = '#FF6517',
+               'ISG_EM_CD4' = '#9250BC',
+               'ISG_Naive_CD4' = '#F2B705',
+               'ISG_Naive_CD8' = '#04BFBF',
+               'ISG_Mono' = '#607D8B')
+
+stc5 <- seurat_test_clusters(seurat_object = seu, test_by_column = "condition_age", pid_column = "pid",
+                             cluster_column = "cell_type", cell_barcode_column = "barcode",
+                             order_x = c('media\nyounger','stim\nyounger','media\nolder','stim\nolder'),
+                             bin_colors = c("azure4", "seagreen", "azure4", "royalblue"),
+                             subtract_background = FALSE, comparison_list = stc_compares, y_as_log = TRUE,
+                             backround_condition = "media", y_axis_subset = "PBMC", connect_points = TRUE,
+                             data_paired = TRUE, return_plots = TRUE, return_plot_data = FALSE,
+                             coord_stretch_factor = 0.11, text_size_factor = 0.6, shape_key = NULL,
+                             coordinate_title_color = my_colors)
+reac_cl <- stc5[c('ISG_Naive_CD4','IFN_CM_CD4','ISG_EM_CD4','ISG NK','ISG_Naive_CD8','ISG_CTL_CD8','ISG_Mono')]
+reac_cl_arr <- ggpubr::ggarrange(plotlist = reac_cl, nrow = 2, ncol = 4)
+# reac_cl_arr
 
 # testing seutools::seurat_tile_reduction()
 seu <- readRDS(file = "J:/U54_grant/sc/inputs/pbmc_flu_seurat_object_all.rds")
@@ -73,6 +117,52 @@ tr <- seutools::seurat_tile_reduction(seurat_object = seu, condition_column = "c
                                       override_color_aes = NA, frameon = FALSE)
 ggsave(filename = "flu_umap_by_condition.png", plot = tr, device = "png", path = "J:/U54_grant/sc/out_figures",
        width = 16, height = 8, units = "in", dpi = 600, limitsize = F, bg = "white")
+
+seu_younger <- subset(x = seu, subset = age_group == "younger"); seu_younger <- AddMetaData(seu_younger, paste0(seu_younger$condition," (younger)"), "stim_age_group")
+seu_older <- subset(x = seu, subset = age_group == "older"); seu_older <- AddMetaData(seu_older, paste0(seu_older$condition," (older)"), "stim_age_group")
+
+tr_act <- seutools::seurat_tile_reduction(seurat_object = seu, condition_column = "condition", cluster_column = "cell_type", reduction = "umap",
+                                          color_clusters = c('IFN_CM_CD4','ISG_EM_CD4','ISG_Naive_CD4','ISG_CTL_CD8','ISG_Naive_CD8','ISG_Mono','ISG NK'),
+                                          label_clusters = c('IFN_CM_CD4','ISG_EM_CD4','ISG_Naive_CD4','ISG_CTL_CD8','ISG_Naive_CD8','ISG_Mono','ISG NK'),
+                                          pt_alpha = 0.1, text_expansion = 1.5, pt_size = 1, color_seed = 123,
+                                          postfix_title_string = NA, force_colors = my_colors,
+                                          force_xlim = FALSE, force_ylim = FALSE, return_as_list = FALSE,
+                                          plot_order = c(1,2), annotation_method = "repel",
+                                          override_color_aes = NA, frameon = FALSE)
+ggsave(filename = "flu_umap_by_condition_select_clusters.png", plot = tr_act, device = "png", path = "J:/U54_grant/sc/out_figures",
+       width = 16, height = 8, units = "in", dpi = 600, limitsize = F, bg = "white")
+
+tr_act_y <- seutools::seurat_tile_reduction(seurat_object = seu_younger, condition_column = "stim_age_group", cluster_column = "cell_type", reduction = "umap",
+                                            color_clusters = c('IFN_CM_CD4','ISG_EM_CD4','ISG_Naive_CD4','ISG_CTL_CD8','ISG_Naive_CD8','ISG_Mono','ISG NK'),
+                                            label_clusters = c('IFN_CM_CD4','ISG_EM_CD4','ISG_Naive_CD4','ISG_CTL_CD8','ISG_Naive_CD8','ISG_Mono','ISG NK'),
+                                            pt_alpha = 0.1, text_expansion = 1.5, pt_size = 1, color_seed = 123,
+                                            postfix_title_string = NA, force_colors = my_colors,
+                                            force_xlim = FALSE, force_ylim = FALSE, return_as_list = FALSE,
+                                            plot_order = c(1,2), annotation_method = "repel",
+                                            override_color_aes = NA, frameon = FALSE)
+tr_act_o <- seutools::seurat_tile_reduction(seurat_object = seu_older, condition_column = "stim_age_group", cluster_column = "cell_type", reduction = "umap",
+                                            color_clusters = c('IFN_CM_CD4','ISG_EM_CD4','ISG_Naive_CD4','ISG_CTL_CD8','ISG_Naive_CD8','ISG_Mono','ISG NK'),
+                                            label_clusters = c('IFN_CM_CD4','ISG_EM_CD4','ISG_Naive_CD4','ISG_CTL_CD8','ISG_Naive_CD8','ISG_Mono','ISG NK'),
+                                            pt_alpha = 0.1, text_expansion = 1.5, pt_size = 1, color_seed = 123,
+                                            postfix_title_string = NA, force_colors = my_colors,
+                                            force_xlim = FALSE, force_ylim = FALSE, return_as_list = FALSE,
+                                            plot_order = c(1,2), annotation_method = "repel",
+                                            override_color_aes = NA, frameon = FALSE)
+arr_act_yo <- ggpubr::ggarrange(plotlist = list(tr_act_y, tr_act_o), nrow = 2, ncol = 1)
+ggsave(filename = "flu_umap_by_condition_select_clusters_younger_older.png", plot = arr_act_yo, device = "png", path = "J:/U54_grant/sc/out_figures",
+       width = 16, height = 16, units = "in", dpi = 600, limitsize = F, bg = "white")
+
+tr_act_pair <- seutools::seurat_tile_reduction(seurat_object = seu, condition_column = "condition", cluster_column = "cell_type", reduction = "umap",
+                                               color_clusters = c('IFN_CM_CD4','ISG_EM_CD4','ISG_Naive_CD4','ISG_CTL_CD8','ISG_Naive_CD8','ISG_Mono','ISG NK'),
+                                               label_clusters = c('IFN_CM_CD4','ISG_EM_CD4','ISG_Naive_CD4','ISG_CTL_CD8','ISG_Naive_CD8','ISG_Mono','ISG NK'),
+                                               pt_alpha = 0.1, text_expansion = 1.5, pt_size = 1, color_seed = 123,
+                                               postfix_title_string = NA, force_colors = my_colors,
+                                               force_xlim = FALSE, force_ylim = FALSE, return_as_list = FALSE,
+                                               plot_order = c(1,2), annotation_method = "repel",
+                                               override_color_aes = NA, frameon = FALSE)
+arr_fig <- ggpubr::ggarrange(plotlist = list(tr_act_pair, reac_cl_arr), nrow = 2, ncol = 1, heights = c(0.5,0.5))
+ggsave(filename = "flu_umap_test_pair.png", plot = arr_fig, device = "png", path = "J:/U54_grant/sc/out_figures",
+       width = 16, height = 16, units = "in", dpi = 600, limitsize = F, bg = "white")
 
 
 # testing seutools::seurat_feature_violin()

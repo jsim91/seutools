@@ -12,6 +12,7 @@ if(F) {
     seu <- AddMetaData(object = seu, metadata = as.numeric(ages[seu@meta.data$pid]), col.name = "age")
     seu <- AddMetaData(object = seu, metadata = ifelse(seu$age>55, "older", "younger"), col.name = "age_group")
   }
+
 }
 
 if(F) {
@@ -82,6 +83,7 @@ if(F) {
 
 if(F) {
   all_types <- read.csv(file = 'J:/U54_grant/sc/flu_all_annotations.csv', check.names = FALSE)
+  all_types$annotated_type[grep("MAIT", all_types$annotated_type)] <- c("MAIT/gdT")
   named_types <- all_types$annotated_type; names(named_types) <- all_types$barcode
 
   seu_all <- merge(x = seu, y = seu_und)

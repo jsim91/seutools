@@ -57,7 +57,7 @@ seurat_tile_reduction <- function(seurat_object, condition_column, cluster_colum
                                   color_clusters = "all", label_clusters = "all",
                                   pt_alpha = 0.05, text_expansion = 1, pt_size = 1, color_seed = 123,
                                   # outline_method = c("nudge","fontsize"),
-                                  postfix_title_string = NA,
+                                  postfix_title_string = NA, force_colors = FALSE,
                                   force_xlim = FALSE, force_ylim = FALSE, return_as_list = FALSE,
                                   plot_order = c(2,1,3), annotation_method = "repel", # c("repel","text","shadowtext","none")
                                   override_color_aes = NA, frameon = FALSE)
@@ -127,7 +127,7 @@ seurat_tile_reduction <- function(seurat_object, condition_column, cluster_colum
                        palpha = pt_alpha, texp = text_expansion, psize = pt_size,
                        plimx = xrange, plimy = yrange, amethod = annotation_method,
                        cseed = color_seed,#text_omethod=outline_method,
-                       oca = override_color_aes,
+                       oca = override_color_aes, fcol = force_colors,
                        flimx = force_xlim, flimy = force_ylim, pts = postfix_title_string,
                        fo = frameon)
   {
@@ -292,6 +292,10 @@ seurat_tile_reduction <- function(seurat_object, condition_column, cluster_colum
                                       legend.title = element_blank(),
                                       panel.grid.major = element_blank(),
                                       panel.grid.minor = element_blank())
+    }
+    if(!isFALSE(fcol)) {
+      plt <- plt +
+        scale_color_manual(values = fcol)
     }
     return(plt)
   }
@@ -992,7 +996,8 @@ seurat_test_clusters <- function(seurat_object, test_by_column = "condition", pi
                                  connect_points = TRUE, data_paired = TRUE,
                                  return_plots = TRUE, return_plot_data = FALSE,
                                  coord_stretch_factor = 0.11, text_size_factor = 1,
-                                 shape_key = NULL, compare_step_distance = 0)
+                                 shape_key = NULL, compare_step_distance = 0,
+                                 y_as_log = FALSE, coordinate_title_color = FALSE)
 {
   require(ggplot2)
   require(ggpubr)
@@ -1094,12 +1099,15 @@ seurat_test_clusters <- function(seurat_object, test_by_column = "condition", pi
                               csf = coord_stretch_factor,
                               tsf = text_size_factor,
                               shp = shape_key,
-                              csd = compare_step_distance)
+                              csd = compare_step_distance,
+                              yal = y_as_log,
+                              ctcol = coordinate_title_color)
   {
     require(reshape2)
     require(combinat)
     require(ggplot2)
     require(ggpubr)
+    require(scales)
 
     # testing
     # arg1 = cluster_list[[1]]
@@ -1159,10 +1167,10 @@ seurat_test_clusters <- function(seurat_object, test_by_column = "condition", pi
     if(should_connect) {
       pl <- pl + geom_line(mapping = aes(group = group), color = "black")
       if("shape_group" %in% colnames(arg_melt)) {
-        pl <- pl + geom_point(mapping = aes(fill = variable, shape = shape_group), size = 4, color = "black") +
+        pl <- pl + geom_point(mapping = aes(fill = variable, shape = shape_group), size = 4*tsf, color = "black") +
           scale_shape_manual(values = 21:25)
       } else {
-        pl <- pl + geom_point(mapping = aes(fill = variable), pch = 21, size = 3, color = "black")
+        pl <- pl + geom_point(mapping = aes(fill = variable), pch = 21, size = 3*tsf, color = "black")
       }
     } else {
       pl <- pl + geom_dotplot(data = arg_melt, aes(fill = variable), color = "black", stroke = 1.1,
@@ -1174,6 +1182,11 @@ seurat_test_clusters <- function(seurat_object, test_by_column = "condition", pi
     } else {
       pl <- pl +
         stat_compare_means(paired = FALSE, method = "wilcox", comparisons = compare_these, size = 7.6*tsf, step.increase = csd)
+    }
+    if(!isFALSE(ctcol[1])) {
+      get_title_col <- ctcol[arg_melt[,"cluster"][1]]
+    } else {
+      get_title_col = "black"
     }
     pl <- pl + coord_cartesian(ylim = c(min(arg_melt$frequency, na.rm = TRUE), max(arg_melt$frequency, na.rm = TRUE)*(1 + length(compare_these)*csf)))
     pl <- pl +
@@ -1191,7 +1204,10 @@ seurat_test_clusters <- function(seurat_object, test_by_column = "condition", pi
             axis.title.y = element_text(size = 23*tsf, color = "black"),
             axis.text.x = element_text(size = 22*tsf, face = "bold", color = "black"),
             axis.text.y = element_text(size = 20*tsf),
-            plot.title = element_text(size = 25*tsf, hjust = 0.5, face = "bold"))
+            plot.title = element_text(size = 25*tsf, hjust = 0.5, face = "bold", color = get_title_col))
+    if(yal) {
+      pl <- pl + scale_y_continuous(trans=scales::pseudo_log_trans(base = 10))
+    }
     if(is.null(shp[1])) {
       pl <- pl + theme(legend.position = "none")
     }
@@ -2074,9 +2090,10 @@ seurat_dge <- function(seurat_object,
         require(SeuratWrappers)
         wilcox_res <- SeuratWrappers::RunPresto(object = subs2, assay = "RNA", ident.1 = ident1, ident.2 = ident2,
                                                 test.use = "wilcox", only.pos = FALSE, min.pct = 0.01)
-        colnames(wilcox_res)[which(colnames(wilcox_res)=="pct.1")] <- gsub(" ","",paste0("pct.",ident1))
-        colnames(wilcox_res)[which(colnames(wilcox_res)=="pct.2")] <- gsub(" ","",paste0("pct.",ident2))
+        # colnames(wilcox_res)[which(colnames(wilcox_res)=="pct.1")] <- gsub(" ","",paste0("pct.",ident1))
+        # colnames(wilcox_res)[which(colnames(wilcox_res)=="pct.2")] <- gsub(" ","",paste0("pct.",ident2))
         wilcox_res$gene <- row.names(wilcox_res)
+        wilcox_res$cluster <- ident1
         wilcox_res <- wilcox_res[wilcox_res$p_val_adj<0.05,]
         wilcox_res <- wilcox_res[which(abs(wilcox_res$avg_log2FC)>fc_threshold),]
 

@@ -25,7 +25,9 @@ tile_plots <- function(plotlist, n_row = 2, n_col = 2, rm_legend = FALSE, common
 plot_volcano <- function(dge_input, plot_clusters = "all",
                          gene_set = NA, prio_top_genes = 0,
                          pval_threshold = 1, table_height = 50,
-                         fc_threshold = log2(1.5)) # input here is the seurat_dge output list
+                         fc_threshold = log2(1.5),
+                         de_method = "seurat_presto",
+                         feature_gsub_pattern = "Hu\\.|Mu\\.") # input here is the seurat_dge output list
 {
   require(ggplot2)
   require(ggpubr)
@@ -45,6 +47,12 @@ plot_volcano <- function(dge_input, plot_clusters = "all",
   if(length(de_method)!=1) {
     stop("use either 'seurat_presto' or 'pseudobulk_py' for 'de_method'; length of 'de_method' must be 1")
   }
+  if(de_method=="seurat_presto") {
+    logFC_colname <- "avg_log2FC"
+    padj_colname <- "p_val_adj"
+    cluster_colname <- "cluster"
+    dge_input$p_val_adj_nlog10 <- -log10(dge_input[,padj_colname])
+  }
 
   if(plot_clusters[1]!="all") {
     keep_cluster_rows <- which(dge_input[,cluster_colname] %in% plot_clusters)
@@ -56,7 +64,7 @@ plot_volcano <- function(dge_input, plot_clusters = "all",
   dge_input$avg_FC <- 2^dge_input[,logFC_colname]
   dge_input[,padj_colname] <- ifelse(dge_input[,padj_colname]==0, min(dge_input[,padj_colname][which(dge_input[,padj_colname]!=0)]), dge_input[,padj_colname])
   which_rm1 <- which(dge_input[,padj_colname]>=pval_threshold)
-  dge_input$p_val_adj_nlog10 <- -log10(dge_input[,padj_colname])
+  # dge_input$p_val_adj_nlog10 <- -log10(dge_input[,padj_colname])
   colnames(dge_input)[which(colnames(dge_input)==padj_colname)] <- "padj"
   which_rm2 <- which(abs(dge_input[,logFC_colname])<fc_threshold)
   which_rm <- union(which_rm1, which_rm2)
