@@ -1,4 +1,4 @@
-tile_plots <- function(plotlist, n_row = 2, n_col = 2, rm_legend = FALSE, common_leg = FALSE) {
+seu_tile_plots <- function(plotlist, n_row = 2, n_col = 2, rm_legend = FALSE, common_leg = FALSE) {
   require(ggplot2)
   require(ggpubr)
   # testing

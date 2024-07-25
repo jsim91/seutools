@@ -62,7 +62,7 @@ library(SeuratObject)
 seu_adt <- readRDS(file = "J:/U54_grant/sc/inputs/pbmc_flu_adt_seurat_object.rds")
 
 sof_adt <- seutools::seurat_feature_overlay(seurat_object = seu_adt, text_expansion = 1.5, draw_legend = TRUE)
-sof_adt_tiled <- seutools:::tile_plots(plotlist = sof_adt, n_row = 2, n_col = 2, rm_legend = FALSE)
+sof_adt_tiled <- seutools:::seu_tile_plots(plotlist = sof_adt, n_row = 2, n_col = 2, rm_legend = FALSE)
 
 length(sof_adt_tiled)
 
@@ -95,7 +95,7 @@ stc4 <- seurat_test_clusters(seurat_object = seu, test_by_column = "condition_ag
                              backround_condition = "media", y_axis_subset = "PBMC", connect_points = TRUE,
                              data_paired = TRUE, return_plots = TRUE, return_plot_data = FALSE,
                              coord_stretch_factor = 0.11, text_size_factor = 1, shape_key = NULL)
-stc4_tiled <- seutools:::tile_plots(plotlist = stc4, n_row = 2, n_col = 2, rm_legend = FALSE)
+stc4_tiled <- seutools:::seu_tile_plots(plotlist = stc4, n_row = 2, n_col = 2, rm_legend = FALSE)
 pdf(file = "J:/U54_grant/sc/out_figures/flu_test_condition_wide.pdf", width = 16, height = 16)
 lapply(X = stc4_tiled, FUN = function(x) x)
 dev.off()
