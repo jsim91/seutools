@@ -23,11 +23,12 @@ tile_plots <- function(plotlist, n_row = 2, n_col = 2, rm_legend = FALSE, common
 
 
 plot_volcano <- function(dge_input, plot_clusters = "all",
-                         gene_set = NA, prio_top_genes = 0,
+                         gene_set = NA, prio_top_genes = 5,
                          pval_threshold = 1, table_height = 50,
                          fc_threshold = log2(1.5),
                          de_method = "seurat_presto",
-                         feature_gsub_pattern = "Hu\\.|Mu\\.") # input here is the seurat_dge output list
+                         feature_gsub_pattern = "Hu\\.|Mu\\.",
+                         include_gene_table = TRUE) # input here is the seurat_dge output list
 {
   require(ggplot2)
   require(ggpubr)
@@ -36,13 +37,17 @@ plot_volcano <- function(dge_input, plot_clusters = "all",
   options(scipen = 999)
 
   # testing
-  # dge_input <- readRDS(file = "J:/10x/JOflu/scbp/all/undecided_clusters/dge_undecided.rds")
+  # dge_input = seu_wilc_select[[1]]
   # plot_clusters = "all"
-  # gene_set = NA
-  # prio_top_genes = 0
+  # gene_set = prio_gene_set
+  # prio_top_genes = 5
   # pval_threshold = 1
   # table_height = 50
   # fc_threshold = log2(1.5)
+  # de_method = "seurat_presto"
+  # feature_gsub_pattern = "Hu\\.|Mu\\."
+  # include_gene_table = TRUE
+
 
   if(length(de_method)!=1) {
     stop("use either 'seurat_presto' or 'pseudobulk_py' for 'de_method'; length of 'de_method' must be 1")
@@ -51,6 +56,12 @@ plot_volcano <- function(dge_input, plot_clusters = "all",
     logFC_colname <- "avg_log2FC"
     padj_colname <- "p_val_adj"
     cluster_colname <- "cluster"
+    if(class(dge_input)=="list") {
+      dge_input <- do.call(rbind, dge_input)
+      if(!padj_colname %in% colnames(dge_input)) {
+        stop("'padj_colname not found in dge_input")
+      }
+    }
     dge_input$p_val_adj_nlog10 <- -log10(dge_input[,padj_colname])
   }
 
@@ -93,27 +104,48 @@ plot_volcano <- function(dge_input, plot_clusters = "all",
 
   dge_split <- split(x = dge_input, f = dge_input[,cluster_colname])
 
-  if(all(prio_top_genes[1]!=0, !is.na(prio_top_genes[1]))) {
-    dge_up <- dge_input[which(dge_input$`avg fold diff`>0),]
-    if(nrow(dge_up)==0) {
-      top_g <- c()
-    } else {
-      top_g <- dge_input$gene[order(dge_input$`avg fold diff`, decreasing = T)][1:prio_top_genes[1]]
-    }
-    dge_dn <- dge_input[which(dge_input$`avg fold diff`<0),]
-    if(nrow(dge_dn)==0) {
-      bottom_g <- c()
-    } else {
-      bottom_g <- dge_input$gene[order(dge_input$`avg fold diff`, decreasing = F)][1:prio_top_genes[1]]
-    }
-    gene_set <- c(top_g, bottom_g); gene_set <- gene_set[!is.na(gene_set)]
-  }
+  gset <- gene_set
 
-  tmp_volcano <- function(vol_in, prio_genes = gene_set, maxyval = max(dge_input$p_val_adj_nlog10),
-                          y_thresh = pval_threshold, t_height = table_height, demethod = de_method)
+  # if(all(prio_top_genes[1]!=0, !is.na(prio_top_genes[1]))) {
+  #   dge_up <- dge_input[which(dge_input$`avg fold diff`>0),]
+  #   if(nrow(dge_up)==0) {
+  #     top_g <- c()
+  #   } else {
+  #     top_g <- dge_input$gene[order(dge_input$`avg fold diff`, decreasing = T)][1:prio_top_genes[1]]
+  #   }
+  #   dge_dn <- dge_input[which(dge_input$`avg fold diff`<0),]
+  #   if(nrow(dge_dn)==0) {
+  #     bottom_g <- c()
+  #   } else {
+  #     bottom_g <- dge_input$gene[order(dge_input$`avg fold diff`, decreasing = F)][1:prio_top_genes[1]]
+  #   }
+  #   gene_set <- c(top_g, bottom_g); gene_set <- gene_set[!is.na(gene_set)]
+  # } else {
+  #   gene_set <- c()
+  # }
+  # if(all(!is.na(gset[1]), length(gset)!=0)) {
+  #   gene_set <- unique(c(gene_set, gset))
+  # }
+
+  tmp_volcano <- function(vol_in, prio_genes = gset, maxyval = max(dge_input$p_val_adj_nlog10),
+                          y_thresh = pval_threshold, t_height = table_height, demethod = de_method,
+                          igt = include_gene_table, topg = prio_top_genes)
   {
     # testing
-    # vol_in <- dge_split[[1]]; prio_genes = gene_set; maxyval = max(dge_input$p_val_adj_nlog10); y_thresh = pval_threshold; t_height = table_height;demethod = de_method
+    # vol_in = dge_split[[1]]
+    # prio_genes = gset
+    # maxyval = max(dge_input$p_val_adj_nlog10)
+    # y_thresh = pval_threshold
+    # t_height = table_height
+    # demethod = de_method
+    # igt = include_gene_table
+    # topg = prio_top_genes
+
+    if(all(topg[1]!=0, !is.na(topg[1]))) {
+      add_genes_1 <- vol_in$gene[order(vol_in$avg_directional_log2FC, decreasing = FALSE)][1:topg]
+      add_genes_2 <- vol_in$gene[order(vol_in$avg_directional_log2FC, decreasing = TRUE)][1:topg]
+      prio_genes <- c(prio_genes,add_genes_1,add_genes_2)
+    }
 
     minx_seg <- ifelse(min(vol_in$avg_directional_log2FC)<0, min(vol_in$avg_directional_log2FC), 0)
     maxx_seg <- ifelse(max(vol_in$avg_directional_log2FC)>0, max(vol_in$avg_directional_log2FC), 0)
@@ -192,6 +224,7 @@ plot_volcano <- function(dge_input, plot_clusters = "all",
     prep_table <- function(table_in, tht = t_height, demet = demethod) {
       # testing
       # table_in <- high_gene; tht = t_height; demet = demethod
+
       if(nrow(table_in)==0) {
         return(table_in)
       }
@@ -274,9 +307,13 @@ plot_volcano <- function(dge_input, plot_clusters = "all",
         annotate(geom='table',x=0.5,y=0.5,label=list(low_gene_prep),table.rownames=TRUE)
     }
 
-    arr_plot <- ggpubr::ggarrange(plotlist = list(volc, high_tab, low_tab),
-                                  nrow = 1, widths = c(0.65,0.175,0.175))
-    return(arr_plot)
+    if(igt) {
+      arr_plot <- ggpubr::ggarrange(plotlist = list(volc, high_tab, low_tab),
+                                    nrow = 1, widths = c(0.65,0.175,0.175))
+      return(arr_plot)
+    } else {
+      return(volc)
+    }
   }
 
   out_volc <- lapply(X = dge_split, FUN = tmp_volcano)

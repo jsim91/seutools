@@ -30,11 +30,27 @@ if(F) {
 } else {
   seu_wilc_select <- readRDS("J:/U54_grant/sc/inputs/select_wilcox_dge.rds")
 }
-seu_wilc_collapsed <- do.call(rbind, seu_wilc_select[[1]])
-vol1 <- seutools:::plot_volcano(dge_input = seu_wilc_collapsed, plot_clusters = "all",
-                                gene_set = NA, prio_top_genes = 0, pval_threshold = 1,
-                                table_height = 50, fc_threshold = log2(1.5),
-                                de_method = "seurat_presto")
+# seu_wilc_collapsed <- do.call(rbind, seu_wilc_select[[1]])
+gene_pattern <- paste0("(",paste0(c("IFIT","TNFRSF4","IFNG"),collapse = "|"),")")
+prio_gene_set <- row.names(seu@assays[["RNA"]])[grep(pattern = gene_pattern, x = row.names(seu@assays[["RNA"]]))]
+prio_gene_set <- unique(append(prio_gene_set,c("TNF","IL2RA","GZMB","GZMK")))
+
+vol1 <- seutools:::plot_volcano(dge_input = seu_wilc_select[[1]], plot_clusters = "all",
+                                gene_set = prio_gene_set, prio_top_genes = 5, pval_threshold = 1,
+                                table_height = 55, fc_threshold = log2(1.5),
+                                de_method = "seurat_presto", include_gene_table = TRUE)
+vol2 <- seutools:::plot_volcano(dge_input = seu_wilc_select[[1]], plot_clusters = "all",
+                                gene_set = prio_gene_set, prio_top_genes = 5, pval_threshold = 1,
+                                table_height = 55, fc_threshold = log2(1.5),
+                                de_method = "seurat_presto", include_gene_table = FALSE)
+
+pdf(file = "J:/U54_grant/sc/out_figures/volcano_with_table.pdf", width = 16, height = 12)
+lapply(X = vol1, FUN = function(x) x)
+dev.off()
+
+pdf(file = "J:/U54_grant/sc/out_figures/volcano_no_table.pdf", width = 12, height = 12)
+lapply(X = vol2, FUN = function(x) x)
+dev.off()
 
 
 # testing seutools::seurat_feature_overlay()
@@ -230,6 +246,7 @@ seu <- readRDS(file = "J:/U54_grant/sc/inputs/pbmc_flu_seurat_object_all.rds")
 seu_adt <- readRDS(file = "J:/U54_grant/sc/inputs/pbmc_flu_adt_seurat_object.rds")
 
 sfvt_1 <- seutools::seurat_feature_violin_test(seurat_object = seu,
+                                               comparison_list = ,
                                                plot_features = c("TRAV1-2","CD8A","CLEC12A","CD79A"),
                                                categorical_column = "cell_type",
                                                plot_categorical_types = c("MAIT/gd","Naive_CD8","CD14_Mono","CD16_Mono","B"),  # or "all"

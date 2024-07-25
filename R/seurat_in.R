@@ -1636,6 +1636,24 @@ seurat_feature_violin_test <- function(seurat_object,
   # comparison_list = NULL
   # apply_p.adjust = TRUE
 
+
+  # seurat_object = seu
+  # plot_features = c("TRAV1-2","CD8A","CLEC12A","CD79A")
+  # categorical_column = "cell_type"
+  # plot_categorical_types = c("MAIT/gd","Naive_CD8","CD14_Mono","CD16_Mono","B")
+  # assay = "RNA"
+  # text_expansion = 1
+  # condition = "media"
+  # condition_cat = "condition"
+  # test_cat = "age_group"
+  # test_method = "wilcox"
+  # rotate_x = TRUE
+  # comparison_list = NULL
+  # apply_p.adjust = TRUE
+  # add_pvalue_step = FALSE
+  # show_quantiles = TRUE
+
+
   require(ggplot2)
   require(rstatix)
   require(ggtext)
@@ -1693,15 +1711,14 @@ seurat_feature_violin_test <- function(seurat_object,
                               astep = add_pvalue_step,
                               shq = show_quantiles) {
     # testing
-    # indata = spl_mat[[4]]
+    # indata = spl_mat[[1]]
     # texp = text_expansion
-    # # nudge_nz = nudge_nonzero
-    # # yle = y_limit_expansion_factor,
     # tm = test_method
     # rotx = rotate_x
     # comps = comparison_list
     # apa = apply_p.adjust
     # astep = add_pvalue_step
+    # shq = show_quantiles
 
     indata$add_col <- paste0(indata$cat, "\n", indata$test_cat)
     concat_table_names <- names(table(indata$add_col))
@@ -1724,9 +1741,11 @@ seurat_feature_violin_test <- function(seurat_object,
       compare_these <- comps
     }
 
-    freqs <- data.frame(cat = unique(indata$cat), freq = rep(NA,length(unique(indata$cat))))
+    # freqs <- data.frame(cat = unique(indata$cat), freq = rep(NA,length(unique(indata$cat))))
+    freqs <- data.frame(add_col = unique(indata$add_col), freq = rep(NA,length(unique(indata$add_col))))
     for(i in 1:nrow(freqs)) {
-      freqs$freq[i] <- round(mean(indata$ct[which(indata$cat==freqs$cat[i])]!=0)*100,3)
+      # freqs$freq[i] <- round(mean(indata$ct[which(indata$cat==freqs$cat[i])]!=0)*100,3)
+      freqs$freq[i] <- round(mean(indata$ct[which(indata$add_col==freqs$add_col[i])]!=0)*100,3)
     }
     indata_jitter <- indata[which(indata$ct!=0),]
 
@@ -1738,6 +1757,8 @@ seurat_feature_violin_test <- function(seurat_object,
     }
 
     if(tolower(tm)=="zir") {
+      require(ZIR)
+      require(dplyr)
       zir_p <- rep(NA,length(spl_indata))
       grp1s <- zir_p; grp2s <- zir_p; teststats <- zir_p
       for(i in 1:length(zir_p)) {
@@ -1751,13 +1772,13 @@ seurat_feature_violin_test <- function(seurat_object,
       zir_p <- ifelse(is.na(zir_p),1,zir_p)
       teststats <- ifelse(is.na(teststats),0,teststats)
       zir_grp1 <- sapply(X = spl_indata, FUN = function(x) return(x[1]))
-      test_res <- as_tibble(data.frame('.y.' = 'ct',
-                                       'group1' = grp1s,
-                                       'group2' = grp2s,
-                                       'n1' = 1,
-                                       'n2' = 1,
-                                       'statistic' = teststats,
-                                       'p' = zir_p))
+      test_res <- dplyr::as_tibble(data.frame('.y.' = 'ct',
+                                              'group1' = grp1s,
+                                              'group2' = grp2s,
+                                              'n1' = 1,
+                                              'n2' = 1,
+                                              'statistic' = teststats,
+                                              'p' = zir_p))
       if(all(length(zir_p)>1, apply_p.adjust)) {
         test_res <- rstatix::adjust_pvalue(data = test_res, p.col = "p", output.col = "p.adj")
         test_res <- rstatix::add_significance(data = test_res, p.col = "p.adj", output.col = "p.adj.signif")
@@ -1803,6 +1824,9 @@ seurat_feature_violin_test <- function(seurat_object,
               axis.text.x = element_text(size = 15*texp, face = "bold", angle = ifelse(rotx, 90, 0), hjust = 0.5),
               axis.title.x = element_blank())
     }
+    # plt <- plt + geom_text(data = freqs, aes(x = add_col, y = max(indata$ct), label = freq), size = 5*texp,
+                           # nudge_y = ifelse(max(freqs$freq>=10), nudge_nz*1, nudge_nz))
+    plt <- plt + geom_text(data = freqs, aes(x = add_col, y = min(indata$ct)-0.1, label = freq), size = 5*texp)
     if(!is.null(cond)) {
       plt <- plt + ggtitle(paste0("**",indata$gene[1],"** (",cond,")")) + theme(plot.title = ggtext::element_markdown(size = 18*texp, face = "bold", hjust = 0.5))
     } else {
@@ -2079,8 +2103,8 @@ seurat_dge <- function(seurat_object,
 
         mast_res <- Seurat::FindMarkers(object = subs2, assay = "RNA", ident.1 = ident1, ident.2 = ident2,
                                         test.use = "MAST", only.pos = FALSE, latent.vars = c("cngeneson",pid_column))
-        colnames(mast_res)[which(colnames(mast_res)=="pct.1")] <- gsub(" ","_",paste0("pct.",ident1))
-        colnames(mast_res)[which(colnames(mast_res)=="pct.2")] <- gsub(" ","",paste0("pct.",ident2))
+        # colnames(mast_res)[which(colnames(mast_res)=="pct.1")] <- gsub(" ","_",paste0("pct.",ident1))
+        # colnames(mast_res)[which(colnames(mast_res)=="pct.2")] <- gsub(" ","",paste0("pct.",ident2))
         mast_res$gene <- row.names(mast_res)
         mast_res <- mast_res[mast_res$p_val_adj<0.05,]
         mast_res <- mast_res[which(abs(mast_res$avg_log2FC)>fc_threshold),]
