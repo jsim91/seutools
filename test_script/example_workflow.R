@@ -35,14 +35,14 @@ gene_pattern <- paste0("(",paste0(c("IFIT","TNFRSF4","IFNG"),collapse = "|"),")"
 prio_gene_set <- row.names(seu@assays[["RNA"]])[grep(pattern = gene_pattern, x = row.names(seu@assays[["RNA"]]))]
 prio_gene_set <- unique(append(prio_gene_set,c("TNF","IL2RA","GZMB","GZMK")))
 
-vol1 <- seutools:::plot_volcano(dge_input = seu_wilc_select[[1]], plot_clusters = "all",
-                                gene_set = prio_gene_set, prio_top_genes = 5, pval_threshold = 1,
-                                table_height = 55, fc_threshold = log2(1.5),
-                                de_method = "seurat_presto", include_gene_table = TRUE)
-vol2 <- seutools:::plot_volcano(dge_input = seu_wilc_select[[1]], plot_clusters = "all",
-                                gene_set = prio_gene_set, prio_top_genes = 5, pval_threshold = 1,
-                                table_height = 55, fc_threshold = log2(1.5),
-                                de_method = "seurat_presto", include_gene_table = FALSE)
+vol1 <- seutools:::seu_plot_volcano(dge_input = seu_wilc_select[[1]], plot_clusters = "all",
+                                    gene_set = prio_gene_set, prio_top_genes = 5, pval_threshold = 1,
+                                    table_height = 55, fc_threshold = log2(1.5),
+                                    de_method = "seurat_presto", include_gene_table = TRUE)
+vol2 <- seutools:::seu_plot_volcano(dge_input = seu_wilc_select[[1]], plot_clusters = "all",
+                                    gene_set = prio_gene_set, prio_top_genes = 5, pval_threshold = 1,
+                                    table_height = 55, fc_threshold = log2(1.5),
+                                    de_method = "seurat_presto", include_gene_table = FALSE)
 
 pdf(file = "J:/U54_grant/sc/out_figures/volcano_with_table.pdf", width = 16, height = 12)
 lapply(X = vol1, FUN = function(x) x)
