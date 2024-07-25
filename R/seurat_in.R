@@ -1621,37 +1621,32 @@ seurat_feature_violin_test <- function(seurat_object,
                                        show_quantiles = TRUE)
 {
   # testing
-  # seurat_object = seu_rna
-  # plot_features = feature_genes_2
-  # categorical_column = "annotation"
-  # plot_categorical_types = violin_celltypes # or "all"
   # assay = "RNA"
   # text_expansion = 1
-  # condition = "GRV"
+  # condition = NULL
   # condition_cat = "condition"
   # test_cat = "time_to_group"
-  # test_method = "wilcox"
-  # rotate_x = TRUE
-  # coord_stretch_factor = 0.11
-  # comparison_list = NULL
-  # apply_p.adjust = TRUE
-
-
-  # seurat_object = seu
-  # plot_features = c("TRAV1-2","CD8A","CLEC12A","CD79A")
-  # categorical_column = "cell_type"
-  # plot_categorical_types = c("MAIT/gd","Naive_CD8","CD14_Mono","CD16_Mono","B")
-  # assay = "RNA"
-  # text_expansion = 1
-  # condition = "media"
-  # condition_cat = "condition"
-  # test_cat = "age_group"
   # test_method = "wilcox"
   # rotate_x = TRUE
   # comparison_list = NULL
   # apply_p.adjust = TRUE
   # add_pvalue_step = FALSE
   # show_quantiles = TRUE
+  #
+  # seurat_object = seu_rna
+  # plot_features = fg3
+  # categorical_column = "annotation"
+  # plot_categorical_types = vc3
+  # condition = "MTB300"
+  # rotate_x = F
+  # show_quantiles = T
+  # comparison_list = list(c(paste0(vc3[1],"\ncontroller"),paste0(vc3[1],"\nprogressor")),
+  #                        c(paste0(vc3[2],"\ncontroller"),paste0(vc3[2],"\nprogressor")),
+  #                        c(paste0(vc3[3],"\ncontroller"),paste0(vc3[3],"\nprogressor")))
+  # test_cat = "progr_contr"
+  # add_pvalue_step = FALSE
+  # text_expansion = 0.75
+  # assay = "RNA"
 
 
   require(ggplot2)
@@ -1719,6 +1714,7 @@ seurat_feature_violin_test <- function(seurat_object,
     # apa = apply_p.adjust
     # astep = add_pvalue_step
     # shq = show_quantiles
+    # cond = condition
 
     indata$add_col <- paste0(indata$cat, "\n", indata$test_cat)
     concat_table_names <- names(table(indata$add_col))
@@ -1825,7 +1821,7 @@ seurat_feature_violin_test <- function(seurat_object,
               axis.title.x = element_blank())
     }
     # plt <- plt + geom_text(data = freqs, aes(x = add_col, y = max(indata$ct), label = freq), size = 5*texp,
-                           # nudge_y = ifelse(max(freqs$freq>=10), nudge_nz*1, nudge_nz))
+    # nudge_y = ifelse(max(freqs$freq>=10), nudge_nz*1, nudge_nz))
     plt <- plt + geom_text(data = freqs, aes(x = add_col, y = min(indata$ct)-0.1, label = freq), size = 5*texp)
     if(!is.null(cond)) {
       plt <- plt + ggtitle(paste0("**",indata$gene[1],"** (",cond,")")) + theme(plot.title = ggtext::element_markdown(size = 18*texp, face = "bold", hjust = 0.5))
