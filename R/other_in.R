@@ -22,7 +22,7 @@ seu_tile_plots <- function(plotlist, n_row = 2, n_col = 2, rm_legend = FALSE, co
 }
 
 
-plot_volcano <- function(dge_input, plot_clusters = "all",
+seu_plot_volcano <- function(dge_input, plot_clusters = "all",
                          gene_set = NA, prio_top_genes = 5,
                          pval_threshold = 1, table_height = 50,
                          fc_threshold = log2(1.5),
@@ -321,7 +321,7 @@ plot_volcano <- function(dge_input, plot_clusters = "all",
   return(out_volc)
 }
 
-mast_venns <- function(mast_output, venn_colors = c("#F57336","#32671D","#3398DB","#7B1FA3"),
+seu_mast_venns <- function(mast_output, venn_colors = c("#F57336","#32671D","#3398DB","#7B1FA3"),
                        venn_groups = c("controller","progressor","progr less","progr more"),
                        repl_patterns = c("^c$","^p$","^l$","^m$")) { # '\n' will be paste0'd in front of repl_patterns, order matches venn_groups
   require(VennDiagram)
