@@ -316,11 +316,12 @@ seurat_tile_reduction <- function(seurat_object, condition_column, cluster_colum
 
 
 seurat_footprint <- function(seurat_object, cluster_column, pid_column, condition_column,
-                             media_condition, subtract_media, color_by_column, reduction = "umap",
-                             scale.factor = 1000, pca_fraction_variance = 0.95, cluster_data = FALSE,
-                             umap_n_neighbors = 5, leiden_resolution = 0.2, umap_min_dist = 0.3,
-                             report_values_as = "normalized counts",
-                             feature_reduction_method = "pca") # prepare feature input with either 'pca' or 'boruta' as feature reduction method
+                             media_condition, subtract_media, color_by_column, which_clusters = "all",
+                             reduction = "umap", scale.factor = 1000, pca_fraction_variance = 0.95,
+                             cluster_data = FALSE, umap_n_neighbors = 5, leiden_resolution = 0.2,
+                             umap_min_dist = 0.3, report_values_as = "normalized counts",
+                             feature_reduction_method = "pca", return_as_list = FALSE,
+                             return_data = FALSE) # prepare feature input with either 'pca' or 'boruta' as feature reduction method
 {
   suppressPackageStartupMessages({
     require(ggplot2)
@@ -335,23 +336,32 @@ seurat_footprint <- function(seurat_object, cluster_column, pid_column, conditio
 
   # testing
   # seurat_object = seu
-  # cluster_column = "res1p5_by_type"
+  # cluster_column = "cell_type"
   # pid_column = "pid"
   # condition_column = "condition"
   # media_condition = "media"
   # subtract_media = TRUE
   # color_by_column = "age_group"
-  # reduction = "umap"
   # scale.factor = 1000
-  # pca_fraction_variance = 0.95
+  # pca_fraction_variance = 1
   # umap_n_neighbors = 5
   # cluster_data = FALSE
   # leiden_resolution = 0.5
   # umap_min_dist = 0.25
-  # report_values_as = "normalized counts"
-  # feature_reduction_method = "pca"
+  # report_values_as = "frequency"
+  # feature_reduction_method = "none"
+  # which_clusters = selected_clusters
+  # return_data = TRUE
+  # #
+  # reduction = "umap"
 
   metadata <- seurat_object@meta.data
+  if(which_clusters[1]!="all") {
+    metadata <- metadata[which(metadata[,cluster_column] %in% which_clusters),]
+    if(nrow(metadata)==0) {
+      stop("no data left after filtering for 'which_clusters'")
+    }
+  }
   metadata[,cluster_column] <- as.character(metadata[,cluster_column])
   metadata[,pid_column] <- as.character(metadata[,pid_column])
   small_meta <- metadata[!duplicated(metadata[,pid_column]),][,c(pid_column, color_by_column)]
@@ -386,23 +396,23 @@ seurat_footprint <- function(seurat_object, cluster_column, pid_column, conditio
       row_sums <- rowSums(freq_matrix)
       normalized_matrix <- sweep(freq_matrix, 1, row_sums, FUN="/") * scale.factor
 
-      clus_list[[i]] <- normalized_matrix
+      # clus_list[[i]] <- normalized_matrix
     } else {
       upid <- unique(tmp_meta[,pid_column]); upid <- upid[order(upid)]; uclus <- unique(tmp_meta[,cluster_column]); uclus <- uclus[order(uclus)]
       freq_matrix <- matrix(data = NA, nrow = length(upid), ncol = length(uclus))
       row.names(freq_matrix) <- upid; colnames(freq_matrix) <- uclus
       if(report_values_as=="fraction") {
-        for(i in 1:nrow(freq_matrix)) {
-          tmpnum <- tmp_meta[,cluster_column][tmp_meta[,pid_column]==row.names(freq_matrix)[i]]
+        for(k in 1:nrow(freq_matrix)) {
+          tmpnum <- tmp_meta[,cluster_column][tmp_meta[,pid_column]==row.names(freq_matrix)[k]]
           for(j in 1:ncol(freq_matrix)) {
-            freq_matrix[i,j] <- mean(tmpnum==colnames(freq_matrix)[j])
+            freq_matrix[k,j] <- mean(tmpnum==colnames(freq_matrix)[j])
           }
         }
       } else if(report_values_as=="frequency") {
-        for(i in 1:nrow(freq_matrix)) {
-          tmpnum <- tmp_meta[,cluster_column][tmp_meta[,pid_column]==row.names(freq_matrix)[i]]
+        for(k in 1:nrow(freq_matrix)) {
+          tmpnum <- tmp_meta[,cluster_column][tmp_meta[,pid_column]==row.names(freq_matrix)[k]]
           for(j in 1:ncol(freq_matrix)) {
-            freq_matrix[i,j] <- mean(tmpnum==colnames(freq_matrix)[j]) * 100
+            freq_matrix[k,j] <- mean(tmpnum==colnames(freq_matrix)[j]) * 100
           }
         }
       }
@@ -447,6 +457,10 @@ seurat_footprint <- function(seurat_object, cluster_column, pid_column, conditio
     umap_inputs <- subtr_list[order(nchar(names(subtr_list)))]
   } else {
     umap_inputs <- clus_list
+  }
+
+  if(return_data) {
+    return(umap_inputs)
   }
 
   small_meta_vector <- small_meta[,2]; names(small_meta_vector) <- small_meta[,1]
@@ -501,54 +515,62 @@ seurat_footprint <- function(seurat_object, cluster_column, pid_column, conditio
   bor_plots <- lapply(X = bor_list, FUN = function(x) return(x[[1]]))
   bor_plot_arr <- ggpubr::ggarrange(plotlist = bor_plots, nrow = 1)
 
-  seu_embeds <- as.data.frame(seurat_object@reductions[[tolower(reduction)]]@cell.embeddings); colnames(seu_embeds) <- c("redx","redy")
-  seu_embeds$cluster <- metadata[,cluster_column]
+  if(nrow(metadata)==nrow(seurat_object@reductions[[tolower(reduction)]]@cell.embeddings)) {
+    check1 <- TRUE
+    seu_embeds <- as.data.frame(seurat_object@reductions[[tolower(reduction)]]@cell.embeddings); colnames(seu_embeds) <- c("redx","redy")
+    seu_embeds$cluster <- metadata[,cluster_column]
 
-  umap_by_boruta <- function(arg1, embeds = seu_embeds, byred = reduction) {
-    # testing
-    # arg1 <- bor_list[[1]]
-    # embeds <- seu_embeds
-    # byred = reduction
+    umap_by_boruta <- function(arg1, embeds = seu_embeds, byred = reduction) {
+      # testing
+      # arg1 <- bor_list[[1]]
+      # embeds <- seu_embeds
+      # byred = reduction
 
-    arg1 <- arg1[[2]]
-    df <- merge(x = embeds, y = arg1, by.x = 'cluster', by.y = 'cluster', all.x = TRUE, sort = FALSE)
-    df <- df[!is.na(df$decision),]
-    df$score <- ifelse(df$decision=="Confirmed", df$score, NA)
+      arg1 <- arg1[[2]]
+      df <- merge(x = embeds, y = arg1, by.x = 'cluster', by.y = 'cluster', all.x = TRUE, sort = FALSE)
+      df <- df[!is.na(df$decision),]
+      df$score <- ifelse(df$decision=="Confirmed", df$score, NA)
 
-    text_expansion_factor <- 1
+      text_expansion_factor <- 1
 
-    mapplt <- ggplot(data = df, mapping = aes(x = redx, y = redy, color = score)) +
-      geom_point(size = 0.5, alpha = 0.2) +
-      scale_colour_gradientn(colours = c("blue", "red"),
-                             na.value = "grey",
-                             limits = c(min(df$score, na.rm = TRUE), max(df$score, na.rm = TRUE))) +
-      xlab(toupper(paste0(byred,"1"))) + ylab(toupper(paste0(byred,"2"))) +
-      theme_minimal() +
-      guides(color = guide_colourbar(title.position = "top", frame.colour = "black", ticks.colour = "black",
-                                     draw.ulim = T, draw.llim = T, ticks.linewidth = 0.5)) +
-      theme(axis.title = element_text(size = 20*text_expansion_factor, face = "bold"),
-            plot.title = element_text(size = 22*text_expansion_factor, face = "bold", hjust = 0.5),
-            axis.text = element_blank(),
-            legend.title = element_text(size = 14*text_expansion_factor, hjust = 0.5),
-            legend.key.height = unit(5, "mm"),
-            legend.key.width = unit(15, "mm"),
-            legend.direction = "horizontal",
-            legend.position = "bottom",
-            legend.text = element_text(size = 12*text_expansion_factor))
-    return(mapplt)
+      mapplt <- ggplot(data = df, mapping = aes(x = redx, y = redy, color = score)) +
+        geom_point(size = 0.5, alpha = 0.2) +
+        scale_colour_gradientn(colours = c("blue", "red"),
+                               na.value = "grey",
+                               limits = c(min(df$score, na.rm = TRUE), max(df$score, na.rm = TRUE))) +
+        xlab(toupper(paste0(byred,"1"))) + ylab(toupper(paste0(byred,"2"))) +
+        theme_minimal() +
+        guides(color = guide_colourbar(title.position = "top", frame.colour = "black", ticks.colour = "black",
+                                       draw.ulim = T, draw.llim = T, ticks.linewidth = 0.5)) +
+        theme(axis.title = element_text(size = 20*text_expansion_factor, face = "bold"),
+              plot.title = element_text(size = 22*text_expansion_factor, face = "bold", hjust = 0.5),
+              axis.text = element_blank(),
+              legend.title = element_text(size = 14*text_expansion_factor, hjust = 0.5),
+              legend.key.height = unit(5, "mm"),
+              legend.key.width = unit(15, "mm"),
+              legend.direction = "horizontal",
+              legend.position = "bottom",
+              legend.text = element_text(size = 12*text_expansion_factor))
+      return(mapplt)
+    }
+    map_plots <- lapply(X = bor_list, FUN = umap_by_boruta, embeds = seu_embeds, byred = reduction)
+    map_plot_arr <- ggpubr::ggarrange(plotlist = map_plots, nrow = 1)
+  } else {
+    check1 <- FALSE
   }
 
-  map_plots <- lapply(X = bor_list, FUN = umap_by_boruta, embeds = seu_embeds, byred = reduction)
-  map_plot_arr <- ggpubr::ggarrange(plotlist = map_plots, nrow = 1)
-
-  pca_list <- vector("list", length = length(umap_inputs)); names(pca_list) <- names(umap_inputs)
-  for(i in 1:length(umap_inputs)) {
-    pca_result <- prcomp(umap_inputs[[i]], scale. = TRUE)
-    var_explained <- (pca_result$sdev)^2
-    total_variance <- sum(var_explained)
-    cumulative_var_explained <- cumsum(var_explained)
-    fraction_cumulative_var_explained <- cumulative_var_explained / total_variance
-    pca_list[[i]] <- pca_result$x[,1:which(fraction_cumulative_var_explained>pca_fraction_variance)[1]]
+  if(feature_reduction_method[1]=="pca") {
+    pca_list <- vector("list", length = length(umap_inputs)); names(pca_list) <- names(umap_inputs)
+    for(i in 1:length(umap_inputs)) {
+      pca_result <- prcomp(umap_inputs[[i]], scale. = TRUE)
+      var_explained <- (pca_result$sdev)^2
+      total_variance <- sum(var_explained)
+      cumulative_var_explained <- cumsum(var_explained)
+      fraction_cumulative_var_explained <- cumulative_var_explained / total_variance
+      pca_list[[i]] <- pca_result$x[,1:which(fraction_cumulative_var_explained>pca_fraction_variance)[1]]
+    }
+  } else {
+    pca_list <- umap_inputs
   }
 
   analysis_list <- vector("list", length = length(pca_list)); names(analysis_list) <- names(pca_list)
@@ -585,7 +607,7 @@ seurat_footprint <- function(seurat_object, cluster_column, pid_column, conditio
       geom_point(data = arg1, mapping = aes(x = UMAP1, y = UMAP2, fill = meta_col),
                  size = 6*point_expansion_factor, pch = 21, alpha = 0.7) +
       theme_minimal() +
-      guides(fill = guide_legend(override.aes = list(size = ifelse((6*point_expansion_factor)>8,(6*point_expansion_factor),8), alpha = 1))) +
+      guides(fill = guide_legend(override.aes = list(size = ifelse((6*point_expansion_factor)>5,(6*point_expansion_factor),5), alpha = 1))) +
       ggtitle(plot_title)
     if(label_points) {
       tmpdf <- arg1; tmpdf$ptlab <- gsub("_.+$","",arg1$pid)
@@ -605,15 +627,26 @@ seurat_footprint <- function(seurat_object, cluster_column, pid_column, conditio
             axis.text = element_blank(),
             legend.position = "bottom",
             legend.title = element_blank(),
-            legend.text = element_text(size = 22*text_expansion_factor))
+            legend.text = element_text(size = 20*text_expansion_factor))
     return(plt)
   }
   umaps <- lapply(X = analysis_list, FUN = plot_umap_embed)
   umaps_arr <- ggpubr::ggarrange(plotlist = umaps, nrow = 1, common.legend = TRUE, legend = "bottom")
 
-  all_arr <- ggpubr::ggarrange(plotlist = list(umaps_arr, map_plot_arr, bor_plot_arr), nrow = 3, heights = c(0.5, 0.5, 0.2))
-
-  return(all_arr)
+  if(return_as_list) {
+    if(check1) {
+      return(list(umaps_arr, map_plot_arr, bor_plot_arr))
+    } else {
+      return(list(umaps_arr, bor_plot_arr))
+    }
+  } else {
+    if(check1) {
+      all_arr <- ggpubr::ggarrange(plotlist = list(umaps_arr, map_plot_arr, bor_plot_arr), nrow = 3, heights = c(0.5, 0.5, 0.2))
+    } else {
+      all_arr <- ggpubr::ggarrange(plotlist = list(umaps_arr, bor_plot_arr), nrow = 2, heights = c(0.6, 0.4))
+    }
+    return(all_arr)
+  }
 }
 
 

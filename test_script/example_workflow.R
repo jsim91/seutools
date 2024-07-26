@@ -241,6 +241,91 @@ ggsave(filename = "flu_umap_cluster_1p5_by_type_footprint.png", plot = annotatio
        width = 24, height = 22, units = "in", dpi = 600, limitsize = F, bg = "white")
 
 
+library(Seurat)
+library(SeuratObject)
+
+seu <- readRDS(file = "J:/U54_grant/sc/inputs/pbmc_flu_seurat_object_all.rds")
+seu_adt <- readRDS(file = "J:/U54_grant/sc/inputs/pbmc_flu_adt_seurat_object.rds")
+
+selected_clusters <- c('IFN_CM_CD4','ISG_EM_CD4','ISG_Naive_CD4','ISG_CTL_CD8','ISG_Naive_CD8','ISG_Mono','ISG NK')
+
+footprint_reac <- seutools::seurat_footprint(seurat_object = seu, cluster_column = "cell_type", pid_column = "pid",
+                                             condition_column = "condition", media_condition = "media", subtract_media = TRUE,
+                                             color_by_column = "age_group", scale.factor = 1000, pca_fraction_variance = 1,
+                                             umap_n_neighbors = 5, cluster_data = FALSE, leiden_resolution = 0.5, umap_min_dist = 0.25,
+                                             report_values_as = "frequency", feature_reduction_method = "none",
+                                             which_clusters = selected_clusters, return_data = FALSE, return_as_list = FALSE)
+pdf(file = "J:/U54_grant/sc/out_figures/reactive_cluster_pattern.pdf", width = 18, height = 12)
+footprint_reac
+dev.off()
+
+footprint_data <- seutools::seurat_footprint(seurat_object = seu, cluster_column = "cell_type", pid_column = "pid",
+                                             condition_column = "condition", media_condition = "media", subtract_media = TRUE,
+                                             color_by_column = "age_group", scale.factor = 1000, pca_fraction_variance = 1,
+                                             umap_n_neighbors = 5, cluster_data = FALSE, leiden_resolution = 0.5, umap_min_dist = 0.25,
+                                             report_values_as = "frequency", feature_reduction_method = "none",
+                                             which_clusters = selected_clusters, return_data = TRUE)
+prep_data <- function(arg1, small_meta = seu@meta.data[!duplicated(seu@meta.data$pid),][c("pid","age_group","age")]) {
+  ct_df <- as.data.frame(arg1); ct_df$pid <- row.names(ct_df)
+  ct_grp <- as.data.frame(small_meta)
+  return(merge(x = ct_df, y = ct_grp, by = "pid", sort = FALSE))
+}
+footprint_data <- lapply(X = footprint_data, FUN = prep_data)
+for(i in 1:length(footprint_data)) {
+  footprint_data[[i]]$ptitle <- names(footprint_data)[i]
+}
+
+plotxy <- function(arg1, as.x = "ISG_Naive_CD8", as.y = "ISG_Naive_CD4", label_pt = FALSE) {
+  # testing
+  # arg1 <- footprint_data[[1]]
+  # as.x = "ISG_Naive_CD8"
+  # as.y = "ISG_Naive_CD4"
+
+  arg1 <- as.data.frame(arg1)
+  colnames(arg1)[which(colnames(arg1)==as.x)] <- "xcoln"
+  colnames(arg1)[which(colnames(arg1)==as.y)] <- "ycoln"
+
+  plt <- ggplot() +
+    geom_point(data = arg1, mapping = aes(x = xcoln, y = ycoln, fill = age_group),
+               size = 6, pch = 21, alpha = 0.7) +
+    theme_bw() +
+    guides(fill = guide_legend(override.aes = list(size = 5, alpha = 1))) +
+    ggtitle(arg1$ptitle[1]) +
+    xlab(as.x) + ylab(as.y)
+  if(label_pt) {
+    plt <- plt + ggrepel::geom_label_repel(data = arg1, mapping = aes(x = xcoln, y = ycoln, label = pid), color = "black",
+                                           seed = 123, max.overlaps = Inf, size = 3.5, verbose = FALSE,
+                                           fontface = "bold")
+  }
+  plt <- plt +
+    theme(axis.title = element_text(size = 18),
+          plot.title = element_text(size = 22, face = "bold", hjust = 0.5),
+          # axis.text = element_blank(),
+          axis.text = element_text(size = 18),
+          legend.position = "bottom",
+          legend.title = element_blank(),
+          legend.text = element_text(size = 20))
+  return(plt)
+}
+
+xyplt_1 <- lapply(X = footprint_data, FUN = plotxy, as.x = "ISG_Naive_CD8", as.y = "ISG_Naive_CD4", label_pt = TRUE)
+arr1 <- ggarrange(plotlist = xyplt_1, nrow = 1, ncol = length(xyplt_1), legend = "bottom", common.legend = TRUE)
+ggsave(filename = "flu_xy_isg_naive_labeled.png", plot = arr1, device = "png", path = "J:/U54_grant/sc/out_figures",
+       width = 18, height = 6, units = "in", dpi = 600, limitsize = F, bg = "white")
+
+xyplt_2 <- lapply(X = footprint_data, FUN = plotxy, as.x = "ISG_Naive_CD8", as.y = "ISG_Naive_CD4", label_pt = FALSE)
+arr2 <- ggarrange(plotlist = xyplt_2, nrow = 1, ncol = length(xyplt_2), legend = "bottom", common.legend = TRUE)
+ggsave(filename = "flu_xy_isg_naive.png", plot = arr2, device = "png", path = "J:/U54_grant/sc/out_figures",
+       width = 18, height = 6, units = "in", dpi = 600, limitsize = F, bg = "white")
+
+arr_all <- ggpubr::ggarrange(plotlist = list(footprint_reac, arr1), nrow = 2, ncol = 1, heights = c(0.6,0.4))
+ggsave(filename = "flu_reactive_cluster_footprint_with_xy.png", plot = arr_all, device = "png", path = "J:/U54_grant/sc/out_figures",
+       width = 18, height = 18, units = "in", dpi = 600, limitsize = F, bg = "white")
+
+arr_all_unlab <- ggpubr::ggarrange(plotlist = list(footprint_reac, arr2), nrow = 2, ncol = 1, heights = c(0.6,0.4))
+ggsave(filename = "flu_reactive_cluster_footprint_with_xy_less_label.png", plot = arr_all_unlab, device = "png",
+       path = "J:/U54_grant/sc/out_figures", width = 18, height = 18, units = "in", dpi = 600, limitsize = F, bg = "white")
+
 # testing seutools::seurat_feature_violin_test()
 seu <- readRDS(file = "J:/U54_grant/sc/inputs/pbmc_flu_seurat_object_all.rds")
 seu_adt <- readRDS(file = "J:/U54_grant/sc/inputs/pbmc_flu_adt_seurat_object.rds")
