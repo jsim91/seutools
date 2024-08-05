@@ -321,6 +321,7 @@ seu_plot_volcano <- function(dge_input, plot_clusters = "all",
   return(out_volc)
 }
 
+
 seu_mast_venns <- function(mast_output, venn_colors = c("#F57336","#32671D","#3398DB","#7B1FA3"),
                        venn_groups = c("controller","progressor","progr less","progr more"),
                        repl_patterns = c("^c$","^p$","^l$","^m$")) { # '\n' will be paste0'd in front of repl_patterns, order matches venn_groups
@@ -358,4 +359,12 @@ seu_mast_venns <- function(mast_output, venn_colors = c("#F57336","#32671D","#33
   # })
   # dev.off()
   ####
+}
+
+
+seu_pathfindr <- function(dge_dataframe) {
+  require(pathfindR)
+
+
+
 }

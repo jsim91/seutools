@@ -18,6 +18,62 @@ if(F) {
                               test_condition = "all", condition_column = "condition", pid_column = "pid")
 }
 
+if(F) {
+  seu_small = subset(x = seu, subset = cell_type %in% c("Th1/Th17","CD_CD4","CD_CD8"))
+  seu_pbulk <- seurat_dge(seurat_object = seu_small,
+                          dge_method = "pseudobulk",
+                          assay = "RNA",
+                          freq_expressed = 0.1,
+                          fc_threshold = log2(1.5),
+                          test_clusters = "all",
+                          cluster_column = "cell_type",
+                          category_column = "age_group",
+                          test_categories = c("younger","older"),
+                          test_per_category = FALSE,
+                          test_condition = "all",
+                          condition_column = "condition",
+                          test_per_condition = FALSE,
+                          pid_column = "pid",
+                          pseudobulk_test_mode = "cluster_identity")
+
+  dge_method = "pseudobulk"
+  assay = "RNA"
+  freq_expressed = 0.1
+  fc_threshold = log2(1.5)
+  test_clusters = "all"
+  cluster_column = "cell_type"
+  category_column = "age_group"
+  test_categories = c("younger","older")
+  test_per_category = FALSE
+  test_condition = "all"
+  condition_column = "condition"
+  test_per_condition = FALSE
+  pid_column = "pid"
+  pseudobulk_test_mode = "cluster_identity"
+
+  capture_dir <- system.file(package = "seutools")
+  paste0("python ",
+         paste0(capture_dir,"/python/create_pseudobulk_profile.py")," ",
+         paste0(capture_dir,"/temp_files/__python_ct_matrix__.mtx")," ",
+         capture_dir,"/temp_files"," ",
+         paste0(capture_dir,"/temp_files/__python_obs_matrix__.csv")," ",
+         cluster_column," ",
+         paste0(capture_dir,"/temp_files/__python_feature_names__.csv")," ",
+         condition_column," ",
+         pid_column," ",
+         pseudobulk_test_mode)
+
+  # 1 C:/Users/joshu/AppData/Local/R/win-library/4.4/seutools/temp_files/__python_ct_matrix__.mtx
+  # 2 C:/Users/joshu/AppData/Local/R/win-library/4.4/seutools/temp_files
+  # 3 C:/Users/joshu/AppData/Local/R/win-library/4.4/seutools/temp_files/__python_obs_matrix__.csv
+  # 4 cell_type
+  # 5 C:/Users/joshu/AppData/Local/R/win-library/4.4/seutools/temp_files/__python_feature_names__.csv
+  # 6 condition
+  # 7 pid
+  # 8 cluster_identity
+
+}
+
 # c('ISG_Naive_CD4','IFN_CM_CD4','ISG_EM_CD4','ISG NK','ISG_Naive_CD8','ISG_CTL_CD8','ISG_Mono')
 if(F) {
   seu_wilc_select <- seurat_dge(seurat_object = seu, dge_method = "wilcox", freq_expressed = 0.1,

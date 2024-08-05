@@ -2108,7 +2108,7 @@ seurat_dge <- function(seurat_object,
     #   stop("Test_categories must be length 2 when doing pseudobulk. If testing cluster vs rest, do c('in','out') mapped to what cluster is being tested. If testing ")
     # }
     capture_dir <- system.file(package = "seutools")
-    Matrix::writeMM(obj = seurat_object@assays[['RNA']]@layers$counts,
+    Matrix::writeMM(obj = seurat_object@assays[[assay]]@layers$counts,
                     file = paste0(capture_dir,"/temp_files/__python_ct_matrix__.mtx"))
     write.csv(x = seurat_object@meta.data,
               file = paste0(capture_dir,"/temp_files/__python_obs_matrix__.csv"), row.names = FALSE)
@@ -2325,14 +2325,14 @@ seurat_dge <- function(seurat_object,
           next
         }
         subs2 <- subset(x = subs2, features = genes_to_keep)
-        seu_as_sce <- as.SingleCellExperiment(subs2, assay = "RNA")
+        seu_as_sce <- as.SingleCellExperiment(subs2, assay = assay)
         logcounts(seu_as_sce) <- log2(counts(seu_as_sce) + 1)
         cdr <- colSums(seu_as_sce@assays@data@listData[["logcounts"]]>0) # cellular detection rate; number of genes detected which is a well-known confounder (https://bioconductor.org/packages/release/bioc/vignettes/MAST/inst/doc/MAITAnalysis.html#22_Filtering)
         seu_as_sce$cngeneson <- scale(cdr)
         subs2@assays[[assay]]@layers$data <- seu_as_sce@assays@data@listData[["logcounts"]]
         subs2@meta.data <- as.data.frame(seu_as_sce@colData)
 
-        mast_res <- Seurat::FindMarkers(object = subs2, assay = "RNA", ident.1 = ident1, ident.2 = ident2,
+        mast_res <- Seurat::FindMarkers(object = subs2, assay = assay, ident.1 = ident1, ident.2 = ident2,
                                         test.use = "MAST", only.pos = FALSE, latent.vars = c("cngeneson",pid_column))
         # colnames(mast_res)[which(colnames(mast_res)=="pct.1")] <- gsub(" ","_",paste0("pct.",ident1))
         # colnames(mast_res)[which(colnames(mast_res)=="pct.2")] <- gsub(" ","",paste0("pct.",ident2))
@@ -2343,7 +2343,7 @@ seurat_dge <- function(seurat_object,
         dge_outs[[i]][[j]] <- mast_res
       } else if(tolower(dge_method) == "wilcox") {
         require(SeuratWrappers)
-        wilcox_res <- SeuratWrappers::RunPresto(object = subs2, assay = "RNA", ident.1 = ident1, ident.2 = ident2,
+        wilcox_res <- SeuratWrappers::RunPresto(object = subs2, assay = assay, ident.1 = ident1, ident.2 = ident2,
                                                 test.use = "wilcox", only.pos = FALSE, min.pct = 0.01)
         # colnames(wilcox_res)[which(colnames(wilcox_res)=="pct.1")] <- gsub(" ","",paste0("pct.",ident1))
         # colnames(wilcox_res)[which(colnames(wilcox_res)=="pct.2")] <- gsub(" ","",paste0("pct.",ident2))
