@@ -1,4 +1,8 @@
 # check dependencies
+import importlib
+import subprocess
+import sys
+
 REQUIRED_PACKAGES = ['pandas', 'numpy', 'scanpy','anndata','decoupler','scipy']
 for package in REQUIRED_PACKAGES:
 	try:
@@ -15,7 +19,6 @@ import pandas as pd
 import numpy as np
 import scanpy as sc
 import anndata
-import sys
 import os
 import decoupler as dc
 from scipy.io import mmread
