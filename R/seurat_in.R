@@ -321,7 +321,8 @@ seurat_footprint <- function(seurat_object, cluster_column, pid_column, conditio
                              cluster_data = FALSE, umap_n_neighbors = 5, leiden_resolution = 0.2,
                              umap_min_dist = 0.3, report_values_as = "normalized counts",
                              feature_reduction_method = "pca", return_as_list = FALSE,
-                             return_data = FALSE) # prepare feature input with either 'pca' or 'boruta' as feature reduction method
+                             return_data = FALSE, manual_colors = NULL, umap_spread = 1,
+                             label_points = TRUE) # prepare feature input with either 'pca' or 'boruta' as feature reduction method
 {
   suppressPackageStartupMessages({
     require(ggplot2)
@@ -351,17 +352,19 @@ seurat_footprint <- function(seurat_object, cluster_column, pid_column, conditio
   # report_values_as = "frequency"
   # feature_reduction_method = "none"
   # which_clusters = selected_clusters
-  # return_data = TRUE
-  # #
+  # return_data = FALSE
+  # return_as_list = FALSE
+  # manual_colors = NULL
+  # # #
   # reduction = "umap"
 
   metadata <- seurat_object@meta.data
-  if(which_clusters[1]!="all") {
-    metadata <- metadata[which(metadata[,cluster_column] %in% which_clusters),]
-    if(nrow(metadata)==0) {
-      stop("no data left after filtering for 'which_clusters'")
-    }
-  }
+  # if(which_clusters[1]!="all") {
+  #   metadata <- metadata[which(metadata[,cluster_column] %in% which_clusters),]
+  #   if(nrow(metadata)==0) {
+  #     stop("no data left after filtering for 'which_clusters'")
+  #   }
+  # }
   metadata[,cluster_column] <- as.character(metadata[,cluster_column])
   metadata[,pid_column] <- as.character(metadata[,pid_column])
   small_meta <- metadata[!duplicated(metadata[,pid_column]),][,c(pid_column, color_by_column)]
@@ -459,6 +462,18 @@ seurat_footprint <- function(seurat_object, cluster_column, pid_column, conditio
     umap_inputs <- clus_list
   }
 
+  if(which_clusters[1]!="all") {
+    if(mean(colnames(umap_inputs[[1]])==colnames(umap_inputs[[2]]))!=1) {
+      stop("data matrix column mismatch")
+    }
+    if(mean(row.names(umap_inputs[[1]])==row.names(umap_inputs[[2]]))!=1) {
+      stop("data matrix row mismatch")
+    }
+    for(i in 1:length(umap_inputs)) {
+      umap_inputs[[i]] <- umap_inputs[[i]][,which(colnames(umap_inputs[[i]]) %in% which_clusters)]
+    }
+  }
+
   if(return_data) {
     return(umap_inputs)
   }
@@ -468,7 +483,7 @@ seurat_footprint <- function(seurat_object, cluster_column, pid_column, conditio
 
   bor_fun <- function(arg1, split_group = factor(as.character(bor_class))) {
     # testing
-    # arg1 = umap_inputs[[1]]
+    # arg1 = umap_inputs[[2]]
     # split_group = factor(as.character(bor_class))
 
     bor_out <- Boruta::Boruta(x = arg1, y = split_group, maxRuns = 300, doTrace = 0, holdHistory = TRUE)
@@ -488,6 +503,9 @@ seurat_footprint <- function(seurat_object, cluster_column, pid_column, conditio
     bor_imp <- as.data.frame(bor_out$ImpHistory); colnames(bor_imp) <- gsub("^(X|x)","",colnames(bor_imp))
     colmed1 <- unlist(sapply(X = bor_imp, FUN = median))
     bor_imp <- bor_imp[,gsub("^c","",dec$cluster[which(dec$decision=="Confirmed")])]
+    if(class(bor_imp)!="data.frame") {
+      bor_imp <- data.frame(val1 = bor_imp); colnames(bor_imp) <- dec$cluster[which(dec$decision=="Confirmed")]
+    }
     colmed <- unlist(sapply(X = bor_imp, FUN = median))
     bor_imp <- reshape2::melt(data = bor_imp)
     bor_imp$variable <- factor(x = bor_imp$variable, levels = names(colmed)[order(colmed)])
@@ -576,7 +594,7 @@ seurat_footprint <- function(seurat_object, cluster_column, pid_column, conditio
   analysis_list <- vector("list", length = length(pca_list)); names(analysis_list) <- names(pca_list)
   for(i in 1:length(analysis_list)) {
     umap_out <- uwot::umap(X = pca_list[[i]], n_neighbors = umap_n_neighbors, init = "spca",
-                           min_dist = umap_min_dist, batch = TRUE, seed = 123)
+                           min_dist = umap_min_dist, batch = TRUE, seed = 123, spread = umap_spread)
     tmp_obj <- list(data = pca_list[[i]],
                     raw = "",
                     source = row.names(pca_list[[i]]))
@@ -593,12 +611,13 @@ seurat_footprint <- function(seurat_object, cluster_column, pid_column, conditio
     analysis_list[[i]] <- umap_out
   }
 
-  plot_umap_embed <- function(arg1, text_expansion_factor = 1, label_points = TRUE,
-                              point_expansion_factor = 1, consider_clustered_clusters = cluster_data) {
+  plot_umap_embed <- function(arg1, text_expansion_factor = 1, labp = label_points,
+                              point_expansion_factor = 1, consider_clustered_clusters = cluster_data,
+                              mancol = manual_colors) {
     # testing
     # arg1 = analysis_list[[1]]
     # text_expansion_factor = 1
-    # label_points = TRUE
+    # labp = TRUE
     # point_expansion_factor = 1
 
     plot_title <- arg1$type[1]
@@ -609,7 +628,7 @@ seurat_footprint <- function(seurat_object, cluster_column, pid_column, conditio
       theme_minimal() +
       guides(fill = guide_legend(override.aes = list(size = ifelse((6*point_expansion_factor)>5,(6*point_expansion_factor),5), alpha = 1))) +
       ggtitle(plot_title)
-    if(label_points) {
+    if(labp) {
       tmpdf <- arg1; tmpdf$ptlab <- gsub("_.+$","",arg1$pid)
       if(all(consider_clustered_clusters, "group" %in% colnames(arg1))) {
         plt <- plt + ggrepel::geom_label_repel(data = tmpdf, mapping = aes(x = UMAP1, y = UMAP2, label = ptlab, color = group),
@@ -620,6 +639,9 @@ seurat_footprint <- function(seurat_object, cluster_column, pid_column, conditio
                                                seed = 123, max.overlaps = Inf, size = 3.5*text_expansion_factor, verbose = FALSE,
                                                fontface = "bold")
       }
+    }
+    if(!is.null(mancol)) {
+      plt <- plt + scale_fill_manual(values = mancol)
     }
     plt <- plt +
       theme(axis.title = element_text(size = 20*text_expansion_factor, face = "bold"),
@@ -2000,51 +2022,59 @@ test_clusters_cat <- function(pid, clusters, condition, cat, stat_compares, y_ax
 }
 
 seurat_dge <- function(seurat_object,
-                       dge_method = c("MAST", "wilcox"),
+                       dge_method = c("MAST", "wilcox", "pseudobulk"),
+                       assay = "RNA",
                        freq_expressed = 0.1,
                        fc_threshold = log2(1.5),
-                       test_per_cluster = TRUE,
-                       test_clusters = "all",
+                       test_clusters = "all", # one or more clusters to test, or "all"
                        cluster_column = "cell_type",
-                       test_per_category = TRUE,
-                       test_categories = c("younger","older"),
                        category_column = "age_group",
-                       test_per_condition = TRUE, # or FALSE to test all cells without subsetting by condition
-                       test_condition = "all", # only considered if test_per_condition, test_condition = "all" suggests
+                       test_categories = c("younger","older"), # order matters: translates into (test_categories[1]/test_categories[2]) for DESeq2 pseudobulk
+                       test_per_category = FALSE,
+                       test_condition = "all",
                        condition_column = "condition",
-                       pid_column = "pid")
+                       test_per_condition = FALSE,
+                       pid_column = "pid",
+                       pseudobulk_test_mode = c("cluster_identity","cluster_by_category","cluster_by_condition"))
 {
   require(Seurat)
   # testing
   # seurat_object = seu
-  # seurat_object = seu_test_dge
-  # # dge_method = "wilcox"
-  # dge_method = "MAST"
+  # dge_method = "pseudobulk"
+  # assay = "RNA",
   # freq_expressed = 0.1
   # fc_threshold = log2(1.5)
-  # test_per_cluster = TRUE
-  # # test_clusters = und_cl
-  # test_clusters = c("Activ NK","Mono")
+  # test_clusters = c("Activ NK","Mono") # one or more clusters to test, or "all"
   # cluster_column = "cell_type"
-  # test_per_category = FALSE
-  # test_categories = c("younger","older")
   # category_column = "age_group"
-  # test_per_condition = FALSE
+  # test_categories = c("younger","older") # order matters: translates into (test_categories[1]/test_categories[2]) for DESeq2 pseudobulk
+  # test_per_category = FALSE
   # test_condition = "all"
   # condition_column = "condition"
+  # test_per_condition = FALSE
   # pid_column = "pid"
+  # pseudobulk_test_mode = "cluster_identity" # c("cluster_identity","cluster_by_category","cluster_by_condition")
 
-  if(test_per_condition) {
+
+  if(test_condition[1]!="all") {
     conditions <- test_condition[test_condition %in% seurat_object@meta.data[,condition_column]]
-    if(length(conditions)==0) {
-      conditions <- NULL
-      warning("None of the requested 'conditions' found in seurat_object@meta.data[,condition_column]. Continuing without subsetting on any condition(s).")
-    }
   } else {
-    conditions <- NULL
+    conditions <- unique(seurat_object@meta.data[,condition_column])
   }
-  if(test_per_cluster) {
-    test_clusters <- unique(test_clusters[test_clusters %in% seurat_object@meta.data[,cluster_column]])
+  if(length(conditions)==0) {
+    conditions <- NULL
+    warning("None of the requested 'conditions' found in seurat_object@meta.data[,condition_column]. Continuing without subsetting on any condition(s).")
+  } else {
+    which_is_condition <- seurat_object@meta.data[,condition_column] %in% conditions
+    seurat_object <- subset(x = seurat_object, cells = which(which_is_condition))
+    print(paste0("seurat_object subset for: ",paste0(unique(seurat_object@meta.data[,condition_column]), collapse = ",")))
+  }
+  seu_conditions <- ifelse(test_condition[1]=="all","all",unique(seurat_object@meta.data[,condition_column]))
+  if(length(seu_conditions)!=1) {
+    seu_conditions <- paste0(seu_conditions, collapse = ".")
+  }
+  if(test_clusters[1]!="all") {
+    test_clusters <- test_clusters[test_clusters %in% seurat_object@meta.data[,cluster_column]]
     if(length(test_clusters)==0) {
       annos <- NULL
       warning("None of 'test_clusters' found in seurat_object@meta.data[,cluster_column]. Continuing with test(s) on all cells.")
@@ -2052,18 +2082,190 @@ seurat_dge <- function(seurat_object,
       annos <- test_clusters
     }
   } else {
-    annos <- NULL
+    annos <- unique(seurat_object@meta.data[,cluster_column])
   }
-  if(test_per_category) {
-    test_cats <- test_categories[test_categories %in% seurat_object@meta.data[,category_column]]
-    if(length(test_cats)!=2) {
-      stop("After filtering for viable categories, 'test_categories' must be of length 2; which two categories in 'category_column' should be compared?")
+  if(test_categories[1]!="all") {
+    test_categories <- test_categories[test_categories %in% seurat_object@meta.data[,category_column]]
+    if(length(test_categories)==0) {
+      test_cats <- NULL
+      warning("no categories by 'test_categories' were found in seurat_object@meta.data[,category_column]")
+    } else {
+      test_cats <- test_categories
     }
   } else {
-    test_cats <- NULL
+    test_categories <- unique(seurat_object@meta.data[,category_column])
+    test_cats <- test_categories
   }
   if(all(is.null(annos), is.null(test_cats))) {
     stop("Nothing to compare")
+  }
+
+  if(tolower(dge_method)=="pseudobulk") {
+    require(data.table)
+    require(DESeq2)
+    require(ashr)
+    # if(length(test_cats)!=2) {
+    #   stop("Test_categories must be length 2 when doing pseudobulk. If testing cluster vs rest, do c('in','out') mapped to what cluster is being tested. If testing ")
+    # }
+    capture_dir <- system.file(package = "seutools")
+    Matrix::writeMM(obj = seurat_object@assays[['RNA']]@layers$counts,
+                    file = paste0(capture_dir,"/temp_files/__python_ct_matrix__.mtx"))
+    write.csv(x = seurat_object@meta.data,
+              file = paste0(capture_dir,"/temp_files/__python_obs_matrix__.csv"), row.names = FALSE)
+    write.csv(x = data.frame(v1 = row.names(seurat_object)),
+              file = paste0(capture_dir,"/temp_files/__python_feature_names__.csv"), row.names = FALSE)
+    system(command = paste0("python ",
+                            paste0(capture_dir,"/python/create_pseudobulk_profile.py")," ",
+                            paste0(capture_dir,"/temp_files/__python_ct_matrix__.mtx")," ",
+                            capture_dir,"/temp_files"," ",
+                            paste0(capture_dir,"/temp_files/__python_obs_matrix__.csv")," ",
+                            cluster_column," ",
+                            paste0(capture_dir,"/temp_files/__python_feature_names__.csv")," ",
+                            condition_column," ",
+                            pid_column," ",
+                            pseudobulk_test_mode))
+    # ct_data <- read.csv(paste0(capture_dir,"/temp_files/__pseudobulk_sum_counts__.csv"), check.names = FALSE, header = FALSE)
+    ct_data <- as.data.frame(data.table::fread(paste0(capture_dir,"/temp_files/__pseudobulk_sum_counts__.csv"), check.names = FALSE, header = FALSE))
+    if(file.exists(paste0(capture_dir,"/temp_files/__pseudobulk_sum_counts__.csv"))) {
+      file.remove(paste0(capture_dir,"/temp_files/__pseudobulk_sum_counts__.csv"))
+    }
+    obj_obs <- read.csv(paste0(capture_dir,"/temp_files/__pseudobulk_obs__.csv"), check.names = FALSE, row.names = 1)
+    obj_obs$cell_group <- row.names(obj_obs)
+    if(file.exists(paste0(capture_dir,"/temp_files/__pseudobulk_obs__.csv"))) {
+      file.remove(paste0(capture_dir,"/temp_files/__pseudobulk_obs__.csv"))
+    }
+    obj_var <- read.csv(paste0(capture_dir,"/temp_files/__pseudobulk_var__.csv"))[,1]
+    if(file.exists(paste0(capture_dir,"/temp_files/__pseudobulk_var__.csv"))) {
+      file.remove(paste0(capture_dir,"/temp_files/__pseudobulk_var__.csv"))
+    }
+    row.names(ct_data) <- obj_obs$cell_group
+    colnames(ct_data) <- obj_var
+
+    id_pattern <- paste0(gsub("-","\\\\-",paste0("(",paste0(unique(seurat_object@meta.data[,pid_column]), collapse = "|"),")")),"_")
+    ct_spl <- split(x = ct_data, f = gsub(id_pattern,"",row.names(ct_data)))
+    ct_spl <- lapply(X = ct_spl, FUN = function(arg1, rpat = gsub("_$","",id_pattern)){ # account for sparsity; drop genes with no variance across id set; likely all 0s
+      if(ncol(arg1)>nrow(arg1)) {
+        row.names(arg1) <- stringr::str_extract(string = row.names(arg1), pattern = rpat)
+        check_var <- apply(X = arg1, MARGIN = 2, FUN = stats::var)
+        which_novar <- which(check_var==0)
+        arg1 <- arg1[order(row.names(arg1)),]
+        if(length(which_novar)!=0) {
+          arg1 <- arg1[,-which_novar]
+        }
+      } else {
+        colnames(arg1) <- stringr::str_extract(string = colnames(arg1), pattern = rpat)
+        check_var <- apply(X = arg1, MARGIN = 1, FUN = stats::var)
+        which_novar <- which(check_var==0)
+        arg1 <- arg1[,order(colnames(arg1))]
+        if(length(which_novar)!=0) {
+          arg1 <- arg1[-which_novar,]
+        }
+      }
+      if(ncol(arg1)>nrow(arg1)) {
+        arg1 <- t(arg1)
+      }
+      return(arg1)
+    })
+    meta_list <- vector("list", length = length(ct_spl)); names(meta_list) <- names(ct_spl)
+    for(i in 1:length(meta_list)) {
+      tmp_meta <- obj_obs
+      # tmp_meta <- tmp_meta[which(tmp_meta[,pid_column] %in% colnames(ct_spl[[i]])),]
+      tmp_meta <- tmp_meta[which(gsub(id_pattern,"",row.names(obj_obs)) %in% names(ct_spl)[i]),]
+      tmp_meta <- tmp_meta[order(tmp_meta[,pid_column]),]
+      if(mean(tmp_meta[,pid_column]==colnames(ct_spl[[i]]))!=1) {
+        stop("pid mismatch (1)")
+      }
+      tmp_meta$cluster_id <- names(meta_list)[i]
+      # tmp_meta$sample_id <- tmp_meta[,pid_column]
+      tmp_meta$sample_id <- tmp_meta[,pid_column]
+      tmp_meta$group_id <- factor(tmp_meta[,category_column])
+      row.names(tmp_meta) <- tmp_meta$sample_id
+      meta_list[[i]] <- tmp_meta
+    }
+
+    deseq_input <- vector("list", length = length(ct_spl)); names(deseq_input) <- names(ct_spl)
+    for(i in 1:length(deseq_input)) {
+      deseq_input[[i]] <- list(ct_spl[[i]], meta_list[[i]])
+    }
+    use_adj_p <- TRUE # hard coding use adjusted p values; consider allowing use unadjusted for discovery
+    padj_threshold <- 0.05 # hard coding 0.05; consider allowing to change
+    do_deseq <- function(arg1, p_return_threshold = padj_threshold, stim = seu_conditions,
+                         use_adj = use_adj_p, test_cast_order = test_cats) {
+
+      count_data <- arg1[[1]]
+      meta_data <- arg1[[2]]
+
+      dds <- DESeqDataSetFromMatrix(countData = count_data,
+                                    colData = meta_data,
+                                    design = ~ group_id)
+      dds <- DESeq(dds)
+      normalized_counts <- counts(dds, normalized = TRUE)
+      contrast <- c("group_id", test_cats[1], test_cats[2])
+      res <- results(dds,
+                     contrast = contrast,
+                     alpha = 0.05)
+      res <- lfcShrink(dds,
+                       contrast = contrast,
+                       res=res,
+                       type = "ashr")
+      norm_ct <- DESeq2::counts(dds, normalized = TRUE)
+      res <- data.frame(res); res <- res[!is.na(res$padj),]
+      if(sum(is.na(res$padj))!=0) {
+        res$padj <- p.adjust(p = res$pvalue, method = "fdr")
+      }
+      res$gene <- row.names(res)
+      res$condition <- stim
+      if(use_adj) {
+        if(!is.null(p_return_threshold)) {
+          res <- res[res$padj<=p_return_threshold,]
+        }
+      } else {
+        if(!is.null(p_return_threshold)) {
+          res <- res[res$pvalue<=p_return_threshold,]
+        }
+      }
+      # if(nrow(res)!=0) {
+      #   if(nrow(res)>40) {
+      #     sig_genes <- res$gene[order(abs(res$log2FoldChange))][1:40]
+      #   } else {
+      #     sig_genes <- res$gene
+      #   }
+      #   sig_norm <- as.data.frame(norm_ct[which(row.names(norm_ct) %in% sig_genes),])
+      #
+      #   pheatm <- pheatmap(sig_norm,
+      #                      cluster_rows = T,
+      #                      show_rownames = T,
+      #                      # annotation = data.frame(group_id = meta_data[, c("group_id")]),
+      #                      annotation = meta_data[,c(cluster_column,"group_id")],
+      #                      border_color = NA,
+      #                      fontsize = 10,
+      #                      scale = "row",
+      #                      fontsize_row = 10,
+      #                      height = 20)
+      # } else {
+      #   pheatm <- "no features plotted"
+      # }
+      return(list(res = res, norm_ct = norm_ct, meta = meta_data))#, hm = pheatm))
+    }
+    deseq_out <- lapply(X = deseq_input, FUN = do_deseq, p_return_threshold = padj_threshold,
+                        stim = seu_conditions, use_adj = use_adj_p, test_cast_order = test_cats)
+    drop_indices <- c()
+    for(i in 1:length(deseq_out)) {
+      if(nrow(deseq_out[[i]][[1]])!=0) {
+        deseq_out[[i]][[1]]$cluster <- names(deseq_out)[i]
+      } else {
+        drop_indices <- append(drop_indices, i)
+      }
+    }
+    if(length(drop_indices)==1) {
+      deseq_out <- deseq_out[[-drop_indices]]
+    } else if(length(drop_indices)>1) {
+      deseq_out <- deseq_out[-drop_indices]
+    }
+
+    deseq_res <- lapply(X = deseq_out, FUN = function(arg1) return(arg1[[1]]))
+    deseq_write <- do.call(rbind, deseq_res)
+    return(deseq_write)
   }
 
   dge_outs <- vector("list", length = ifelse(is.null(conditions), 1, length(conditions))); names(dge_outs) <- ifelse(is.null(conditions), "all", conditions)
@@ -2113,7 +2315,7 @@ seurat_dge <- function(seurat_object,
       }
       if(tolower(dge_method) == "mast") {
         require(MAST)
-        binary_expr_matrix <- subs2@assays$RNA@layers$counts > 0
+        binary_expr_matrix <- subs2@assays[[assay]]@layers$counts > 0
         percent_expr <- rowSums(binary_expr_matrix) / ncol(binary_expr_matrix); names(percent_expr) <- row.names(subs2)
         genes_to_keep <- row.names(subs2)[percent_expr >= freq_expressed]
         if(sum(is.na(genes_to_keep))>0) {
@@ -2127,7 +2329,7 @@ seurat_dge <- function(seurat_object,
         logcounts(seu_as_sce) <- log2(counts(seu_as_sce) + 1)
         cdr <- colSums(seu_as_sce@assays@data@listData[["logcounts"]]>0) # cellular detection rate; number of genes detected which is a well-known confounder (https://bioconductor.org/packages/release/bioc/vignettes/MAST/inst/doc/MAITAnalysis.html#22_Filtering)
         seu_as_sce$cngeneson <- scale(cdr)
-        subs2@assays$RNA@layers$data <- seu_as_sce@assays@data@listData[["logcounts"]]
+        subs2@assays[[assay]]@layers$data <- seu_as_sce@assays@data@listData[["logcounts"]]
         subs2@meta.data <- as.data.frame(seu_as_sce@colData)
 
         mast_res <- Seurat::FindMarkers(object = subs2, assay = "RNA", ident.1 = ident1, ident.2 = ident2,
