@@ -2039,21 +2039,21 @@ seurat_dge <- function(seurat_object,
 {
   require(Seurat)
   # testing
-  seurat_object = seu_small
-  dge_method = "pseudobulk"
-  assay = "RNA"
-  freq_expressed = 0.1
-  fc_threshold = log2(1.5)
-  test_clusters = "all"
-  cluster_column = "cell_type"
-  category_column = "age_group"
-  test_categories = c("younger","older")
-  test_per_category = FALSE
-  test_condition = "all"
-  condition_column = "condition"
-  test_per_condition = FALSE
-  pid_column = "pid"
-  pseudobulk_test_mode = "cluster_identity"
+  # seurat_object = seu_small
+  # dge_method = "pseudobulk"
+  # assay = "RNA"
+  # freq_expressed = 0.1
+  # fc_threshold = log2(1.5)
+  # test_clusters = "all"
+  # cluster_column = "cell_type"
+  # category_column = "age_group"
+  # test_categories = c("younger","older")
+  # test_per_category = FALSE
+  # test_condition = "all"
+  # condition_column = "condition"
+  # test_per_condition = FALSE
+  # pid_column = "pid"
+  # pseudobulk_test_mode = "cluster_identity"
 
 
   if(test_condition[1]!="all") {
