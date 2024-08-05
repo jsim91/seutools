@@ -1,3 +1,15 @@
+# check dependencies
+REQUIRED_PACKAGES = ['pandas', 'numpy', 'scanpy','anndata','decoupler','scipy']
+for package in REQUIRED_PACKAGES:
+	try:
+		importlib.import_module(package)
+		print(f'{package} is installed')
+	except ImportError:
+		print(f'{package} not installed. Installing now...')
+		subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+		print(f'{package} installed successfully')
+		#importlib.import_module(package)
+
 # import dependencies
 import pandas as pd
 import numpy as np
