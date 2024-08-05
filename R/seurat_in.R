@@ -2251,7 +2251,6 @@ seurat_dge <- function(seurat_object,
     }
     deseq_out <- lapply(X = deseq_input, FUN = do_deseq, p_return_threshold = padj_threshold,
                         stim = seu_conditions, use_adj = use_adj_p, test_cast_order = test_cats)
-    return(deseq_out)
 
     drop_indices <- c()
     for(i in 1:length(deseq_out)) {
