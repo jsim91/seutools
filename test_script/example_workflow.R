@@ -1,5 +1,29 @@
 # rm(list = ls()); gc()
 
+if(F) {
+  library(seutools)
+  library(Seurat)
+  library(Matrix)
+
+  seu_small <- readRDS(file = "J:/10x/TB_sc/scbp2/r_out_obj/small_test_seurat.rds")
+  seu_pbulk <- seurat_dge(seurat_object = seu_small,
+                          dge_method = "pseudobulk",
+                          assay = "RNA",
+                          freq_expressed = 0.1,
+                          fc_threshold = log2(1.5),
+                          test_clusters = "all",
+                          cluster_column = "annotation",
+                          category_column = "progr_contr",
+                          test_categories = c("progressor","controller"),
+                          test_per_category = FALSE,
+                          test_condition = "all",
+                          condition_column = "condition",
+                          test_per_condition = FALSE,
+                          pid_column = "bid",
+                          pseudobulk_test_mode = "cluster_identity")
+}
+
+
 # example workflow
 library(seutools)
 library(Seurat)

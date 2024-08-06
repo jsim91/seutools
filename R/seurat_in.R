@@ -2055,6 +2055,22 @@ seurat_dge <- function(seurat_object,
   # pid_column = "pid"
   # pseudobulk_test_mode = "cluster_identity"
 
+  # seurat_object = seu_small
+  # dge_method = "pseudobulk"
+  # assay = "RNA"
+  # freq_expressed = 0.1
+  # fc_threshold = log2(1.5)
+  # test_clusters = "all"
+  # cluster_column = "annotation"
+  # category_column = "progr_contr"
+  # test_categories = c("progressor","controller")
+  # test_per_category = FALSE
+  # test_condition = "all"
+  # condition_column = "condition"
+  # test_per_condition = FALSE
+  # pid_column = "bid"
+  # pseudobulk_test_mode = "cluster_identity"
+
 
   if(test_condition[1]!="all") {
     conditions <- test_condition[test_condition %in% seurat_object@meta.data[,condition_column]]
@@ -2131,7 +2147,6 @@ seurat_dge <- function(seurat_object,
         row.names(arg1) <- stringr::str_extract(string = row.names(arg1), pattern = rpat)
         check_var <- apply(X = arg1, MARGIN = 2, FUN = stats::var)
         which_novar <- which(check_var==0)
-        arg1 <- arg1[order(row.names(arg1)),]
         if(length(which_novar)!=0) {
           arg1 <- arg1[,-which_novar]
         }
@@ -2139,7 +2154,25 @@ seurat_dge <- function(seurat_object,
         colnames(arg1) <- stringr::str_extract(string = colnames(arg1), pattern = rpat)
         check_var <- apply(X = arg1, MARGIN = 1, FUN = stats::var)
         which_novar <- which(check_var==0)
-        arg1 <- arg1[,order(colnames(arg1))]
+        if(length(which_novar)!=0) {
+          arg1 <- arg1[-which_novar,]
+        }
+      }
+      if(ncol(arg1)>nrow(arg1)) {
+        arg1 <- t(arg1)
+      }
+      return(arg1)
+    }
+    drop_novar2 <- function(arg1) {
+      if(ncol(arg1)>nrow(arg1)) {
+        check_var <- apply(X = arg1, MARGIN = 2, FUN = stats::var)
+        which_novar <- which(check_var==0)
+        if(length(which_novar)!=0) {
+          arg1 <- arg1[,-which_novar]
+        }
+      } else {
+        check_var <- apply(X = arg1, MARGIN = 1, FUN = stats::var)
+        which_novar <- which(check_var==0)
         if(length(which_novar)!=0) {
           arg1 <- arg1[-which_novar,]
         }
@@ -2171,11 +2204,17 @@ seurat_dge <- function(seurat_object,
         }
         row.names(ct_spl[[i]]) <- meta_list[[i]]$cell_group
         colnames(ct_spl[[i]]) <- obj_var
+        ct_spl[[i]] <- drop_novar2(ct_spl[[i]])
         ##
-        meta_list[[i]]$cluster_id <- meta_list[,cluster_column]
+        meta_list[[i]]$cluster_id <- meta_list[[i]][,cluster_column]
         meta_list[[i]]$sample_id <- meta_list[[i]][,pid_column]
         meta_list[[i]]$group_id <- factor(meta_list[[i]][,cluster_column], levels = c("in_cluster","out"))
-        row.names(meta_list[[i]]) <- meta_list[[i]]$sample_id
+        row.names(meta_list[[i]]) <- meta_list[[i]]$cell_group
+        drop_indices <- which(!meta_list[[i]][,pid_column] %in% names(table(meta_list[[i]][,pid_column])[table(meta_list[[i]][,pid_column])==2]))
+        if(length(drop_indices)!=0) {
+          meta_list[[i]] <- meta_list[[i]][which(!1:nrow(meta_list[[i]]) %in% drop_indices),]
+        }
+        ct_spl[[i]] <- ct_spl[[i]][,which(colnames(ct_spl[[i]]) %in% meta_list[[i]]$cell_group)]
       }
     } else {
       ##
@@ -2203,7 +2242,6 @@ seurat_dge <- function(seurat_object,
         tmp_meta <- obj_obs
         # tmp_meta <- tmp_meta[which(tmp_meta[,pid_column] %in% colnames(ct_spl[[i]])),]
         tmp_meta <- tmp_meta[which(gsub(id_pattern,"",row.names(obj_obs)) %in% names(ct_spl)[i]),]
-        tmp_meta <- tmp_meta[order(tmp_meta[,pid_column]),]
         if(mean(tmp_meta[,pid_column]==colnames(ct_spl[[i]]))!=1) {
           stop("pid mismatch (1)")
         }
@@ -2227,6 +2265,11 @@ seurat_dge <- function(seurat_object,
     padj_threshold <- 0.05 # hard coding 0.05; consider allowing to change
     do_deseq <- function(arg1, p_return_threshold = padj_threshold, stim = seu_conditions,
                          use_adj = use_adj_p) {
+      # testing
+      # arg1 <- deseq_input[[1]]
+      # p_return_threshold = padj_threshold
+      # stim = seu_conditions
+      # use_adj = use_adj_p
 
       count_data <- arg1[[1]]
       meta_data <- arg1[[2]]
@@ -2288,7 +2331,7 @@ seurat_dge <- function(seurat_object,
       return(list(res = res, norm_ct = norm_ct, meta = meta_data))#, hm = pheatm))
     }
     deseq_out <- lapply(X = deseq_input, FUN = do_deseq, p_return_threshold = padj_threshold,
-                        stim = seu_conditions, use_adj = use_adj_p, test_cast_order = test_cats)
+                        stim = seu_conditions, use_adj = use_adj_p)
 
     drop_indices <- c()
     for(i in 1:length(deseq_out)) {
