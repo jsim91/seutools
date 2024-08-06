@@ -2035,7 +2035,8 @@ seurat_dge <- function(seurat_object,
                        condition_column = "condition",
                        test_per_condition = FALSE,
                        pid_column = "pid",
-                       pseudobulk_test_mode = c("cluster_identity","cluster_by_category","cluster_by_condition"))
+                       pseudobulk_test_mode = c("cluster_identity","cluster_by_category","cluster_by_condition"),
+                       return_all_pseudobulk = FALSE)
 {
   require(Seurat)
   # testing
@@ -2259,7 +2260,7 @@ seurat_dge <- function(seurat_object,
       deseq_input[[i]] <- list(ct_spl[[i]], meta_list[[i]])
     }
 
-    return(deseq_input) # check input is correct for "identity" testing
+    # return(deseq_input) # check input is correct for "identity" testing
 
     use_adj_p <- TRUE # hard coding use adjusted p values; consider allowing use unadjusted for discovery
     padj_threshold <- 0.05 # hard coding 0.05; consider allowing to change
@@ -2332,6 +2333,10 @@ seurat_dge <- function(seurat_object,
     }
     deseq_out <- lapply(X = deseq_input, FUN = do_deseq, p_return_threshold = padj_threshold,
                         stim = seu_conditions, use_adj = use_adj_p)
+
+    if(return_all_pseudobulk) {
+      return(deseq_out)
+    }
 
     drop_indices <- c()
     for(i in 1:length(deseq_out)) {
