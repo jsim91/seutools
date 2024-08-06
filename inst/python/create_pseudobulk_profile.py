@@ -88,9 +88,9 @@ if test_method == 'cluster_identity':
         pdata_obs = pdata_sum.obs
         pdata_var = pdata_sum.var
         
-        np.savetxt(os.path.join(outdir,'__pseudobulk_sum_counts_' + i.replace(' ','_').replace('-','_').replace('/','_').replace('\','_') + '__.csv'), pdata_ct_sum, delimiter=",")
-        pdata_obs.to_csv(os.path.join(outdir,'__pseudobulk_obs_' + i.replace(' ','_').replace('-','_').replace('/','_').replace('\','_') + '__.csv'))
-        pdata_var.to_csv(os.path.join(outdir,'__pseudobulk_var_' + i.replace(' ','_').replace('-','_').replace('/','_').replace('\','_') + '__.csv'))
+        np.savetxt(os.path.join(outdir,'__pseudobulk_sum_counts_' + i.replace(' ','_').replace('-','_').replace('/','_').replace('\\\\','_') + '__.csv'), pdata_ct_sum, delimiter=",")
+        pdata_obs.to_csv(os.path.join(outdir,'__pseudobulk_obs_' + i.replace(' ','_').replace('-','_').replace('/','_').replace('\\\\','_') + '__.csv'))
+        pdata_var.to_csv(os.path.join(outdir,'__pseudobulk_var_' + i.replace(' ','_').replace('-','_').replace('/','_').replace('\\\\','_') + '__.csv'))
 else:
     adata.obs['joined_pid'] = adata.obs['joined_pid'].astype(str) + "_" + adata.obs[condition_col_str].astype(str)
     adata.obs = adata.obs.astype(str)
