@@ -2156,18 +2156,18 @@ seurat_dge <- function(seurat_object,
       meta_list <- vector("list", length = length(ct_spl)); names(meta_list) <- names(ct_spl)
       for(i in 1:length(ct_spl)) {
         ##
-        ct_spl[[i]] <- as.data.frame(data.table::fread(paste0(capture_dir,"/temp_files/__pseudobulk_sum_counts_" + names(ct_spl)[i] + "__.csv"), check.names = FALSE, header = FALSE))
-        if(file.exists(paste0(capture_dir,"/temp_files/__pseudobulk_sum_counts_" + names(ct_spl)[i] + "__.csv"))) {
-          file.remove(paste0(capture_dir,"/temp_files/__pseudobulk_sum_counts_" + names(ct_spl)[i] + "__.csv"))
+        ct_spl[[i]] <- as.data.frame(data.table::fread(paste0(capture_dir,"/temp_files/__pseudobulk_sum_counts_", names(ct_spl)[i], "__.csv"), check.names = FALSE, header = FALSE))
+        if(file.exists(paste0(capture_dir,"/temp_files/__pseudobulk_sum_counts_", names(ct_spl)[i], "__.csv"))) {
+          file.remove(paste0(capture_dir,"/temp_files/__pseudobulk_sum_counts_", names(ct_spl)[i], "__.csv"))
         }
-        meta_list[[i]] <- read.csv(paste0(capture_dir,"/temp_files/__pseudobulk_obs_" + names(ct_spl)[i] + "__.csv"), check.names = FALSE, row.names = 1)
+        meta_list[[i]] <- read.csv(paste0(capture_dir,"/temp_files/__pseudobulk_obs_", names(ct_spl)[i], "__.csv"), check.names = FALSE, row.names = 1)
         meta_list[[i]]$cell_group <- row.names(meta_list[[i]])
-        if(file.exists(paste0(capture_dir,"/temp_files/__pseudobulk_obs_" + names(ct_spl)[i] + "__.csv"))) {
-          file.remove(paste0(capture_dir,"/temp_files/__pseudobulk_obs_" + names(ct_spl)[i] + "__.csv"))
+        if(file.exists(paste0(capture_dir,"/temp_files/__pseudobulk_obs_", names(ct_spl)[i], "__.csv"))) {
+          file.remove(paste0(capture_dir,"/temp_files/__pseudobulk_obs_", names(ct_spl)[i], "__.csv"))
         }
-        obj_var <- read.csv(paste0(capture_dir,"/temp_files/__pseudobulk_var_" + names(ct_spl)[i] + "__.csv"))[,1]
-        if(file.exists(paste0(capture_dir,"/temp_files/__pseudobulk_var_" + names(ct_spl)[i] + "__.csv"))) {
-          file.remove(paste0(capture_dir,"/temp_files/__pseudobulk_var_" + names(ct_spl)[i] + "__.csv"))
+        obj_var <- read.csv(paste0(capture_dir,"/temp_files/__pseudobulk_var_", names(ct_spl)[i], "__.csv"))[,1]
+        if(file.exists(paste0(capture_dir,"/temp_files/__pseudobulk_var_", names(ct_spl)[i], "__.csv"))) {
+          file.remove(paste0(capture_dir,"/temp_files/__pseudobulk_var_", names(ct_spl)[i], "__.csv"))
         }
         row.names(ct_spl[[i]]) <- meta_list[[i]]$cell_group
         colnames(ct_spl[[i]]) <- obj_var
