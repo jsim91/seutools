@@ -2125,25 +2125,8 @@ seurat_dge <- function(seurat_object,
                             pid_column," ",
                             pseudobulk_test_mode))
     # ct_data <- read.csv(paste0(capture_dir,"/temp_files/__pseudobulk_sum_counts__.csv"), check.names = FALSE, header = FALSE)
-    ct_data <- as.data.frame(data.table::fread(paste0(capture_dir,"/temp_files/__pseudobulk_sum_counts__.csv"), check.names = FALSE, header = FALSE))
-    if(file.exists(paste0(capture_dir,"/temp_files/__pseudobulk_sum_counts__.csv"))) {
-      file.remove(paste0(capture_dir,"/temp_files/__pseudobulk_sum_counts__.csv"))
-    }
-    obj_obs <- read.csv(paste0(capture_dir,"/temp_files/__pseudobulk_obs__.csv"), check.names = FALSE, row.names = 1)
-    obj_obs$cell_group <- row.names(obj_obs)
-    if(file.exists(paste0(capture_dir,"/temp_files/__pseudobulk_obs__.csv"))) {
-      file.remove(paste0(capture_dir,"/temp_files/__pseudobulk_obs__.csv"))
-    }
-    obj_var <- read.csv(paste0(capture_dir,"/temp_files/__pseudobulk_var__.csv"))[,1]
-    if(file.exists(paste0(capture_dir,"/temp_files/__pseudobulk_var__.csv"))) {
-      file.remove(paste0(capture_dir,"/temp_files/__pseudobulk_var__.csv"))
-    }
-    row.names(ct_data) <- obj_obs$cell_group
-    colnames(ct_data) <- obj_var
 
-    id_pattern <- paste0(gsub("-","\\\\-",paste0("(",paste0(unique(seurat_object@meta.data[,pid_column]), collapse = "|"),")")),"_")
-    ct_spl <- split(x = ct_data, f = gsub(id_pattern,"",row.names(ct_data)))
-    ct_spl <- lapply(X = ct_spl, FUN = function(arg1, rpat = gsub("_$","",id_pattern)){ # account for sparsity; drop genes with no variance across id set; likely all 0s
+    drop_novar <- function(arg1, rpat = gsub("_$","",id_pattern)) {
       if(ncol(arg1)>nrow(arg1)) {
         row.names(arg1) <- stringr::str_extract(string = row.names(arg1), pattern = rpat)
         check_var <- apply(X = arg1, MARGIN = 2, FUN = stats::var)
@@ -2165,35 +2148,90 @@ seurat_dge <- function(seurat_object,
         arg1 <- t(arg1)
       }
       return(arg1)
-    })
-    meta_list <- vector("list", length = length(ct_spl)); names(meta_list) <- names(ct_spl)
-    for(i in 1:length(meta_list)) {
-      tmp_meta <- obj_obs
-      # tmp_meta <- tmp_meta[which(tmp_meta[,pid_column] %in% colnames(ct_spl[[i]])),]
-      tmp_meta <- tmp_meta[which(gsub(id_pattern,"",row.names(obj_obs)) %in% names(ct_spl)[i]),]
-      tmp_meta <- tmp_meta[order(tmp_meta[,pid_column]),]
-      if(mean(tmp_meta[,pid_column]==colnames(ct_spl[[i]]))!=1) {
-        stop("pid mismatch (1)")
+    }
+
+    if(pseudobulk_test_mode=="cluster_identity") {
+      ct_spl <- vector("list", length = length(unique(seurat_object@meta.data[,cluster_column])))
+      names(ct_spl) <- gsub("( |\\-|\\/)","_",unique(seurat_object@meta.data[,cluster_column]))
+      meta_list <- vector("list", length = length(ct_spl)); names(meta_list) <- names(ct_spl)
+      for(i in 1:length(ct_spl)) {
+        ##
+        ct_spl[[i]] <- as.data.frame(data.table::fread(paste0(capture_dir,"/temp_files/__pseudobulk_sum_counts_" + names(ct_spl)[i] + "__.csv"), check.names = FALSE, header = FALSE))
+        if(file.exists(paste0(capture_dir,"/temp_files/__pseudobulk_sum_counts_" + names(ct_spl)[i] + "__.csv"))) {
+          file.remove(paste0(capture_dir,"/temp_files/__pseudobulk_sum_counts_" + names(ct_spl)[i] + "__.csv"))
+        }
+        meta_list[[i]] <- read.csv(paste0(capture_dir,"/temp_files/__pseudobulk_obs_" + names(ct_spl)[i] + "__.csv"), check.names = FALSE, row.names = 1)
+        meta_list[[i]]$cell_group <- row.names(meta_list[[i]])
+        if(file.exists(paste0(capture_dir,"/temp_files/__pseudobulk_obs_" + names(ct_spl)[i] + "__.csv"))) {
+          file.remove(paste0(capture_dir,"/temp_files/__pseudobulk_obs_" + names(ct_spl)[i] + "__.csv"))
+        }
+        obj_var <- read.csv(paste0(capture_dir,"/temp_files/__pseudobulk_var_" + names(ct_spl)[i] + "__.csv"))[,1]
+        if(file.exists(paste0(capture_dir,"/temp_files/__pseudobulk_var_" + names(ct_spl)[i] + "__.csv"))) {
+          file.remove(paste0(capture_dir,"/temp_files/__pseudobulk_var_" + names(ct_spl)[i] + "__.csv"))
+        }
+        row.names(ct_spl[[i]]) <- meta_list[[i]]$cell_group
+        colnames(ct_spl[[i]]) <- obj_var
+        ##
+        meta_list[[i]]$cluster_id <- meta_list[,cluster_column]
+        meta_list[[i]]$sample_id <- meta_list[[i]][,pid_column]
+        meta_list[[i]]$group_id <- factor(meta_list[[i]][,cluster_column], levels = c("in_cluster","out"))
+        row.names(meta_list[[i]]) <- meta_list[[i]]$sample_id
       }
-      tmp_meta$cluster_id <- names(meta_list)[i]
-      # tmp_meta$sample_id <- tmp_meta[,pid_column]
-      tmp_meta$sample_id <- tmp_meta[,pid_column]
-      tmp_meta$group_id <- factor(tmp_meta[,category_column])
-      row.names(tmp_meta) <- tmp_meta$sample_id
-      meta_list[[i]] <- tmp_meta
+    } else {
+      ##
+      ct_data <- as.data.frame(data.table::fread(paste0(capture_dir,"/temp_files/__pseudobulk_sum_counts__.csv"), check.names = FALSE, header = FALSE))
+      if(file.exists(paste0(capture_dir,"/temp_files/__pseudobulk_sum_counts__.csv"))) {
+        file.remove(paste0(capture_dir,"/temp_files/__pseudobulk_sum_counts__.csv"))
+      }
+      obj_obs <- read.csv(paste0(capture_dir,"/temp_files/__pseudobulk_obs__.csv"), check.names = FALSE, row.names = 1)
+      obj_obs$cell_group <- row.names(obj_obs)
+      if(file.exists(paste0(capture_dir,"/temp_files/__pseudobulk_obs__.csv"))) {
+        file.remove(paste0(capture_dir,"/temp_files/__pseudobulk_obs__.csv"))
+      }
+      obj_var <- read.csv(paste0(capture_dir,"/temp_files/__pseudobulk_var__.csv"))[,1]
+      if(file.exists(paste0(capture_dir,"/temp_files/__pseudobulk_var__.csv"))) {
+        file.remove(paste0(capture_dir,"/temp_files/__pseudobulk_var__.csv"))
+      }
+      row.names(ct_data) <- obj_obs$cell_group
+      colnames(ct_data) <- obj_var
+      ##
+      id_pattern <- paste0(gsub("-","\\\\-",paste0("(",paste0(unique(seurat_object@meta.data[,pid_column]), collapse = "|"),")")),"_")
+      ct_spl <- split(x = ct_data, f = gsub(id_pattern,"",row.names(ct_data)))
+      ct_spl <- lapply(X = ct_spl, FUN = drop_novar)
+      meta_list <- vector("list", length = length(ct_spl)); names(meta_list) <- names(ct_spl)
+      for(i in 1:length(meta_list)) {
+        tmp_meta <- obj_obs
+        # tmp_meta <- tmp_meta[which(tmp_meta[,pid_column] %in% colnames(ct_spl[[i]])),]
+        tmp_meta <- tmp_meta[which(gsub(id_pattern,"",row.names(obj_obs)) %in% names(ct_spl)[i]),]
+        tmp_meta <- tmp_meta[order(tmp_meta[,pid_column]),]
+        if(mean(tmp_meta[,pid_column]==colnames(ct_spl[[i]]))!=1) {
+          stop("pid mismatch (1)")
+        }
+        tmp_meta$cluster_id <- names(meta_list)[i]
+        # tmp_meta$sample_id <- tmp_meta[,pid_column]
+        tmp_meta$sample_id <- tmp_meta[,pid_column]
+        tmp_meta$group_id <- factor(tmp_meta[,category_column], levels = test_categories)
+        row.names(tmp_meta) <- tmp_meta$sample_id
+        meta_list[[i]] <- tmp_meta
+      }
     }
 
     deseq_input <- vector("list", length = length(ct_spl)); names(deseq_input) <- names(ct_spl)
     for(i in 1:length(deseq_input)) {
       deseq_input[[i]] <- list(ct_spl[[i]], meta_list[[i]])
     }
+
+    return(deseq_input) # check input is correct for "identity" testing
+
     use_adj_p <- TRUE # hard coding use adjusted p values; consider allowing use unadjusted for discovery
     padj_threshold <- 0.05 # hard coding 0.05; consider allowing to change
     do_deseq <- function(arg1, p_return_threshold = padj_threshold, stim = seu_conditions,
-                         use_adj = use_adj_p, test_cast_order = test_cats) {
+                         use_adj = use_adj_p) {
 
       count_data <- arg1[[1]]
       meta_data <- arg1[[2]]
+
+      test_cats_order <- levels(meta_data$group_id)
 
       count_data <- round(count_data)
 
@@ -2202,7 +2240,7 @@ seurat_dge <- function(seurat_object,
                                     design = ~ group_id)
       dds <- DESeq(dds)
       normalized_counts <- counts(dds, normalized = TRUE)
-      contrast <- c("group_id", test_cats[1], test_cats[2])
+      contrast <- c("group_id", test_cats_order[1], test_cats_order[2])
       res <- results(dds,
                      contrast = contrast,
                      alpha = 0.05)

@@ -60,34 +60,55 @@ adata.obs_names = adata.obs.barcode
 adata.var_names_make_unique()
 adata.obs_names_make_unique()
 
-# form id column
+# start id column
 adata.obs['joined_pid'] = adata.obs[pid_col_str]
-if test_method == 'cluster_identity':
-    adata.obs['joined_pid'] = adata.obs['joined_pid'].astype(str)
-if test_method == 'cluster_by_category':
-    adata.obs['joined_pid'] = adata.obs['joined_pid'].astype(str) + "_" + adata.obs[condition_col_str].astype(str)
-if test_method == 'cluster_by_condition':
-    adata.obs['joined_pid'] = adata.obs['joined_pid'].astype(str) + "_" + adata.obs[condition_col_str].astype(str)
 
 # create pseudobulk
-adata.obs = adata.obs.astype(str)
-adata.layers['counts'] = adata.X.copy()
-pdata_sum = dc.get_pseudobulk(
-    adata,
-    sample_col='joined_pid',
-    groups_col=cluster_col_str,
-    layer='counts',
-    mode='sum',
-    min_cells=10,
-    min_counts=1000,
-    skip_checks=True)
+if test_method == 'cluster_identity':
+    uclus = adata.obs[cluster_col_str].unique()
+    for i in uclus:
+        if i == uclus[0]:
+            adata_copy = adata.copy()
+        else:
+            adata = adata_copy.copy()
+        adata.obs[cluster_col_str] = ['in_cluster' if x==i else 'out' for x in adata.obs[cluster_col_str]]
+        adata.obs = adata.obs.astype(str)
+        adata.layers['counts'] = adata.X.copy()
+        pdata_sum = dc.get_pseudobulk(
+            adata,
+            sample_col='joined_pid',
+            groups_col=cluster_col_str,
+            layer='counts',
+            mode='sum',
+            min_cells=10,
+            min_counts=1000,
+            skip_checks=True)
 
-# get elements
-pdata_ct_sum = pdata_sum.X
-pdata_obs = pdata_sum.obs
-pdata_var = pdata_sum.var
+        pdata_ct_sum = pdata_sum.X
+        pdata_obs = pdata_sum.obs
+        pdata_var = pdata_sum.var
+        
+        np.savetxt(os.path.join(outdir,'__pseudobulk_sum_counts_' + i.replace(' ','_').replace('-','_').replace('/','_').replace('\','_') + '__.csv'), pdata_ct_sum, delimiter=",")
+        pdata_obs.to_csv(os.path.join(outdir,'__pseudobulk_obs_' + i.replace(' ','_').replace('-','_').replace('/','_').replace('\','_') + '__.csv'))
+        pdata_var.to_csv(os.path.join(outdir,'__pseudobulk_var_' + i.replace(' ','_').replace('-','_').replace('/','_').replace('\','_') + '__.csv'))
+else:
+    adata.obs['joined_pid'] = adata.obs['joined_pid'].astype(str) + "_" + adata.obs[condition_col_str].astype(str)
+    adata.obs = adata.obs.astype(str)
+    adata.layers['counts'] = adata.X.copy()
+    pdata_sum = dc.get_pseudobulk(
+        adata,
+        sample_col='joined_pid',
+        groups_col=cluster_col_str,
+        layer='counts',
+        mode='sum',
+        min_cells=10,
+        min_counts=1000,
+        skip_checks=True)
 
-# write elements
-np.savetxt(os.path.join(outdir,'__pseudobulk_sum_counts__.csv'), pdata_ct_sum, delimiter=",")
-pdata_obs.to_csv(os.path.join(outdir,'__pseudobulk_obs__.csv'))
-pdata_var.to_csv(os.path.join(outdir,'__pseudobulk_var__.csv'))
+    pdata_ct_sum = pdata_sum.X
+    pdata_obs = pdata_sum.obs
+    pdata_var = pdata_sum.var
+
+    np.savetxt(os.path.join(outdir,'__pseudobulk_sum_counts__.csv'), pdata_ct_sum, delimiter=",")
+    pdata_obs.to_csv(os.path.join(outdir,'__pseudobulk_obs__.csv'))
+    pdata_var.to_csv(os.path.join(outdir,'__pseudobulk_var__.csv'))
