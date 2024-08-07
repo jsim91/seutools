@@ -2350,7 +2350,7 @@ seurat_dge <- function(seurat_object,
 
   start_test <- Sys.time()
   for(i in 1:length(dge_outs)) {
-    start_loop <- Sys.time()
+    start_i <- Sys.time()
     if(names(dge_outs)[i]=="all") {
       subs1 <- seurat_object
     } else {
@@ -2358,6 +2358,7 @@ seurat_dge <- function(seurat_object,
       subs1 <- subset(x = seurat_object, subset = c == names(dge_outs)[i])
     }
     for(j in 1:length(dge_outs[[i]])){
+      start_j <- Sys.time()
       print(paste0("starting on [",names(dge_outs[[i]])[j],"] in [",names(dge_outs)[i],"] at ",Sys.time()))
       if(!is.null(annos)) {
         if(!is.null(test_cats)) {
@@ -2382,13 +2383,15 @@ seurat_dge <- function(seurat_object,
         ident2 <- "other"
         Idents(subs2) <- ifelse(subs2@meta.data[,cluster_column]==ident1, ident1, "other")
       }
+      print(paste0("for [",names(dge_outs[[i]])[j],"] in [",names(dge_outs)[i],"] ident.1 = ",ident1,", ident.2 = ",ident2))
       if(tolower(dge_method) == "mast") {
         require(MAST)
         binary_expr_matrix <- subs2@assays[[assay]]@layers$counts > 0
         percent_expr <- rowSums(binary_expr_matrix) / ncol(binary_expr_matrix); names(percent_expr) <- row.names(subs2)
         genes_to_keep <- row.names(subs2)[percent_expr >= freq_expressed]
         if(sum(is.na(genes_to_keep))>0) {
-          stop("one or more genes is NA")
+          # stop("one or more genes is NA")
+          genes_to_keep <- genes_to_keep[!is.na(genes_to_keep)]
         }
         if(length(genes_to_keep)==0) {
           next
@@ -2423,8 +2426,9 @@ seurat_dge <- function(seurat_object,
 
         dge_outs[[i]][[j]] <- wilcox_res
       }
+      print(paste0("[",names(dge_outs[[i]])[j],"] in [",names(dge_outs)[i],"] testing took ",round(as.numeric(difftime(Sys.time(), start_j, units = "mins")),2)," mins"))
     }
-    print(paste0("[",names(dge_outs[[i]])[j],"] in [",names(dge_outs)[i],"] testing took ",round(as.numeric(difftime(Sys.time(), start_loop, units = "mins")),2)," mins"))
+    print(paste0("[",names(dge_outs)[i],"] testing took ",round(as.numeric(difftime(Sys.time(), start_i, units = "mins")),2)," mins"))
   }
   print(paste0("total test time: ",round(as.numeric(difftime(Sys.time(), start_test, units = "hours")),3)," hours"))
   return(dge_outs)
