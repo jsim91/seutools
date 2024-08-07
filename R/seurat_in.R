@@ -1488,46 +1488,42 @@ seurat_feature_overlay <- function(seurat_object,
 }
 
 
-umap_by_value <- function(coords = meta[,c("UMAP1","UMAP2")], values, feature = "% TCR coverage",
-                          tex = 1, point_alpha = 0.25, point_cex = 0.7, return_legend = FALSE,
-                          plot_w_legend = TRUE, legx = 0.5, legy = 0.9, legend_orientation = "horizontal",
-                          leg_height = unit(0.6,"cm"), leg_width = unit(3,"cm"))
+seurat_reduction_by_value <- function(seurat_object, reduction, values, feature_name,
+                                      text_expansion = 1, point_alpha = 0.25, point_expansion = 0.7, return_legend = FALSE,
+                                      plot_w_legend = TRUE, legx = 0.5, legy = 0.9, legend_orientation = "horizontal",
+                                      leg_height = unit(0.6,"cm"), leg_width = unit(3,"cm"))
 {
   require(ggplot2)
   require(ggpubr)
   require(shadowtext)
   require(ggrastr)
   require(viridis)
-  # testing
-  # coords = meta_join[,c("UMAP1","UMAP2")]
-  # values = coverage*100
-  # feature = "% TCR coverage"
-  # tex = 1
-  # point_alpha = 0.05
-  # point_cex = 0.3
 
-  indata <- cbind(coords, data.frame(value = values))
-  # subset for testing
-  # indata <- indata[sample(x=1:nrow(indata),size=100000,replace=F),]
+  get_dr <- as.data.frame(seurat_object@reductions[[tolower(reduction)]]@cell.embeddings)
 
-  # col_fun = colorRamp2(breaks = seq(from=floor(min(range(indata$value))),
-  #                                   to=ceiling(max(range(indata$value))),
-  #                                   length.out=5),
-  #                      colors = viridis(n = 5))
+  if(ncol(get_dr)!=2) {
+    stop("reduction cell.embeddings must be a matrix or data frame with two columns")
+  }
 
-  plt <- ggplot(data = indata, mapping = aes(x=UMAP1,y=UMAP2)) +
-    geom_point_rast(aes(color=value),pch=19, alpha = point_alpha, cex = point_cex) +
-    scale_color_viridis(option = "D", name = feature) +
-    # guides(color = guide_colorbar(title.position = "top", title.hjust = 0.5, title = feature)) +
+  capture_col1 <- colnames(get_dr)[1]
+  capture_col2 <- colnames(get_dr)[2]
+  colnames(get_dr) <- c("redx", "redy")
+
+  indata <- cbind(get_dr, data.frame(value = values))
+
+  plt <- ggplot(data = indata, mapping = aes(x=redx,y=redy)) +
+    geom_point_rast(aes(color=value),pch=19, alpha = point_alpha, cex = point_expansion) +
+    scale_color_viridis(option = "D", name = feature_name) +
     guides(color = guide_colorbar(title.position="top", title.hjust = 0.5, title.vjust = 0.5,
-                                  title = feature, barwidth = grid::unit(x = 0.44, units = "npc"),
+                                  title = feature_name, barwidth = grid::unit(x = 0.44, units = "npc"),
                                   barheight = grid::unit(x = 6, units = "mm"), direction = "horizontal")) +
+    xlab(capture_col1) + ylab(capture_col2) +
     theme_void() +
     theme(plot.title = element_blank(),
           legend.position = c(legx, legy),
-          # legend.text = element_text(angle=45, size = 22*tex),
-          legend.text = element_text(size = 22*tex),
-          legend.title = element_text(size = 24*tex))
+          # legend.text = element_text(angle=45, size = 22*text_expansion),
+          legend.text = element_text(size = 22*text_expansion),
+          legend.title = element_text(size = 24*text_expansion))
   if(!plot_w_legend) {
     plt <- plt + theme(legend.position = "none")
   }
@@ -1540,17 +1536,17 @@ umap_by_value <- function(coords = meta[,c("UMAP1","UMAP2")], values, feature = 
       leg <- Legend(at = leg_lab,
                     labels = leg_lab,
                     col_fun = col_fun, direction = "horizontal",
-                    legend_height = leg_height, title = "% TCR coverage",
+                    legend_height = leg_height, title = feature_name,
                     legend_width = leg_width, title_position = "topcenter",
-                    labels_gp = gpar(fontsize=14),
-                    title_gp = gpar(fontsize = 15, fontface = "bold"))
+                    labels_gp = gpar(fontsize=14*text_expansion),
+                    title_gp = gpar(fontsize = 15*text_expansion, fontface = "bold"))
     } else if(legend_orientation=="vertical") {
       leg <- Legend(at = leg_lab,
                     labels = leg_lab, col_fun = col_fun,
-                    legend_height = leg_height, title = "% TCR coverage",
+                    legend_height = leg_height, title = feature_name,
                     grid_width = leg_width, title_position = "topleft",
-                    labels_gp = gpar(fontsize=14),
-                    title_gp = gpar(fontsize=15, fontface="bold"))
+                    labels_gp = gpar(fontsize=14*text_expansion),
+                    title_gp = gpar(fontsize=15*text_expansion, fontface="bold"))
     }
     return(leg)
   } else {

@@ -362,9 +362,95 @@ seu_mast_venns <- function(mast_output, venn_colors = c("#F57336","#32671D","#33
 }
 
 
-seu_pathfindr <- function(dge_dataframe) {
+seu_pathfindr <- function(dge_dataframe, deseq_ct = NULL, deseq_meta = NULL,
+                          pid_column = "pid", group_column = "group_id", group_str = c("group1","group2"),
+                          gene_sets = "Reactome", nthread = 40, gs_min = 5, gs_max = 500) {
   require(pathfindR)
 
+  if(class(dge_dataframe)=="list") {
+    deseq_result <- deseq_output[[1]]
+    deseq_ct <- deseq_output[[2]]
+    pathR_cluster <- deseq_output[[1]]$cluster[1]
+    pathR_meta <- deseq_output[[3]]
+  } else {
+    deseq_result <- dge_dataframe
+  }
 
+  if(any(is.null(deseq_ct),is.null(deseq_ct))) {
+    stop("missing counts matrix; unable to score pathways")
+  }
 
+  gene_col <- grep(pattern = "gene", x = tolower(colnames(deseq_result)))
+  logfc_col <- grep(pattern = "log2", x = tolower(colnames(deseq_result)))
+  p_col <- grep(pattern = "padj", x = tolower(colnames(deseq_result)))
+
+  # deseq_subset <- deseq_result[deseq_result$cluster==pathR_cluster,]
+  path_input <- data.frame(Gene.symbol = deseq_result[,gene_col], logFC = deseq_result[,logfc_col], adj.P.Val = deseq_result[,p_col])
+  output_df <- run_pathfindR(input = path_input,
+                             gene_sets = gene_sets, min_gset_size = gs_min, max_gset_size = gs_max, enrichment_threshold = 0.05,
+                             iterations = 25, n_processes = nthread, plot_enrichment_chart = FALSE)
+
+  pathfindR_clustered <- try(cluster_enriched_terms(enrichment_res = output_df, plot_dend = FALSE,
+                                                    plot_clusters_graph = FALSE, kappa_threshold = 0.35), silent = TRUE)
+  if("try-error" %in% class(pathfindR_clustered)) {
+    pathfindR_repr <- output_df
+    upgene <- gsub(" ","",as.character(unlist(sapply(X = output_df$Up_regulated, FUN = strsplit, split = ","))))
+    dngene <- gsub(" ","",as.character(unlist(sapply(X = output_df$Down_regulated, FUN = strsplit, split = ","))))
+    pathgene <- unique(c(upgene, dngene))
+    if(length(pathgene)==0) {
+      return("no sig path genes")
+    } else {
+      normalized_counts <- matrix(deseq_ct[which(row.names(deseq_ct) %in% pathgene),], nrow = 1)
+      colnames(normalized_counts) <- colnames(deseq_ct)
+      row.names(normalized_counts) <- row.names(deseq_ct)[which(row.names(deseq_ct) %in% pathgene)]
+    }
+  } else {
+    pathfindR_repr <- pathfindR_clustered[pathfindR_clustered$Status=="Representative",]
+    upgene <- gsub(" ","",as.character(unlist(sapply(X = pathfindR_repr$Up_regulated, FUN = strsplit, split = ","))))
+    dngene <- gsub(" ","",as.character(unlist(sapply(X = pathfindR_repr$Down_regulated, FUN = strsplit, split = ","))))
+    pathgene <- unique(c(upgene, dngene))
+    if(length(pathgene)==0) {
+      return("no sig path genes")
+    } else {
+      normalized_counts <- deseq_ct[which(row.names(deseq_ct) %in% pathgene),]
+    }
+  }
+
+  cases <- pathR_meta$bid[pathR_meta[,group_column]==group_str[1]]
+
+  score_matrix <- score_terms(
+    enrichment_table = pathfindR_repr,
+    exp_mat = normalized_counts,
+    cases = cases,
+    plot_hmap = FALSE,
+    use_description = TRUE, # default FALSE
+    label_samples = FALSE, # default = TRUE
+    case_title = group_str[1], # default = "Case"
+    control_title = group_str[2], # default = "Control"
+    low = "#35338e", # default = "green"
+    mid = "#fffde4", # default = "black"
+    high = "#b63d3d" # default = "red"
+  )
+#   return(list(path_scores = score_matrix, path_condition = deseq_result$condition[1],
+#               path_cluster = pathR_meta$cluster_id[1], deseq_norm_counts = deseq_ct))
+# }
+
+  # scores <- lapply(X = deseq_out, FUN = pathR_scoring)
+
+  # saveRDS(object = scores, file = paste0("/media/MPEdge16/TB_sc/sc/py/scbp2/py_out_obj/final_annotation_pseudobulk/",
+  #                                        tolower(condition),"/",tolower(condition),"_deseq2_results_list.rds"))
+
+  # scores_format <- lapply(X = scores, FUN = function(arg1){
+  #   path_scores <- arg1[[1]]
+  #   row.names(path_scores) <- gsub(" ","_",paste0(row.names(path_scores),".",arg1[[2]],".",arg1[[3]]))
+  #   return(t(path_scores))
+  # })
+
+  # saveRDS(object = scores_format, file = paste0("/media/MPEdge16/TB_sc/sc/py/scbp2/py_out_obj/final_annotation_pseudobulk/",
+  #                                               tolower(condition),"/",tolower(condition),"_pseudobulk_deseq2_pathfindR_scores.rds"))
+
+  # deseq_norm_ct <- lapply(X = scores, FUN = function(arg1) return(arg1[[4]]))
+
+  return(list(path_scores = score_matrix, path_condition = deseq_result$condition[1],
+              path_cluster = pathR_meta$cluster_id[1], deseq_norm_counts = deseq_ct))
 }
