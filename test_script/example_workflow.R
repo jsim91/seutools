@@ -19,6 +19,40 @@ if(F) {
 }
 
 if(F) {
+  seu_small <- subset(x = seu, subset = cell_type %in% c("Th1/Th17","CM_CD4","CM_CD8"))
+  seu_wilc <- seurat_dge(seurat_object = seu_small,
+                         dge_method = "wilcox",
+                         assay = "RNA",
+                         freq_expressed = 0.1,
+                         fc_threshold = log2(1.5),
+                         test_clusters = "all",
+                         cluster_column = "cell_type",
+                         category_column = "age_group",
+                         test_categories = c("younger","older"),
+                         test_condition = c("stim","media"),
+                         condition_column = "condition",
+                         pid_column = "pid",
+                         pseudobulk_test_mode = "cluster_identity")
+}
+
+if(F) {
+  seu_small <- subset(x = seu, subset = cell_type %in% c("Th1/Th17","CM_CD4","CM_CD8"))
+  seu_mast <- seurat_dge(seurat_object = seu_small,
+                         dge_method = "mast",
+                         assay = "RNA",
+                         freq_expressed = 0.1,
+                         fc_threshold = log2(1.5),
+                         test_clusters = "all",
+                         cluster_column = "cell_type",
+                         category_column = "age_group",
+                         test_categories = c("younger","older"),
+                         test_condition = c("stim","media"),
+                         condition_column = "condition",
+                         pid_column = "pid",
+                         pseudobulk_test_mode = "cluster_identity")
+}
+
+if(F) {
   seu_small = subset(x = seu, subset = cell_type %in% c("Th1/Th17","CD_CD4","CD_CD8"))
   seu_pbulk <- seurat_dge(seurat_object = seu_small,
                           dge_method = "pseudobulk",
@@ -29,10 +63,8 @@ if(F) {
                           cluster_column = "cell_type",
                           category_column = "age_group",
                           test_categories = c("younger","older"),
-                          test_per_category = FALSE,
                           test_condition = "all",
                           condition_column = "condition",
-                          test_per_condition = FALSE,
                           pid_column = "pid",
                           pseudobulk_test_mode = "cluster_identity")
 

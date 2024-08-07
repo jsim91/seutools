@@ -2026,10 +2026,8 @@ seurat_dge <- function(seurat_object,
                        cluster_column = "cell_type",
                        category_column = "age_group",
                        test_categories = c("younger","older"), # order matters: translates into (test_categories[1]/test_categories[2]) for DESeq2 pseudobulk
-                       test_per_category = FALSE,
                        test_condition = "all",
                        condition_column = "condition",
-                       test_per_condition = FALSE,
                        pid_column = "pid",
                        pseudobulk_test_mode = c("cluster_identity","cluster_by_category","cluster_by_condition"),
                        return_all_pseudobulk = FALSE)
@@ -2037,7 +2035,7 @@ seurat_dge <- function(seurat_object,
   require(Seurat)
   # testing
   # seurat_object = seu_small
-  # dge_method = "pseudobulk"
+  # dge_method = "wilcox"
   # assay = "RNA"
   # freq_expressed = 0.1
   # fc_threshold = log2(1.5)
@@ -2045,10 +2043,8 @@ seurat_dge <- function(seurat_object,
   # cluster_column = "cell_type"
   # category_column = "age_group"
   # test_categories = c("younger","older")
-  # test_per_category = FALSE
-  # test_condition = "all"
+  # test_condition = c("stim","media")
   # condition_column = "condition"
-  # test_per_condition = FALSE
   # pid_column = "pid"
   # pseudobulk_test_mode = "cluster_identity"
 
@@ -2337,7 +2333,12 @@ seurat_dge <- function(seurat_object,
     return(deseq_write)
   }
 
-  dge_outs <- vector("list", length = ifelse(is.null(conditions), 1, length(conditions))); names(dge_outs) <- ifelse(is.null(conditions), "all", conditions)
+  dge_outs <- vector("list", length = ifelse(is.null(conditions), 1, length(conditions)))
+  if(is.null(conditions)) {
+    names(dge_outs) <- "all"
+  } else {
+    names(dge_outs) <- conditions
+  }
   dge_outs <- lapply(X = dge_outs, FUN = function(arg1, ann = annos){
     tmpv <- vector("list", length = ifelse(is.null(ann), 1, length(ann)))
     if(is.null(ann)) {
