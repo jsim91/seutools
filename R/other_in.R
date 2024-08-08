@@ -28,7 +28,8 @@ seu_plot_volcano <- function(dge_input, plot_clusters = "all",
                              fc_threshold = log2(1.5),
                              de_method = c("seurat_presto","pseudobulk_py","mast"),
                              feature_gsub_pattern = "Hu\\.|Mu\\.",
-                             include_gene_table = TRUE) # input here is the seurat_dge output list
+                             include_gene_table = TRUE,
+                             expand_y_axis_factor = 1) # input here is the seurat_dge output list
 {
   suppressPackageStartupMessages({
     require(ggplot2)
@@ -143,7 +144,7 @@ seu_plot_volcano <- function(dge_input, plot_clusters = "all",
 
   tmp_volcano <- function(vol_in, prio_genes = gset, maxyval = max(dge_input$p_val_adj_nlog10),
                           y_thresh = pval_threshold, t_height = table_height, demethod = de_method,
-                          igt = include_gene_table, topg = prio_top_genes)
+                          igt = include_gene_table, topg = prio_top_genes, eyaf = expand_y_axis_factor)
   {
     # testing
     # vol_in = dge_split[[1]]
@@ -222,7 +223,7 @@ seu_plot_volcano <- function(dge_input, plot_clusters = "all",
     volc <- volc + ggtitle(paste0(vol_in[,cluster_colname][1])) +
       labs(x = "log2 fold difference", y = "-log10(p-value)") +
       theme_minimal() +
-      scale_y_continuous(limits = c(ifelse(is.na(y_thresh[1]),0.1,y_thresh),maxyval), trans='pseudo_log') +
+      scale_y_continuous(limits = c(ifelse(is.na(y_thresh[1]),0.1,y_thresh),maxyval*eyaf), trans='pseudo_log') +
       theme(plot.title = element_text(hjust = 0.5, size = 26),
             axis.title = element_text(size = 23),
             axis.text = element_text(size = 18))
