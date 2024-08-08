@@ -1453,7 +1453,7 @@ seurat_feature_overlay <- function(seurat_object,
       geom_point_rast(aes(color=cby),pch=19, alpha = pal, cex = pex) +
       scale_color_viridis(option = "D", name = capture_feature) +
       guides(color = guide_colourbar(title.position = "top", frame.colour = "black", ticks.colour = "black",
-                                     draw.ulim = F, draw.llim = F, ticks.linewidth = 0.5)) +
+                                     draw.ulim = T, draw.llim = T, ticks.linewidth = 0.5)) +
       theme_void() +
       theme(legend.key.height = unit(5, "mm"),
             legend.key.width = unit(15, "mm"),
@@ -1488,7 +1488,7 @@ seurat_feature_overlay <- function(seurat_object,
 }
 
 
-seurat_reduction_by_value <- function(seurat_object, reduction, values, feature_name,
+seurat_reduction_by_value <- function(seurat_object, reduction, values, feature_name, plot_title = NULL,
                                       text_expansion = 1, point_alpha = 0.25, point_expansion = 0.7, return_legend = FALSE,
                                       plot_w_legend = TRUE, legx = 0.5, legy = 0.9, legend_orientation = "horizontal",
                                       leg_height = unit(0.6,"cm"), leg_width = unit(3,"cm"))
@@ -1514,16 +1514,26 @@ seurat_reduction_by_value <- function(seurat_object, reduction, values, feature_
   plt <- ggplot(data = indata, mapping = aes(x=redx,y=redy)) +
     geom_point_rast(aes(color=value),pch=19, alpha = point_alpha, cex = point_expansion) +
     scale_color_viridis(option = "D", name = feature_name) +
-    guides(color = guide_colorbar(title.position="top", title.hjust = 0.5, title.vjust = 0.5,
-                                  title = feature_name, barwidth = grid::unit(x = 0.44, units = "npc"),
-                                  barheight = grid::unit(x = 6, units = "mm"), direction = "horizontal")) +
+    # guides(color = guide_colorbar(title.position="top", title.hjust = 0.5, title.vjust = 0.5,
+    #                               title = feature_name, barwidth = grid::unit(x = 0.44, units = "npc"),
+    #                               barheight = grid::unit(x = 6, units = "mm"), direction = "horizontal")) +
+    guides(color = guide_colourbar(title.position = "top", frame.colour = "black", ticks.colour = "black",
+                                   draw.ulim = T, draw.llim = T, ticks.linewidth = 0.5)) +
     xlab(capture_col1) + ylab(capture_col2) +
     theme_void() +
     theme(plot.title = element_blank(),
-          legend.position = c(legx, legy),
           # legend.text = element_text(angle=45, size = 22*text_expansion),
-          legend.text = element_text(size = 22*text_expansion),
-          legend.title = element_text(size = 24*text_expansion))
+          legend.text = element_text(size = 12*text_expansion),
+          legend.title = element_blank())
+  if(any(is.null(legx), is.null(legy))) {
+    plt <- plt + theme(legend.position = "bottom")
+  } else {
+    plt <- plt + theme(legend.position = c(legx, legy))
+  }
+  if(is.null(plot_title)) {
+    plt <- plt + ggtitle(plot_title) +
+      theme(plot.title = element_text(hjust = 0.5, size = 24*text_expansion, face = "bold", vjust = -1))
+  }
   if(!plot_w_legend) {
     plt <- plt + theme(legend.position = "none")
   }
