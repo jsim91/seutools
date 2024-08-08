@@ -63,7 +63,12 @@ if(F) {
 
 if(F) { # testing seutools volcano
   dge_pseudobulk <- readRDS(file = "J:/10x/TB_sc/scbp2/final_annotations_outs/cluster_descriptives/S5_pseudobulk_genes.rds")
-  dge_pb_1 <- dge_pseudobulk[["CD4M_1"]]$res
+  dge_pseudobulk <- lapply(X = dge_pseudobulk, FUN = function(arg1) return(arg1$res))
+  for(i in 1:length(dge_pseudobulk)) {
+    dge_pseudobulk[[i]]$cluster <- names(dge_pseudobulk)[i]
+  }
+  # dge_pb_1 <- dge_pseudobulk[["CD4M_1"]]$res
+  # dge_pb_1$cluster <- "CD4M_1"
 }
 
 # c('ISG_Naive_CD4','IFN_CM_CD4','ISG_EM_CD4','ISG NK','ISG_Naive_CD8','ISG_CTL_CD8','ISG_Mono')

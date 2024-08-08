@@ -30,23 +30,26 @@ seu_plot_volcano <- function(dge_input, plot_clusters = "all",
                              feature_gsub_pattern = "Hu\\.|Mu\\.",
                              include_gene_table = TRUE) # input here is the seurat_dge output list
 {
-  require(ggplot2)
-  require(ggpubr)
-  require(ggrepel)
-  require(ggpmisc)
+  suppressPackageStartupMessages({
+    require(ggplot2)
+    require(ggpubr)
+    require(ggrepel)
+    require(ggpmisc)
+    require(scales)
+  })
   options(scipen = 999)
 
   # testing
-  dge_input <- dge_pb_1
-  plot_clusters = "all"
-  gene_set = NA
-  prio_top_genes = 5
-  pval_threshold = 1
-  table_height = 50
-  fc_threshold = log2(1.5)
-  de_method = "seurat_presto"
-  feature_gsub_pattern = "Hu\\.|Mu\\."
-  include_gene_table = TRUE
+  # dge_input <- dge_pseudobulk
+  # plot_clusters = "all"
+  # gene_set = c("","","","","","","","","","","","","","")
+  # prio_top_genes = 5
+  # pval_threshold = 1
+  # table_height = 50
+  # fc_threshold = log2(1.5)
+  # de_method = "pseudobulk_py"
+  # feature_gsub_pattern = "Hu\\.|Mu\\."
+  # include_gene_table = TRUE
 
 
   if(length(de_method)!=1) {
@@ -55,6 +58,17 @@ seu_plot_volcano <- function(dge_input, plot_clusters = "all",
   if(de_method=="seurat_presto") {
     logFC_colname <- "avg_log2FC"
     padj_colname <- "p_val_adj"
+    cluster_colname <- "cluster"
+    if(class(dge_input)=="list") {
+      dge_input <- do.call(rbind, dge_input)
+      if(!padj_colname %in% colnames(dge_input)) {
+        stop("'padj_colname not found in dge_input")
+      }
+    }
+    dge_input$p_val_adj_nlog10 <- -log10(dge_input[,padj_colname])
+  } else if(de_method=="pseudobulk_py") {
+    logFC_colname <- "log2FoldChange"
+    padj_colname <- "padj"
     cluster_colname <- "cluster"
     if(class(dge_input)=="list") {
       dge_input <- do.call(rbind, dge_input)
@@ -141,11 +155,11 @@ seu_plot_volcano <- function(dge_input, plot_clusters = "all",
     # igt = include_gene_table
     # topg = prio_top_genes
 
-    if(all(topg[1]!=0, !is.na(topg[1]))) {
-      add_genes_1 <- vol_in$gene[order(vol_in$avg_directional_log2FC, decreasing = FALSE)][1:topg]
-      add_genes_2 <- vol_in$gene[order(vol_in$avg_directional_log2FC, decreasing = TRUE)][1:topg]
-      prio_genes <- c(prio_genes,add_genes_1,add_genes_2)
-    }
+    # if(all(topg[1]!=0, !is.na(topg[1]))) {
+    #   add_genes_1 <- vol_in$gene[order(vol_in$avg_directional_log2FC, decreasing = FALSE)][1:topg]
+    #   add_genes_2 <- vol_in$gene[order(vol_in$avg_directional_log2FC, decreasing = TRUE)][1:topg]
+    #   prio_genes <- c(prio_genes,add_genes_1,add_genes_2)
+    # }
 
     minx_seg <- ifelse(min(vol_in$avg_directional_log2FC)<0, min(vol_in$avg_directional_log2FC), 0)
     maxx_seg <- ifelse(max(vol_in$avg_directional_log2FC)>0, max(vol_in$avg_directional_log2FC), 0)
@@ -157,18 +171,34 @@ seu_plot_volcano <- function(dge_input, plot_clusters = "all",
     dfy_segment <- data.frame(x1 = 0, y1 = miny_seg,
                               x2 = 0, y2 = maxy_seg)
 
+    vol_in$pscaled <- scales::rescale(x = vol_in$p_val_adj_nlog10, to = c(0,max(abs(vol_in$avg_directional_log2FC))))
+    vol_in$distance <- sqrt(vol_in$avg_directional_log2FC^2 + vol_in$pscaled^2)
+
+    upgenes <- vol_in[vol_in$avg_directional_log2FC>0,]; gene_set_up <- upgenes$gene[order(upgenes$distance, decreasing = TRUE)]
+    dngenes <- vol_in[vol_in$avg_directional_log2FC<0,]; gene_set_dn <- dngenes$gene[order(dngenes$distance, decreasing = TRUE)]
+
+    lab_genes <- vol_in[vol_in$gene %in% c(gene_set_up[1:topg], gene_set_dn[1:topg]),]
+
+    high_gene <- vol_in[vol_in$gene %in% c(gene_set_up[1:t_height]),]
+    low_gene <- vol_in[vol_in$gene %in% c(gene_set_dn[1:t_height]),]
+
+    pgene <- c(gene_set_up[1:topg], gene_set_dn[1:topg], prio_genes); pgene <- pgene[!is.na(pgene)]
+    pgene <- pgene[pgene %in% vol_in$gene]
+
     volc <- ggplot(data = vol_in, mapping = aes(x = avg_directional_log2FC, y = p_val_adj_nlog10)) +
       # ylim(maxy_seg,0) +
       geom_segment(data = dfx_segment, mapping = aes(x = x1, y = y1, xend = x2, yend = y2), color = "#757575") +
       geom_segment(data = dfy_segment, mapping = aes(x = x1, y = y1, xend = x2, yend = y2), color = "#757575")
-    if(all(!is.na(gene_set[1]), length(gene_set)!=0)) {
+    # if(all(!is.na(gene_set[1]), length(gene_set)!=0)) {
+    if(length(pgene)!=0) {
       # if(prio_top_genes!=0) {
       # add_genes <- vol_in$gene[order(vol_in$avg_directional_log2FC, decreasing = TRUE)][1:prio_top_genes]
-      # prio_genes <- c(prio_genes, add_genes)
+      # pgene <- c(pgene, add_genes)
       # }
-      prio_row <- which(vol_in$gene %in% prio_genes)
-      if(length(prio_row)!=0) {
-        prio_data <- vol_in[which(vol_in$gene %in% prio_genes),]
+      # prio_row <- which(vol_in$gene %in% pgene)
+      # if(length(prio_row)!=0) {
+      # if(length(pgene)!=0) {
+        prio_data <- vol_in[which(vol_in$gene %in% pgene),]
         volc <- volc + geom_point(pch = 21) +
           geom_point(data = prio_data,
                      mapping = aes(x = avg_directional_log2FC, y = p_val_adj_nlog10),
@@ -178,11 +208,11 @@ seu_plot_volcano <- function(dge_input, plot_clusters = "all",
                                                   label = gene), seed = 123,
                                     max.overlaps = 20, size = 6,
                                     verbose = FALSE, color = "red", fontface = "bold")
-      } else {
-        volc <- volc + geom_point() + ggrepel::geom_label_repel(mapping = aes(label = gene), seed = 123,
-                                                                max.overlaps = 15, min.segment.length = 0,
-                                                                label.size = NA, fill = NA)
-      }
+      # } else {
+      #   volc <- volc + geom_point() + ggrepel::geom_label_repel(mapping = aes(label = gene), seed = 123,
+      #                                                           max.overlaps = 15, min.segment.length = 0,
+      #                                                           label.size = NA, fill = NA)
+      # }
     } else {
       volc <- volc + geom_point() + ggrepel::geom_label_repel(mapping = aes(label = gene), seed = 123,
                                                               max.overlaps = 15, min.segment.length = 0,
@@ -197,56 +227,56 @@ seu_plot_volcano <- function(dge_input, plot_clusters = "all",
             axis.title = element_text(size = 23),
             axis.text = element_text(size = 18))
 
-    if(demethod=="pseudobulk_py") {
-      dn_direction <- vol_in[which(vol_in$stat<0),]
-      low_gene <- dn_direction[order(dn_direction$stat,decreasing = FALSE),
-                               c("stat","avg fold diff","padj","gene")]
-      up_direction <- vol_in[which(vol_in$stat>0),]
-      high_gene <- up_direction[order(up_direction$stat,decreasing = TRUE),
-                                c("stat","avg fold diff","padj","gene")]
-    } else if(demethod=="seurat_presto") {
-      up_df <- vol_in[which(vol_in$`avg fold diff`>0),]
-      dn_df <- vol_in[which(vol_in$`avg fold diff`<0),]
-      if(nrow(up_df)==0) {
-        up_direction <- vol_in[0,]
-      } else {
-        up_direction <- vol_in[order(vol_in$`avg fold diff`, decreasing = TRUE),]
-      }
-      if(nrow(dn_df)==0) {
-        dn_direction <- vol_in[0,]
-      } else {
-        dn_direction <- vol_in[order(vol_in$`avg fold diff`, decreasing = FALSE),]
-      }
-      low_gene <- dn_direction[,c("avg fold diff","padj","gene")]
-      high_gene <- up_direction[,c("avg fold diff","padj","gene")]
-    }
+    # if(demethod=="pseudobulk_py") {
+    #   dn_direction <- vol_in[which(vol_in$stat<0),]
+    #   low_gene <- dn_direction[order(dn_direction$stat,decreasing = FALSE),
+    #                            c("stat","avg fold diff","padj","gene")]
+    #   up_direction <- vol_in[which(vol_in$stat>0),]
+    #   high_gene <- up_direction[order(up_direction$stat,decreasing = TRUE),
+    #                             c("stat","avg fold diff","padj","gene")]
+    # } else if(demethod=="seurat_presto") {
+    #   up_df <- vol_in[which(vol_in$`avg fold diff`>0),]
+    #   dn_df <- vol_in[which(vol_in$`avg fold diff`<0),]
+    #   if(nrow(up_df)==0) {
+    #     up_direction <- vol_in[0,]
+    #   } else {
+    #     up_direction <- vol_in[order(vol_in$`avg fold diff`, decreasing = TRUE),]
+    #   }
+    #   if(nrow(dn_df)==0) {
+    #     dn_direction <- vol_in[0,]
+    #   } else {
+    #     dn_direction <- vol_in[order(vol_in$`avg fold diff`, decreasing = FALSE),]
+    #   }
+    #   low_gene <- dn_direction[,c("avg fold diff","padj","gene")]
+    #   high_gene <- up_direction[,c("avg fold diff","padj","gene")]
+    # }
 
-    prep_table <- function(table_in, tht = t_height, demet = demethod) {
+    prep_table <- function(table_in) {
       # testing
-      # table_in <- high_gene; tht = t_height; demet = demethod
+      # table_in <- high_gene
 
       if(nrow(table_in)==0) {
         return(table_in)
       }
 
       row.names(table_in) <- table_in$gene; table_in <- table_in[,-which(colnames(table_in)=="gene")]
-      if(nrow(table_in)==0) {
-        if(demet=="pseudobulk_py") {
-          table_tmp <- data.frame('stat' = NA, 'avg fold diff' = NA, 'padj' = NA, check.names = FALSE)
-          row.names(table_tmp) <- "none"
-        } else if(demet=="seurat_pesto") {
-          table_tmp <- data.frame('avg fold diff' = NA, 'padj' = NA, check.names = FALSE)
-          row.names(table_tmp) <- "none"
-        }
-        return(table_tmp)
-      } else {
-        if(demet=="pseudobulk_py") {
-          table_in$`avg fold diff` <- round(table_in$`avg fold diff`,2)
-          table_in$stat <- round(table_in$stat,2)
-        } else if(demet=="seurat_presto") {
-          table_in$`avg fold diff` <- round(table_in$`avg fold diff`,2)
-        }
-      }
+      # if(nrow(table_in)==0) {
+      #   if(demet=="pseudobulk_py") {
+      #     table_tmp <- data.frame('stat' = NA, 'avg fold diff' = NA, 'padj' = NA, check.names = FALSE)
+      #     row.names(table_tmp) <- "none"
+      #   } else if(demet=="seurat_pesto") {
+      #     table_tmp <- data.frame('avg fold diff' = NA, 'padj' = NA, check.names = FALSE)
+      #     row.names(table_tmp) <- "none"
+      #   }
+      #   return(table_tmp)
+      # } else {
+      #   if(demet=="pseudobulk_py") {
+      #     table_in$`avg fold diff` <- round(table_in$`avg fold diff`,2)
+      #     table_in$stat <- round(table_in$stat,2)
+      #   } else if(demet=="seurat_presto") {
+      #     table_in$`avg fold diff` <- round(table_in$`avg fold diff`,2)
+      #   }
+      # }
 
       convert_p <- function(pval) {
         if(pval==0) {
@@ -274,23 +304,25 @@ seu_plot_volcano <- function(dge_input, plot_clusters = "all",
         }
       }
       table_in$padj <- sapply(X = table_in$padj, FUN = convert_p)
-      if(nrow(table_in)>tht) {
-        table_in <- table_in[1:tht,]
-      }
+      table_out <- data.frame("FC" = ifelse(table_in$avg_directional_log2FC<0,(2^abs(table_in$avg_directional_log2FC))*-1,2^abs(table_in$avg_directional_log2FC)),
+                              "padj" = table_in$padj, row.names = row.names(table_in))
+      # if(nrow(table_in)>tht) {
+      #   table_in <- table_in[1:tht,]
+      # }
       #colnames(table_in)[2] <- "adj p-value"
-      return(table_in)
+      return(table_out)
     }
 
     low_gene_prep <- prep_table(table_in = low_gene)
     high_gene_prep <- prep_table(table_in = high_gene)
 
-    if(demethod=="pseudobulk_py") {
-      low_gene_prep <- low_gene_prep[which(low_gene_prep$stat<0),]
-      high_gene_prep <- high_gene_prep[which(high_gene_prep$stat>0),]
-    } else if(demethod=="seurat_presto") {
-      low_gene_prep <- low_gene_prep[which(low_gene_prep$`avg fold diff`<0),]
-      high_gene_prep <- high_gene_prep[which(high_gene_prep$`avg fold diff`>0),]
-    }
+    # if(demethod=="pseudobulk_py") {
+    #   low_gene_prep <- low_gene_prep[which(low_gene_prep$stat<0),]
+    #   high_gene_prep <- high_gene_prep[which(high_gene_prep$stat>0),]
+    # } else if(demethod=="seurat_presto") {
+    #   low_gene_prep <- low_gene_prep[which(low_gene_prep$`avg fold diff`<0),]
+    #   high_gene_prep <- high_gene_prep[which(high_gene_prep$`avg fold diff`>0),]
+    # }
 
     blank_plt <- ggplot(data = cars, mapping = aes(x = speed, y = dist)) +
       geom_point(alpha = 0) + theme_void()
