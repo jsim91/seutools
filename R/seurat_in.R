@@ -706,8 +706,8 @@ seurat_mean_count_hm <- function(seurat_object,
   # auto_order_genes = TRUE
   # get_legend = FALSE
   # split_by_pid = TRUE
-  # hm_title_size = 8
-  # cluster_annotation_color = NULL
+  # text_expansion_factor = 0.5
+  # cluster_annotation_color = annocol # or NULL
   # cluster_annotation_ref = ref
 
   cluster_numbers <- seurat_object@meta.data[,cluster_column]
@@ -796,7 +796,11 @@ seurat_mean_count_hm <- function(seurat_object,
         }
         for(i in 1:length(row_order_list)) {
           subs_mem <- t(t(mean_expr_matrix)[,row_order_list[[i]]])
-          row_order_list[[i]] <- row_order_list[[i]][order(subs_mem[,i], decreasing = TRUE)]
+          if(nrow(subs_mem)==0) {
+            next
+          } else {
+            row_order_list[[i]] <- row_order_list[[i]][order(subs_mem[,i], decreasing = TRUE)]
+          }
         }
         genes_ordered <- unlist(row_order_list)
         large_mat <- t(t(large_mat)[,genes_ordered])
