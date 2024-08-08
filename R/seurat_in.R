@@ -1526,7 +1526,7 @@ seurat_reduction_by_value <- function(seurat_object, reduction, values, feature_
           legend.key.width = unit(15, "mm"),
           legend.direction = "horizontal",
           legend.position = "bottom",
-          legend.text = element_text(size = 12*tex),
+          legend.text = element_text(size = 12*text_expansion),
           legend.title = element_blank())
   if(any(is.null(legx), is.null(legy))) {
     plt <- plt + theme(legend.position = "bottom")
