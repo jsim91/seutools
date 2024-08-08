@@ -1518,7 +1518,7 @@ seurat_reduction_by_value <- function(seurat_object, reduction, values, feature_
     #                               title = feature_name, barwidth = grid::unit(x = 0.44, units = "npc"),
     #                               barheight = grid::unit(x = 6, units = "mm"), direction = "horizontal")) +
     guides(color = guide_colourbar(title.position = "top", frame.colour = "black", ticks.colour = "black",
-                                   draw.ulim = T, draw.llim = T, ticks.linewidth = 0.5)) +
+                                   draw.ulim = T, draw.llim = T, ticks.linewidth = 0.5, direction = "horizontal")) +
     xlab(capture_col1) + ylab(capture_col2) +
     theme_void() +
     theme(plot.title = element_blank(),
