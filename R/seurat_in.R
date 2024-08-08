@@ -1522,15 +1522,18 @@ seurat_reduction_by_value <- function(seurat_object, reduction, values, feature_
     xlab(capture_col1) + ylab(capture_col2) +
     theme_void() +
     theme(plot.title = element_blank(),
-          # legend.text = element_text(angle=45, size = 22*text_expansion),
-          legend.text = element_text(size = 12*text_expansion),
+          legend.key.height = unit(5, "mm"),
+          legend.key.width = unit(15, "mm"),
+          legend.direction = "horizontal",
+          legend.position = "bottom",
+          legend.text = element_text(size = 12*tex),
           legend.title = element_blank())
   if(any(is.null(legx), is.null(legy))) {
     plt <- plt + theme(legend.position = "bottom")
   } else {
     plt <- plt + theme(legend.position = c(legx, legy))
   }
-  if(is.null(plot_title)) {
+  if(!is.null(plot_title)) {
     plt <- plt + ggtitle(plot_title) +
       theme(plot.title = element_text(hjust = 0.5, size = 24*text_expansion, face = "bold", vjust = -1))
   }
