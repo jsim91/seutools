@@ -2018,7 +2018,7 @@ test_clusters_cat <- function(pid, clusters, condition, cat, stat_compares, y_ax
 }
 
 seurat_dge <- function(seurat_object,
-                       dge_method = c("MAST", "wilcox", "pseudobulk"),
+                       dge_method = c("mast", "wilcox", "pseudobulk"),
                        assay = "RNA",
                        freq_expressed = 0.1,
                        fc_threshold = log2(1.5),
@@ -2032,7 +2032,9 @@ seurat_dge <- function(seurat_object,
                        pseudobulk_test_mode = c("cluster_identity","cluster_by_category","cluster_by_condition"),
                        return_all_pseudobulk = FALSE)
 {
-  require(Seurat)
+  suppressPackageStartupMessages({
+    require(Seurat)
+  })
   # testing
   # seurat_object = seu_small
   # dge_method = "wilcox"
@@ -2077,7 +2079,9 @@ seurat_dge <- function(seurat_object,
   } else {
     annos <- unique(seurat_object@meta.data[,cluster_column])
   }
-  if(test_categories[1]!="all") {
+  if(is.null(test_categories)) {
+    test_cats <- NULL
+  } else if(test_categories[1]!="all") {
     test_categories <- test_categories[test_categories %in% seurat_object@meta.data[,category_column]]
     if(length(test_categories)==0) {
       test_cats <- NULL
@@ -2386,7 +2390,9 @@ seurat_dge <- function(seurat_object,
       }
       print(paste0("for [",names(dge_outs[[i]])[j],"] in [",names(dge_outs)[i],"] ident.1 = ",ident1,", ident.2 = ",ident2))
       if(tolower(dge_method) == "mast") {
-        require(MAST)
+        suppressPackageStartupMessages({
+          require(MAST)
+        })
         binary_expr_matrix <- subs2@assays[[assay]]@layers$counts > 0
         percent_expr <- rowSums(binary_expr_matrix) / ncol(binary_expr_matrix); names(percent_expr) <- row.names(subs2)
         genes_to_keep <- row.names(subs2)[percent_expr >= freq_expressed]
@@ -2415,7 +2421,9 @@ seurat_dge <- function(seurat_object,
 
         dge_outs[[i]][[j]] <- mast_res
       } else if(tolower(dge_method) == "wilcox") {
-        require(SeuratWrappers)
+        suppressPackageStartupMessages({
+          require(SeuratWrappers)
+        })
         wilcox_res <- SeuratWrappers::RunPresto(object = subs2, assay = assay, ident.1 = ident1, ident.2 = ident2,
                                                 test.use = "wilcox", only.pos = FALSE, min.pct = 0.01)
         # colnames(wilcox_res)[which(colnames(wilcox_res)=="pct.1")] <- gsub(" ","",paste0("pct.",ident1))
@@ -2426,6 +2434,8 @@ seurat_dge <- function(seurat_object,
         wilcox_res <- wilcox_res[which(abs(wilcox_res$avg_log2FC)>fc_threshold),]
 
         dge_outs[[i]][[j]] <- wilcox_res
+      } else {
+        stop("no supported 'dge_method' requested: supported algorithms are: 'wilcox', 'mast', or 'pseudobulk'")
       }
       print(paste0("[",names(dge_outs[[i]])[j],"] in [",names(dge_outs)[i],"] testing took ",round(as.numeric(difftime(Sys.time(), start_j, units = "mins")),2)," mins"))
     }

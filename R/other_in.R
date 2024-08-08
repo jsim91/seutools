@@ -23,12 +23,12 @@ seu_tile_plots <- function(plotlist, n_row = 2, n_col = 2, rm_legend = FALSE, co
 
 
 seu_plot_volcano <- function(dge_input, plot_clusters = "all",
-                         gene_set = NA, prio_top_genes = 5,
-                         pval_threshold = 1, table_height = 50,
-                         fc_threshold = log2(1.5),
-                         de_method = "seurat_presto",
-                         feature_gsub_pattern = "Hu\\.|Mu\\.",
-                         include_gene_table = TRUE) # input here is the seurat_dge output list
+                             gene_set = NA, prio_top_genes = 5,
+                             pval_threshold = 1, table_height = 50,
+                             fc_threshold = log2(1.5),
+                             de_method = c("seurat_presto","pseudobulk_py","mast"),
+                             feature_gsub_pattern = "Hu\\.|Mu\\.",
+                             include_gene_table = TRUE) # input here is the seurat_dge output list
 {
   require(ggplot2)
   require(ggpubr)
@@ -37,20 +37,20 @@ seu_plot_volcano <- function(dge_input, plot_clusters = "all",
   options(scipen = 999)
 
   # testing
-  # dge_input = seu_wilc_select[[1]]
-  # plot_clusters = "all"
-  # gene_set = prio_gene_set
-  # prio_top_genes = 5
-  # pval_threshold = 1
-  # table_height = 50
-  # fc_threshold = log2(1.5)
-  # de_method = "seurat_presto"
-  # feature_gsub_pattern = "Hu\\.|Mu\\."
-  # include_gene_table = TRUE
+  dge_input <- dge_pb_1
+  plot_clusters = "all"
+  gene_set = NA
+  prio_top_genes = 5
+  pval_threshold = 1
+  table_height = 50
+  fc_threshold = log2(1.5)
+  de_method = "seurat_presto"
+  feature_gsub_pattern = "Hu\\.|Mu\\."
+  include_gene_table = TRUE
 
 
   if(length(de_method)!=1) {
-    stop("use either 'seurat_presto' or 'pseudobulk_py' for 'de_method'; length of 'de_method' must be 1")
+    stop("use one of 'seurat_presto', 'pseudobulk_py', or 'mast' for 'de_method'; length of 'de_method' must be 1")
   }
   if(de_method=="seurat_presto") {
     logFC_colname <- "avg_log2FC"
