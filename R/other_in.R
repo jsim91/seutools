@@ -223,7 +223,7 @@ seu_plot_volcano <- function(dge_input, plot_clusters = "all",
     volc <- volc + ggtitle(paste0(vol_in[,cluster_colname][1])) +
       labs(x = "log2 fold difference", y = "-log10(p-value)") +
       theme_minimal() +
-      ylim(c(ifelse(is.na(y_thresh[1]),0.1,y_thresh),maxyval*eyaf)) +
+      coord_cartesian(ylim = c(ifelse(is.na(y_thresh[1]),0.1,y_thresh),maxyval*eyaf)) +
       # scale_y_continuous(limits = c(ifelse(is.na(y_thresh[1]),0.1,y_thresh),maxyval*eyaf), trans='pseudo_log') +
       scale_y_continuous(trans='pseudo_log') +
       theme(plot.title = element_text(hjust = 0.5, size = 26),
