@@ -124,7 +124,16 @@ cellchat_netAnalysis_signalingRole_network <- function(object, signaling, slot.n
   centr <- slot(object, slot.name)$centr[signaling]
   plot_list <- vector("list", length(centr))
   for (i in 1:length(centr)) {
-    centr0 <- centr[[i]]
+    if(is.null(centr[[i]])) {
+      plot_list[[i]] <- ggplot(data = cars, mapping = aes(x = speed, y = dist)) +
+        geom_point(alpha = 0) +
+        theme_void() +
+        ggtitle(paste0(names(centr[i]), " signaling network")) +
+        theme(plot.title = element_text(size = 12*font.size.expansion, hjust = 0.5))
+      next
+    } else {
+      centr0 <- centr[[i]]
+    }
     mat <- matrix(unlist(centr0), ncol = length(centr0),
                   byrow = FALSE)
     mat <- t(mat)
