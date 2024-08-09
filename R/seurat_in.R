@@ -1757,7 +1757,7 @@ seurat_feature_violin_test <- function(seurat_object,
     spl_mat[[i]] <- data.frame(ct = spl_mat2[[i]], cat = meta[,categorical_column],
                                condition = meta[,condition_cat],
                                test_cat = meta[,test_cat])
-    if(!is.na(condition[1])) {
+    if(!is.null(condition[1])) {
       spl_mat[[i]] <- spl_mat[[i]][which(spl_mat[[i]]$condition %in% condition),]
     }
     spl_mat[[i]] <- spl_mat[[i]][which(spl_mat[[i]]$cat %in% plot_categorical_types),]
