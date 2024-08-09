@@ -171,7 +171,7 @@ cellchat_netAnalysis_signalingRole_network <- function(object, signaling, slot.n
     tmp_draw <- ComplexHeatmap::draw(ht1)
     # plot_list[[i]] <- tmp_draw
     tmp_grob <- grid::grid.grabExpr(draw(tmp_draw))
-    plot_list[[i]] <- tmp_grob
+    plot_list[[i]] <- ggpubr::ggarrange(plotlist = list(tmp_grob))
     # plot_list[[i]] <- ht1
     # plot_list[[i]] <- hm_mat
   }
