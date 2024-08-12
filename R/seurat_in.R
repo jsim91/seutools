@@ -686,7 +686,8 @@ seurat_mean_count_hm <- function(seurat_object,
                                  split_by_pid = TRUE,
                                  text_expansion_factor = 1,
                                  cluster_annotation_color = NULL,
-                                 cluster_annotation_ref = "none")
+                                 cluster_annotation_ref = "none",
+                                 pid_order = NULL)
 {
   require(ComplexHeatmap)
   require(grid)
@@ -852,6 +853,10 @@ seurat_mean_count_hm <- function(seurat_object,
           for(k in 1:ncol(tmp_mat)) {
             tmp_mat[j,k] <- mean(gene_values[which(pid_match==colnames(tmp_mat)[k])])
           }
+        }
+        if(!is.null(pid_order)) {
+          pid_ord <- pid_order[which(pid_order %in% colnames(tmp_mat))]
+          tmp_mat <- tmp_mat[,pid_ord]
         }
         split_clus_mats[[i]] <- tmp_mat
       }
