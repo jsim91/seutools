@@ -881,12 +881,12 @@ seurat_mean_count_hm <- function(seurat_object,
           hm_groups <- append(hm_groups, rep(x = include_clusters[i], times = length(upid)))
         }
       }
-      if(prefix_cluster) {
-        hm_groups <- paste0("cluster ",hm_groups)
-        hm_groups <- factor(hm_groups,levels=paste0("cluster ",include_clusters))
-      } else {
+      # if(prefix_cluster) {
+      #   hm_groups <- paste0("cluster ",hm_groups)
+      #   hm_groups <- factor(hm_groups,levels=paste0("cluster ",include_clusters))
+      # } else {
         hm_groups <- factor(hm_groups,levels=include_clusters)
-      }
+      # }
       # hm_groups <- rep(x = paste0("cluster ",include_clusters), times = length(upid))
       # hm_groups <- hm_groups[order(rep(include_clusters, times = length(upid)))]
       if(auto_order_genes) {
