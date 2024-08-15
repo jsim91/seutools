@@ -104,8 +104,9 @@ seu_plot_volcano <- function(dge_input, plot_clusters = "all",
   dge_input$`avg fold diff` <- ifelse(dge_input$avg_FC<1,
                                       -1/dge_input$avg_FC,
                                       dge_input$avg_FC)
-  if(nrow(dge_input)==0) {
-    return("no dge")
+  if(nrow(dge_input)==0) { # if no dge, return empty plot
+    # return("no dge")
+    return(ggplot2::ggplot(data = cars, mapping = ggplot2::aes(x = dist, y = speed)) + ggplot2::theme_void())
   }
   avgdfc <- rep(NA,nrow(dge_input))
   for(i in 1:length(dge_input$`avg fold diff`)) {
