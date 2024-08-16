@@ -102,7 +102,8 @@ cellchat_netAnalysis_signalingRole_network <- function(object, signaling, slot.n
                                                        measure = c("outdeg", "indeg", "flowbet", "info"),
                                                        measure.name = c("Sender", "Receiver", "Mediator", "Influencer"),
                                                        color.heatmap = "BuGn", font.size.expansion = 1,
-                                                       cluster.rows = FALSE, cluster.cols = FALSE, heatmap_title = NULL)
+                                                       cluster.rows = FALSE, cluster.cols = FALSE, heatmap_title = NULL, 
+                                                       row_plotting_threshold = NULL)
   # width = 6.5, height = 1.4, font.size.title = 10,
 {
   # testing
@@ -149,7 +150,14 @@ cellchat_netAnalysis_signalingRole_network <- function(object, signaling, slot.n
     if (is.null(color.use)) {
       color.use <- scPalette(length(colnames(mat)))
     }
+    if (!is.null(row_plotting_threshold)) {
+      which_rm <- which(apply(mat, 1, min, na.rm = TRUE)<row_plotting_threshold)
+      if (length(which_rm)!=0) {
+        mat <- mat[-which_rm,]
+      }
+    }
     color.heatmap.use = (grDevices::colorRampPalette((RColorBrewer::brewer.pal(n = 9, name = color.heatmap))))(100)
+    # force color.heatmap.use limits c(0,1); even if min value in heatmap is >0 (because of thresholding)
     df <- data.frame(group = colnames(mat))
     rownames(df) <- colnames(mat)
     cell.cols.assigned <- setNames(color.use, unique(as.character(df$group)))
