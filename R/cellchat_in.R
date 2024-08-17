@@ -106,18 +106,21 @@ cellchat_netAnalysis_signalingRole_network <- function(object, signaling, slot.n
                                                        row_plotting_threshold = NULL)
   # width = 6.5, height = 1.4, font.size.title = 10,
 {
+  require(grid)
+  require(gridExtra)
   # testing
-  # object = cc_list[[i]]
-  # signaling = names(path_maps)[j]
+  # object = object.list[[1]]
+  # signaling = netp
   # slot.name = "netP"
+  # row_plotting_threshold = 0.2
+  # heatmap_title = names(object.list)[1]
   # color.use = NULL
   # measure = c("outdeg", "indeg", "flowbet", "info")
   # measure.name = c("Sender", "Receiver", "Mediator", "Influencer")
   # color.heatmap = "BuGn"
-  # font.size.expansion = 1.25
+  # font.size.expansion = 1
   # cluster.rows = FALSE
   # cluster.cols = FALSE
-  # row_plotting_threshold = NULL
 
   if (length(slot(object, slot.name)$centr) == 0) {
     stop("Please run `netAnalysis_computeCentrality` to compute the network centrality scores! ")
@@ -161,8 +164,6 @@ cellchat_netAnalysis_signalingRole_network <- function(object, signaling, slot.n
     num_lost_rows <- mat_dim2_before - mat_dim2_after
     ratio_lost <- num_lost_rows/mat_dim2_before
 
-    void_plt <- ggplot() + theme_void()
-
     color.heatmap.use = (grDevices::colorRampPalette((RColorBrewer::brewer.pal(n = 9, name = color.heatmap))))(100)
     # force color.heatmap.use limits c(0,1); even if min value in heatmap is >0 (because of thresholding)
     df <- data.frame(group = colnames(mat))
@@ -197,15 +198,14 @@ cellchat_netAnalysis_signalingRole_network <- function(object, signaling, slot.n
                                                                     labels_gp = gpar(fontsize = 10*font.size.expansion),
                                                                     grid_width = unit(2.5*font.size.expansion, "mm")))
     tmp_draw <- ComplexHeatmap::draw(ht1)
-    # plot_list[[i]] <- tmp_draw
     tmp_grob <- grid::grid.grabExpr(draw(tmp_draw))
-    plot_list[[i]] <- ggpubr::ggarrange(plotlist = list(tmp_grob, void_plt), heights = c(1-(num_lost_rows/mat_dim2_before), (num_lost_rows/mat_dim2_before)))
-    # plot_list[[i]] <- ht1
-    # plot_list[[i]] <- hm_mat
+    tmp_plt <- ggpubr::ggarrange(plotlist = tmp_grob)
+    void_plt <- ggplot() + theme_void()
+    blank_grob <- ggplotGrob(void_plt)
+    plot_list[[i]] <- gridExtra::grid.arrange(tmp_grob, blank_grob, heights = c(1-(num_lost_rows/mat_dim2_before), (num_lost_rows/mat_dim2_before)))
   }
 
   return(plot_list)
-  # return(ggpubr::ggarrange(plotlist = plot_list, nrow = 1))
 }
 
 
