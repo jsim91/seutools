@@ -137,6 +137,7 @@ cellchat_netAnalysis_signalingRole_network <- function(object, signaling, slot.n
     }
     mat <- matrix(unlist(centr0), ncol = length(centr0), byrow = FALSE)
     mat <- t(mat)
+    mat_dim2_before <- ncol(mat)
     rownames(mat) <- names(centr0)
     colnames(mat) <- names(centr0$outdeg)
     if (!is.null(measure)) {
@@ -156,6 +157,12 @@ cellchat_netAnalysis_signalingRole_network <- function(object, signaling, slot.n
         mat <- mat[,-which_rm]
       }
     }
+    mat_dim2_after <- ncol(mat)
+    num_lost_rows <- mat_dim2_before - mat_dim2_after
+    ratio_lost <- num_lost_rows/mat_dim2_before
+
+    void_plt <- ggplot() + theme_void()
+
     color.heatmap.use = (grDevices::colorRampPalette((RColorBrewer::brewer.pal(n = 9, name = color.heatmap))))(100)
     # force color.heatmap.use limits c(0,1); even if min value in heatmap is >0 (because of thresholding)
     df <- data.frame(group = colnames(mat))
@@ -192,7 +199,7 @@ cellchat_netAnalysis_signalingRole_network <- function(object, signaling, slot.n
     tmp_draw <- ComplexHeatmap::draw(ht1)
     # plot_list[[i]] <- tmp_draw
     tmp_grob <- grid::grid.grabExpr(draw(tmp_draw))
-    plot_list[[i]] <- ggpubr::ggarrange(plotlist = list(tmp_grob))
+    plot_list[[i]] <- ggpubr::ggarrange(plotlist = list(tmp_grob, void_plt), heights = c(1-(num_lost_rows/mat_dim2_before), (num_lost_rows/mat_dim2_before)))
     # plot_list[[i]] <- ht1
     # plot_list[[i]] <- hm_mat
   }
