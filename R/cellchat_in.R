@@ -111,6 +111,7 @@ cellchat_netAnalysis_signalingRole_network <- function(object, signaling, slot.n
   # testing
   # object = object.list[[1]]
   # signaling = netp
+  # # signaling = "IL4"
   # slot.name = "netP"
   # row_plotting_threshold = 0.2
   # heatmap_title = names(object.list)[1]
@@ -140,7 +141,6 @@ cellchat_netAnalysis_signalingRole_network <- function(object, signaling, slot.n
     }
     mat <- matrix(unlist(centr0), ncol = length(centr0), byrow = FALSE)
     mat <- t(mat)
-    mat_dim2_before <- ncol(mat)
     rownames(mat) <- names(centr0)
     colnames(mat) <- names(centr0$outdeg)
     if (!is.null(measure)) {
@@ -149,6 +149,7 @@ cellchat_netAnalysis_signalingRole_network <- function(object, signaling, slot.n
         rownames(mat) <- measure.name
       }
     }
+    mat_dim2_before <- ncol(mat)
     mat <- sweep(mat, 1L, apply(mat, 1, max), "/", check.margin = FALSE)
     mat[is.na(mat)] <- 0
     if (is.null(color.use)) {
@@ -161,50 +162,55 @@ cellchat_netAnalysis_signalingRole_network <- function(object, signaling, slot.n
       }
     }
     mat_dim2_after <- ncol(mat)
-    num_lost_rows <- mat_dim2_before - mat_dim2_after
-    ratio_lost <- num_lost_rows/mat_dim2_before
+    if(is.null(mat_dim2_after)) {
+      plot_list[[i]] <- ggplot() + theme_void()
+    } else {
+      num_lost_rows <- mat_dim2_before - mat_dim2_after
+      ratio_lost <- num_lost_rows/mat_dim2_before
 
-    color.heatmap.use = (grDevices::colorRampPalette((RColorBrewer::brewer.pal(n = 9, name = color.heatmap))))(100)
-    # force color.heatmap.use limits c(0,1); even if min value in heatmap is >0 (because of thresholding)
-    df <- data.frame(group = colnames(mat))
-    rownames(df) <- colnames(mat)
-    cell.cols.assigned <- setNames(color.use, unique(as.character(df$group)))
-    cell.cols.assigned <- cell.cols.assigned[which(names(cell.cols.assigned) %in% colnames(mat))]
-    # col_annotation <- HeatmapAnnotation(df = df, col = list(group = cell.cols.assigned),
-    #                                     which = "column", show_legend = FALSE, show_annotation_name = FALSE,
-    #                                     simple_anno_size = grid::unit(0.2, "cm"))
-    row_annotation <- HeatmapAnnotation(df = df, col = list(group = cell.cols.assigned),
-                                        which = "row", show_legend = FALSE, show_annotation_name = FALSE,
-                                        simple_anno_size = grid::unit(0.3, "cm"))
-    hm_mat <- t(mat)
-    ht1 = Heatmap(matrix = hm_mat, col = color.heatmap.use, na_col = "white",
-                  name = "Importance", left_annotation = row_annotation, column_names_centered = TRUE,
-                  # bottom_annotation = col_annotation,
-                  cluster_rows = cluster.rows, cluster_columns = cluster.cols,
-                  row_names_side = "left", row_names_rot = 0, row_names_gp = gpar(fontsize = 10*font.size.expansion, fontface = "bold"),
-                  column_names_gp = gpar(fontsize = 12*font.size.expansion),
-                  # width = unit(width, "cm"), height = unit(height, "cm"),
-                  column_title = ifelse(!is.null(heatmap_title), paste0(names(centr[i]), " signaling network (",heatmap_title,")"),
-                                        paste0(names(centr[i]), " signaling network")),
-                  column_title_gp = gpar(fontsize = 12*font.size.expansion),
-                  rect_gp = gpar(lwd = 0.5, col = "black"), border = "black",
-                  column_names_rot = 0, heatmap_legend_param = list(title = "Importance",
-                                                                    title_gp = gpar(fontsize = 10*font.size.expansion, fontface = "plain"),
-                                                                    title_position = "leftcenter-rot", border = "black",
-                                                                    # at = c(round(min(mat, na.rm = T), digits = 1),
-                                                                    #        round(max(mat, na.rm = T), digits = 1)),
-                                                                    at = c(0, 1),
-                                                                    legend_height = unit(24*font.size.expansion, "mm"),
-                                                                    labels_gp = gpar(fontsize = 10*font.size.expansion),
-                                                                    grid_width = unit(2.5*font.size.expansion, "mm")))
-    tmp_draw <- ComplexHeatmap::draw(ht1)
-    tmp_grob <- grid::grid.grabExpr(draw(tmp_draw))
-    tmp_plt <- ggpubr::ggarrange(plotlist = tmp_grob)
-    void_plt <- ggplot() + theme_void()
-    blank_grob <- ggplotGrob(void_plt)
-    plot_list[[i]] <- gridExtra::grid.arrange(tmp_grob, blank_grob, heights = c(1-(num_lost_rows/mat_dim2_before), (num_lost_rows/mat_dim2_before)))
+      color.heatmap.use = (grDevices::colorRampPalette((RColorBrewer::brewer.pal(n = 9, name = color.heatmap))))(100)
+      # force color.heatmap.use limits c(0,1); even if min value in heatmap is >0 (because of thresholding)
+      df <- data.frame(group = colnames(mat))
+      rownames(df) <- colnames(mat)
+      cell.cols.assigned <- setNames(color.use, unique(as.character(df$group)))
+      cell.cols.assigned <- cell.cols.assigned[which(names(cell.cols.assigned) %in% colnames(mat))]
+      # col_annotation <- HeatmapAnnotation(df = df, col = list(group = cell.cols.assigned),
+      #                                     which = "column", show_legend = FALSE, show_annotation_name = FALSE,
+      #                                     simple_anno_size = grid::unit(0.2, "cm"))
+      row_annotation <- HeatmapAnnotation(df = df, col = list(group = cell.cols.assigned),
+                                          which = "row", show_legend = FALSE, show_annotation_name = FALSE,
+                                          simple_anno_size = grid::unit(0.3, "cm"))
+      hm_mat <- t(mat)
+      ht1 = Heatmap(matrix = hm_mat, col = color.heatmap.use, na_col = "white",
+                    name = "Importance", left_annotation = row_annotation, column_names_centered = TRUE,
+                    # bottom_annotation = col_annotation,
+                    cluster_rows = cluster.rows, cluster_columns = cluster.cols,
+                    row_names_side = "left", row_names_rot = 0, row_names_gp = gpar(fontsize = 10*font.size.expansion, fontface = "bold"),
+                    column_names_gp = gpar(fontsize = 12*font.size.expansion),
+                    # width = unit(width, "cm"), height = unit(height, "cm"),
+                    column_title = ifelse(!is.null(heatmap_title), paste0(names(centr[i]), " signaling network (",heatmap_title,")"),
+                                          paste0(names(centr[i]), " signaling network")),
+                    column_title_gp = gpar(fontsize = 12*font.size.expansion),
+                    rect_gp = gpar(lwd = 0.5, col = "black"), border = "black",
+                    column_names_rot = 0, heatmap_legend_param = list(title = "Importance",
+                                                                      title_gp = gpar(fontsize = 10*font.size.expansion, fontface = "plain"),
+                                                                      title_position = "leftcenter-rot", border = "black",
+                                                                      # at = c(round(min(mat, na.rm = T), digits = 1),
+                                                                      #        round(max(mat, na.rm = T), digits = 1)),
+                                                                      at = c(0, 1),
+                                                                      legend_height = unit(24*font.size.expansion, "mm"),
+                                                                      labels_gp = gpar(fontsize = 10*font.size.expansion),
+                                                                      grid_width = unit(2.5*font.size.expansion, "mm")))
+      tmp_draw <- ComplexHeatmap::draw(ht1)
+      tmp_grob <- grid::grid.grabExpr(draw(tmp_draw))
+      tmp_plt <- ggpubr::ggarrange(plotlist = tmp_grob)
+      void_plt <- ggplot() + theme_void()
+      blank_grob <- ggplotGrob(void_plt)
+      tmp_out <- gridExtra::grid.arrange(tmp_grob, blank_grob,
+                                         heights = c(0.13 + (1-(num_lost_rows/mat_dim2_before)), (num_lost_rows/mat_dim2_before)))
+      plot_list[[i]] <- ggpubr::ggarrange(tmp_out)
+    }
   }
-
   return(plot_list)
 }
 
