@@ -102,7 +102,7 @@ cellchat_netAnalysis_signalingRole_network <- function(object, signaling, slot.n
                                                        measure = c("outdeg", "indeg", "flowbet", "info"),
                                                        measure.name = c("Sender", "Receiver", "Mediator", "Influencer"),
                                                        color.heatmap = "BuGn", font.size.expansion = 1,
-                                                       cluster.rows = FALSE, cluster.cols = FALSE, heatmap_title = NULL, 
+                                                       cluster.rows = FALSE, cluster.cols = FALSE, heatmap_title = NULL,
                                                        row_plotting_threshold = NULL)
   # width = 6.5, height = 1.4, font.size.title = 10,
 {
@@ -117,7 +117,7 @@ cellchat_netAnalysis_signalingRole_network <- function(object, signaling, slot.n
   # font.size.expansion = 1.25
   # cluster.rows = FALSE
   # cluster.cols = FALSE
-  # heatmap_title = paste0(names(cc_list)[i]," ",names(path_maps)[j]," signaling network")
+  # row_plotting_threshold = NULL
 
   if (length(slot(object, slot.name)$centr) == 0) {
     stop("Please run `netAnalysis_computeCentrality` to compute the network centrality scores! ")
@@ -135,8 +135,7 @@ cellchat_netAnalysis_signalingRole_network <- function(object, signaling, slot.n
     } else {
       centr0 <- centr[[i]]
     }
-    mat <- matrix(unlist(centr0), ncol = length(centr0),
-                  byrow = FALSE)
+    mat <- matrix(unlist(centr0), ncol = length(centr0), byrow = FALSE)
     mat <- t(mat)
     rownames(mat) <- names(centr0)
     colnames(mat) <- names(centr0$outdeg)
@@ -147,13 +146,14 @@ cellchat_netAnalysis_signalingRole_network <- function(object, signaling, slot.n
       }
     }
     mat <- sweep(mat, 1L, apply(mat, 1, max), "/", check.margin = FALSE)
+    mat[is.na(mat)] <- 0
     if (is.null(color.use)) {
       color.use <- scPalette(length(colnames(mat)))
     }
     if (!is.null(row_plotting_threshold)) {
-      which_rm <- which(apply(mat, 1, min, na.rm = TRUE)<row_plotting_threshold)
+      which_rm <- which(apply(mat, 2, max, na.rm = TRUE)<row_plotting_threshold)
       if (length(which_rm)!=0) {
-        mat <- mat[-which_rm,]
+        mat <- mat[,-which_rm]
       }
     }
     color.heatmap.use = (grDevices::colorRampPalette((RColorBrewer::brewer.pal(n = 9, name = color.heatmap))))(100)
@@ -161,6 +161,7 @@ cellchat_netAnalysis_signalingRole_network <- function(object, signaling, slot.n
     df <- data.frame(group = colnames(mat))
     rownames(df) <- colnames(mat)
     cell.cols.assigned <- setNames(color.use, unique(as.character(df$group)))
+    cell.cols.assigned <- cell.cols.assigned[which(names(cell.cols.assigned) %in% colnames(mat))]
     # col_annotation <- HeatmapAnnotation(df = df, col = list(group = cell.cols.assigned),
     #                                     which = "column", show_legend = FALSE, show_annotation_name = FALSE,
     #                                     simple_anno_size = grid::unit(0.2, "cm"))
@@ -182,9 +183,11 @@ cellchat_netAnalysis_signalingRole_network <- function(object, signaling, slot.n
                   column_names_rot = 0, heatmap_legend_param = list(title = "Importance",
                                                                     title_gp = gpar(fontsize = 10*font.size.expansion, fontface = "plain"),
                                                                     title_position = "leftcenter-rot", border = "black",
-                                                                    at = c(round(min(mat, na.rm = T), digits = 1),
-                                                                           round(max(mat, na.rm = T), digits = 1)),
-                                                                    legend_height = unit(24*font.size.expansion, "mm"), labels_gp = gpar(fontsize = 10*font.size.expansion),
+                                                                    # at = c(round(min(mat, na.rm = T), digits = 1),
+                                                                    #        round(max(mat, na.rm = T), digits = 1)),
+                                                                    at = c(0, 1),
+                                                                    legend_height = unit(24*font.size.expansion, "mm"),
+                                                                    labels_gp = gpar(fontsize = 10*font.size.expansion),
                                                                     grid_width = unit(2.5*font.size.expansion, "mm")))
     tmp_draw <- ComplexHeatmap::draw(ht1)
     # plot_list[[i]] <- tmp_draw
