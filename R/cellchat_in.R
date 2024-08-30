@@ -105,8 +105,10 @@ cellchat_netAnalysis_signalingRole_network <- function(object, signaling, slot.n
                                                        color.heatmap = "BuGn", font.size.expansion = 1,
                                                        cluster.rows = FALSE, cluster.cols = FALSE, heatmap_title = NULL)
 {
-  require(grid)
-  require(gridExtra)
+  suppressPackageStartupMessages({
+    require(grid)
+    require(gridExtra)
+  })
   # testing
   # object = object.list[[1]]
   # signaling = netp[1:2]
@@ -237,7 +239,9 @@ cellchat_netAnalysis_signalingRole_merged_heatmap <- function(cellchat_object,
                                                               color.use = NULL,
                                                               name_vector_key = c("progr_more_3" = "progressor >12mo", "progr_less_4" = "progressor <12mo"),
                                                               font.size.expansion = 1) {
-  require(CellChat)
+  suppressPackageStartupMessages({
+    require(CellChat)
+  })
 
   # testing
   # cellchat_object <- readRDS(file = "J:/10x/TB_sc/scbp2/final_annotations_outs/cellchat/Media_cl_cluster_controller11_less5/cellchat_cl_Media.rds")
