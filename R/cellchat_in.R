@@ -111,7 +111,7 @@ cellchat_netAnalysis_signalingRole_network <- function(object, signaling, slot.n
   })
   # testing
   # object = object.list[[1]]
-  # signaling = netp[1:2]
+  # signaling = netp
   # slot.name = "netP"
   # row_plotting_threshold = 0.2
   # heatmap_title = names(object.list)[1]
@@ -184,11 +184,11 @@ cellchat_netAnalysis_signalingRole_network <- function(object, signaling, slot.n
       df <- data.frame(group = colnames(mat))
       rownames(df) <- colnames(mat)
       # cell.cols.assigned <- setNames(color.use, unique(as.character(df$group)))
-      cell.cols.assigned <- cell.cols.assigned[which(names(cell.cols.assigned) %in% colnames(mat))]
-      # col_annotation <- HeatmapAnnotation(df = df, col = list(group = cell.cols.assigned),
+      cell.cols.assigned.subset <- cell.cols.assigned[which(names(cell.cols.assigned) %in% colnames(mat))]
+      # col_annotation <- HeatmapAnnotation(df = df, col = list(group = cell.cols.assigned.subset),
       #                                     which = "column", show_legend = FALSE, show_annotation_name = FALSE,
       #                                     simple_anno_size = grid::unit(0.2, "cm"))
-      row_annotation <- HeatmapAnnotation(df = df, col = list(group = cell.cols.assigned),
+      row_annotation <- HeatmapAnnotation(df = df, col = list(group = cell.cols.assigned.subset),
                                           which = "row", show_legend = FALSE, show_annotation_name = FALSE,
                                           simple_anno_size = grid::unit(0.3, "cm"))
       hm_mat <- t(mat)
