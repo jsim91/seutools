@@ -99,19 +99,17 @@ cellchat_netAnalysis_signalingRole_heatmap <- function(object, signaling = NULL,
 
 
 cellchat_netAnalysis_signalingRole_network <- function(object, signaling, slot.name = "netP", color.use = NULL,
+                                                       consider_cell_types = "all", row_plotting_threshold = 0.2,
                                                        measure = c("outdeg", "indeg", "flowbet", "info"),
                                                        measure.name = c("Sender", "Receiver", "Mediator", "Influencer"),
                                                        color.heatmap = "BuGn", font.size.expansion = 1,
-                                                       cluster.rows = FALSE, cluster.cols = FALSE, heatmap_title = NULL,
-                                                       row_plotting_threshold = NULL)
-  # width = 6.5, height = 1.4, font.size.title = 10,
+                                                       cluster.rows = FALSE, cluster.cols = FALSE, heatmap_title = NULL)
 {
   require(grid)
   require(gridExtra)
   # testing
   # object = object.list[[1]]
-  # signaling = netp
-  # # signaling = "IL4"
+  # signaling = netp[1:2]
   # slot.name = "netP"
   # row_plotting_threshold = 0.2
   # heatmap_title = names(object.list)[1]
@@ -122,7 +120,17 @@ cellchat_netAnalysis_signalingRole_network <- function(object, signaling, slot.n
   # font.size.expansion = 1
   # cluster.rows = FALSE
   # cluster.cols = FALSE
+  # consider_cell_types <- "all"
 
+  if(all(consider_cell_types[1]=="all",length(consider_cell_types)==1)) {
+    consider_cell_types <- unique(names(object.list[[1]]@netP[["centr"]][[1]]$outdeg_unweighted))
+  } else {
+    consider_cell_types <- unique(consider_cell_types)
+  }
+  if (is.null(color.use)) {
+    color.use <- scPalette(length(consider_cell_types))
+  }
+  cell.cols.assigned <- setNames(color.use, consider_cell_types)
   if (length(slot(object, slot.name)$centr) == 0) {
     stop("Please run `netAnalysis_computeCentrality` to compute the network centrality scores! ")
   }
@@ -143,6 +151,7 @@ cellchat_netAnalysis_signalingRole_network <- function(object, signaling, slot.n
     mat <- t(mat)
     rownames(mat) <- names(centr0)
     colnames(mat) <- names(centr0$outdeg)
+    mat <- mat[,which(colnames(mat) %in% consider_cell_types)]
     if (!is.null(measure)) {
       mat <- mat[measure, ]
       if (!is.null(measure.name)) {
@@ -152,9 +161,9 @@ cellchat_netAnalysis_signalingRole_network <- function(object, signaling, slot.n
     mat_dim2_before <- ncol(mat)
     mat <- sweep(mat, 1L, apply(mat, 1, max), "/", check.margin = FALSE)
     mat[is.na(mat)] <- 0
-    if (is.null(color.use)) {
-      color.use <- scPalette(length(colnames(mat)))
-    }
+    # if (is.null(color.use)) {
+    #   color.use <- scPalette(length(colnames(mat)))
+    # }
     if (!is.null(row_plotting_threshold)) {
       which_rm <- which(apply(mat, 2, max, na.rm = TRUE)<row_plotting_threshold)
       if (length(which_rm)!=0) {
@@ -172,7 +181,7 @@ cellchat_netAnalysis_signalingRole_network <- function(object, signaling, slot.n
       # force color.heatmap.use limits c(0,1); even if min value in heatmap is >0 (because of thresholding)
       df <- data.frame(group = colnames(mat))
       rownames(df) <- colnames(mat)
-      cell.cols.assigned <- setNames(color.use, unique(as.character(df$group)))
+      # cell.cols.assigned <- setNames(color.use, unique(as.character(df$group)))
       cell.cols.assigned <- cell.cols.assigned[which(names(cell.cols.assigned) %in% colnames(mat))]
       # col_annotation <- HeatmapAnnotation(df = df, col = list(group = cell.cols.assigned),
       #                                     which = "column", show_legend = FALSE, show_annotation_name = FALSE,
