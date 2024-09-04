@@ -125,7 +125,7 @@ cellchat_netAnalysis_signalingRole_network <- function(object, signaling, slot.n
   # consider_cell_types <- "all"
 
   if(all(consider_cell_types[1]=="all",length(consider_cell_types)==1)) {
-    consider_cell_types <- unique(names(object.list[[1]]@netP[["centr"]][[1]]$outdeg_unweighted))
+    consider_cell_types <- unique(names(object@netP[["centr"]][[1]]$outdeg_unweighted))
   } else {
     consider_cell_types <- unique(consider_cell_types)
   }
