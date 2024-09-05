@@ -2273,47 +2273,55 @@ seurat_dge <- function(seurat_object,
     use_adj_p <- TRUE # hard coding use adjusted p values; consider allowing use unadjusted for discovery
     padj_threshold <- 0.05 # hard coding 0.05; consider allowing to change
     do_deseq <- function(arg1, p_return_threshold = padj_threshold, stim = seu_conditions,
-                         use_adj = use_adj_p) {
-      # testing
-      # arg1 <- deseq_input[[1]]
-      # p_return_threshold = padj_threshold
-      # stim = seu_conditions
-      # use_adj = use_adj_p
-
+                       use_adj = use_adj_p) {
+    # testing
+    # arg1 <- deseq_input[[1]]
+    # p_return_threshold = padj_threshold
+    # stim = seu_conditions
+    # use_adj = use_adj_p
+    
       count_data <- arg1[[1]]
       meta_data <- arg1[[2]]
-
+      
       test_cats_order <- levels(meta_data$group_id)
-
+      
       count_data <- round(count_data)
-
-      dds <- DESeqDataSetFromMatrix(countData = count_data,
-                                    colData = meta_data,
-                                    design = ~ group_id)
-      dds <- DESeq(dds)
-      normalized_counts <- counts(dds, normalized = TRUE)
-      contrast <- c("group_id", test_cats_order[1], test_cats_order[2])
-      res <- results(dds,
-                     contrast = contrast,
-                     alpha = 0.05)
-      res <- lfcShrink(dds,
-                       contrast = contrast,
-                       res=res,
-                       type = "ashr")
-      norm_ct <- DESeq2::counts(dds, normalized = TRUE)
-      res <- data.frame(res); res <- res[!is.na(res$padj),]
-      if(sum(is.na(res$padj))!=0) {
-        res$padj <- p.adjust(p = res$pvalue, method = "fdr")
-      }
-      res$gene <- row.names(res)
-      res$condition <- stim
-      if(use_adj) {
-        if(!is.null(p_return_threshold)) {
-          res <- res[res$padj<=p_return_threshold,]
-        }
+      
+      find_cat <- unique(meta_data$group_id)
+      
+      if(nrow(meta_data)==0) {
+        res <- "Not enough cells from either of the tested groups. Min cells is 10."
+      } else if(length(find_cat)==1) {
+        res <- paste0("Not enough cells from group [",levels(meta_data$group_id)[which(!levels(meta_data$group_id) %in% as.character(meta_data$group_id))],"]. Min cells is 10.")
       } else {
-        if(!is.null(p_return_threshold)) {
-          res <- res[res$pvalue<=p_return_threshold,]
+        dds <- DESeqDataSetFromMatrix(countData = count_data,
+                                      colData = meta_data,
+                                      design = ~ group_id)
+        dds <- DESeq(dds)
+        normalized_counts <- counts(dds, normalized = TRUE)
+        contrast <- c("group_id", test_cats_order[1], test_cats_order[2])
+        res <- results(dds,
+                       contrast = contrast,
+                       alpha = 0.05)
+        res <- lfcShrink(dds,
+                         contrast = contrast,
+                         res=res,
+                         type = "ashr")
+        norm_ct <- DESeq2::counts(dds, normalized = TRUE)
+        res <- data.frame(res); res <- res[!is.na(res$padj),]
+        if(sum(is.na(res$padj))!=0) {
+          res$padj <- p.adjust(p = res$pvalue, method = "fdr")
+        }
+        res$gene <- row.names(res)
+        res$condition <- stim
+        if(use_adj) {
+          if(!is.null(p_return_threshold)) {
+            res <- res[res$padj<=p_return_threshold,]
+          }
+        } else {
+          if(!is.null(p_return_threshold)) {
+            res <- res[res$pvalue<=p_return_threshold,]
+          }
         }
       }
       # if(nrow(res)!=0) {
