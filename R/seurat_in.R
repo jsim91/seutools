@@ -2290,10 +2290,13 @@ seurat_dge <- function(seurat_object,
       find_cat <- unique(meta_data$group_id)
       
       if(nrow(meta_data)==0) {
+        fn_flag <- 0
         res <- "Not enough cells from either of the tested groups. Min cells is 10."
       } else if(length(find_cat)==1) {
+        fn_flag <- 0
         res <- paste0("Not enough cells from group [",levels(meta_data$group_id)[which(!levels(meta_data$group_id) %in% as.character(meta_data$group_id))],"]. Min cells is 10.")
       } else {
+        fn_flag <- 1
         dds <- DESeqDataSetFromMatrix(countData = count_data,
                                       colData = meta_data,
                                       design = ~ group_id)
@@ -2345,7 +2348,11 @@ seurat_dge <- function(seurat_object,
       # } else {
       #   pheatm <- "no features plotted"
       # }
-      return(list(res = res, norm_ct = norm_ct, meta = meta_data))#, hm = pheatm))
+      if(fn_flag==1) {
+        return(list(res = res, norm_ct = norm_ct, meta = meta_data))#, hm = pheatm))
+      } else {
+        return(list(res = res, meta = meta_data))#, hm = pheatm))
+      }
     }
     deseq_out <- lapply(X = deseq_input, FUN = do_deseq, p_return_threshold = padj_threshold,
                         stim = seu_conditions, use_adj = use_adj_p)
