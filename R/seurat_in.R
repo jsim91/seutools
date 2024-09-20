@@ -2051,6 +2051,7 @@ seurat_dge <- function(seurat_object,
                        freq_expressed = 0.1,
                        fc_threshold = log2(1.5),
                        test_clusters = "all", # one or more clusters to test, or "all"
+                       mast_lane = NULL, 
                        cluster_column = "cell_type",
                        category_column = "age_group",
                        test_categories = c("younger","older"), # order matters: translates into (test_categories[1]/test_categories[2]) for DESeq2 pseudobulk
@@ -2456,9 +2457,13 @@ seurat_dge <- function(seurat_object,
         seu_as_sce$cngeneson <- scale(cdr)
         subs2@assays[[assay]]@layers$data <- seu_as_sce@assays@data@listData[["logcounts"]]
         subs2@meta.data <- as.data.frame(seu_as_sce@colData)
-
+        if(!is.null(mast_lane)) {
+          latv <- c("cngeneson",pid_column,mast_lane)
+        } else {
+          latv <- c("cngeneson",pid_column)
+        }
         mast_res <- Seurat::FindMarkers(object = subs2, assay = assay, ident.1 = ident1, ident.2 = ident2,
-                                        test.use = "MAST", only.pos = FALSE, latent.vars = c("cngeneson",pid_column))
+                                        test.use = "MAST", only.pos = FALSE, latent.vars = c("cngeneson",pid_column,mast_lane))
         # colnames(mast_res)[which(colnames(mast_res)=="pct.1")] <- gsub(" ","_",paste0("pct.",ident1))
         # colnames(mast_res)[which(colnames(mast_res)=="pct.2")] <- gsub(" ","",paste0("pct.",ident2))
         mast_res$gene <- row.names(mast_res)
