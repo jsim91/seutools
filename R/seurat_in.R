@@ -319,7 +319,7 @@ seurat_footprint <- function(seurat_object, cluster_column, pid_column, conditio
                              media_condition, subtract_media, color_by_column, which_clusters = "all",
                              reduction = "umap", scale.factor = 1000, pca_fraction_variance = 0.95,
                              cluster_data = FALSE, umap_n_neighbors = 5, leiden_resolution = 0.2,
-                             umap_min_dist = 0.3, report_values_as = "normalized counts",
+                             umap_min_dist = 0.3, report_values_as = "fraction",
                              feature_reduction_method = "pca", return_as_list = FALSE,
                              return_data = FALSE, manual_colors = NULL, umap_spread = 1,
                              label_points = TRUE) # prepare feature input with either 'pca' or 'boruta' as feature reduction method
@@ -419,8 +419,8 @@ seurat_footprint <- function(seurat_object, cluster_column, pid_column, conditio
           }
         }
       }
-      clus_list[[i]] <- freq_matrix
     }
+    clus_list[[i]] <- freq_matrix
   }
 
   rnames <- lapply(X = clus_list, FUN = row.names); rname_table <- table(unlist(rnames)); keepid <- names(which(rname_table==max(rname_table)))
