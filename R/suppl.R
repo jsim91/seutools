@@ -8,6 +8,7 @@ rem_MASTDETest <- function(
   re.var = NULL,
   ...
 ) {
+  # https://github.com/satijalab/seurat/issues/3712#issuecomment-1379578940
   # Check for MAST
   if (!PackageCheck('MAST', error = FALSE)) {
     stop("Please install MAST - learn more at https://github.com/RGLab/MAST")
