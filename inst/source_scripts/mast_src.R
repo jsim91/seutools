@@ -43,7 +43,7 @@ rem_MASTDETest <- function(
     latent.vars.names <- latent.vars.names[!latent.vars.names %in% re.var]
     fmla <- as.formula(
       object = paste0(
-        " ~ ", paste(latent.vars.names, collapse = "+"), glue("+ (1|{re.var})")
+        " ~ ", paste(latent.vars.names, collapse = "+"), glue::glue("+ (1|{re.var})")
       )
     )
     # print(fmla)
