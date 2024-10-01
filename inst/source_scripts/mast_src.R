@@ -10,9 +10,9 @@ rem_MASTDETest <- function(
 ) {
   # https://github.com/satijalab/seurat/issues/3712#issuecomment-1379578940
   # Check for MAST
-  if (!rlang::check_installed('MAST')) {
-    stop("Please install MAST - learn more at https://github.com/RGLab/MAST")
-  }
+  #if (!rlang::check_installed('MAST')) {
+  #  stop("Please install MAST - learn more at https://github.com/RGLab/MAST")
+  #}
   group.info <- data.frame(row.names = c(cells.1, cells.2))
   latent.vars <- latent.vars %||% group.info
   group.info[cells.1, "group"] <- "Group1"
