@@ -1,11 +1,8 @@
-rem_MASTDETest <- function(
-    data.use,
-    cells.1,
-    cells.2,
-    latent.vars = NULL,
+suppl_MAST <- function(
+    sca = seu_as_sce, 
+    latent.vars = latv, 
+    re.var = pid_column
     verbose = TRUE,
-    # New option - random effect variable (should be included in latent.vars)
-    re.var = NULL,
     ...
 ) {
   # https://github.com/satijalab/seurat/issues/3712#issuecomment-1379578940
@@ -13,26 +10,28 @@ rem_MASTDETest <- function(
   #if (!rlang::check_installed('MAST')) {
   #  stop("Please install MAST - learn more at https://github.com/RGLab/MAST")
   #}
-  group.info <- data.frame(row.names = c(cells.1, cells.2))
-  latent.vars <- latent.vars %||% group.info
-  group.info[cells.1, "group"] <- "Group1"
-  group.info[cells.2, "group"] <- "Group2"
-  group.info[, "group"] <- factor(x = group.info[, "group"])
-  latent.vars.names <- c("condition", colnames(x = latent.vars))
-  latent.vars <- cbind(latent.vars, group.info)
-  latent.vars$wellKey <- rownames(x = latent.vars)
-  fdat <- data.frame(rownames(x = data.use))
-  colnames(x = fdat)[1] <- "primerid"
-  rownames(x = fdat) <- fdat[, 1]
-  sca <- MAST::FromMatrix(
-    exprsArray = as.matrix(x = data.use),
-    check_sanity = FALSE,
-    cData = latent.vars,
-    fData = fdat
-  )
-  cond <- factor(x = SummarizedExperiment::colData(sca)$group)
-  cond <- relevel(x = cond, ref = "Group1")
-  SummarizedExperiment::colData(sca)$condition <- cond
+    if(F){
+        group.info <- data.frame(row.names = c(cells.1, cells.2))
+        latent.vars <- latent.vars %||% group.info
+        group.info[cells.1, "group"] <- "Group1"
+        group.info[cells.2, "group"] <- "Group2"
+        group.info[, "group"] <- factor(x = group.info[, "group"])
+        latent.vars.names <- c("condition", colnames(x = latent.vars))
+        latent.vars <- cbind(latent.vars, group.info)
+        latent.vars$wellKey <- rownames(x = latent.vars)
+        fdat <- data.frame(rownames(x = data.use))
+        colnames(x = fdat)[1] <- "primerid"
+        rownames(x = fdat) <- fdat[, 1]
+        sca <- MAST::FromMatrix(
+            exprsArray = as.matrix(x = data.use),
+            check_sanity = FALSE,
+            cData = latent.vars,
+            fData = fdat
+        )
+        cond <- factor(x = SummarizedExperiment::colData(sca)$group)
+        cond <- relevel(x = cond, ref = "Group1")
+        SummarizedExperiment::colData(sca)$condition <- cond
+    }
   
   # This is the main change in the code - we want ~ ( 1 | re.var) in the formula:
   # ~ condition + lat.vars + (1 | re.var)
@@ -74,7 +73,7 @@ rem_MASTDETest <- function(
 }
 
 # This is the zlm function with a minor change to fix a buggy variable being passed possibly due to namespace clash
-my_zlm <- function (formula, sca, method = "bayesglm", silent = TRUE, ebayes = TRUE, 
+suppl_zlm <- function (formula, sca, method = "bayesglm", silent = TRUE, ebayes = TRUE, 
                     ebayesControl = NULL, force = FALSE, hook = NULL, parallel = TRUE, 
                     LMlike, onlyCoef = FALSE, exprs_values = MAST::assay_idx(sca)$aidx, 
                     ...) 
@@ -197,14 +196,14 @@ my_zlm <- function (formula, sca, method = "bayesglm", silent = TRUE, ebayes = T
   zfit <- do.call(new, as.list(summaries))
   zfit
 }
-suppressPackageStartupMessages({
-  library(MAST)
-})
+#suppressPackageStartupMessages({
+#  library(MAST)
+#})
 # We will replace the original function with ours inside the Seurat namespace
-assignInNamespace('MASTDETest', rem_MASTDETest, asNamespace("Seurat"))
+#assignInNamespace('MASTDETest', rem_MASTDETest, asNamespace("Seurat"))
 # getFromNamespace("MASTDETest", "Seurat")
 
-assignInNamespace('zlm', my_zlm, asNamespace("MAST"))
+#assignInNamespace('zlm', my_zlm, asNamespace("MAST"))
 # getFromNamespace("zlm", "MAST")
 
 # And now we can call our FindMarkers with random effects model for sample_ID
