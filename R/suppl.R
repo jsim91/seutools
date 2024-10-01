@@ -205,8 +205,8 @@ assignInNamespace('zlm', my_zlm, asNamespace("MAST"))
 
 # And now we can call our FindMarkers with random effects model for sample_ID
 # Don't forget to include ebayes = F
-markers <- FindMarkers(
-    sobj, ident.1 = "foo", ident.2 = "bar", only.pos = TRUE, 
-    test.use = "MAST", verbose = F
-    , latent.vars = "sample_ID", re.var = "sample_ID", ebayes = F
-  )
+#markers <- FindMarkers(
+#    sobj, ident.1 = "foo", ident.2 = "bar", only.pos = TRUE, 
+#    test.use = "MAST", verbose = F
+#    , latent.vars = "sample_ID", re.var = "sample_ID", ebayes = F
+#  )
