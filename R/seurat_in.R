@@ -2463,7 +2463,7 @@ seurat_dge <- function(seurat_object,
           latv <- c("cngeneson",pid_column)
         }
         mast_res <- Seurat::FindMarkers(object = subs2, assay = assay, ident.1 = ident1, ident.2 = ident2,
-                                        test.use = "MAST", only.pos = FALSE, latent.vars = c("cngeneson",pid_column,mast_lane))
+                                        test.use = "MAST", only.pos = FALSE, latent.vars = latv)
         # colnames(mast_res)[which(colnames(mast_res)=="pct.1")] <- gsub(" ","_",paste0("pct.",ident1))
         # colnames(mast_res)[which(colnames(mast_res)=="pct.2")] <- gsub(" ","",paste0("pct.",ident2))
         mast_res$gene <- row.names(mast_res)
