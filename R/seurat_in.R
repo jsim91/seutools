@@ -2462,9 +2462,9 @@ seurat_dge <- function(seurat_object,
         } else {
           latv <- c("cngeneson",pid_column)
         }
-        if(pid_column %in% latv) {
-          latv <- latv[-which(latv==pid_column)]
-        }
+        #if(pid_column %in% latv) {
+        #  latv <- latv[-which(latv==pid_column)]
+        #}
         #mast_res <- Seurat::FindMarkers(object = subs2, assay = assay, ident.1 = ident1, ident.2 = ident2,
         #                                test.use = "MAST", only.pos = FALSE, latent.vars = latv)
         mast_res <- FindMarkers(object = subs2, ident.1 = ident1, ident.2 = ident2, only.pos = FALSE, test.use = "MAST", 
