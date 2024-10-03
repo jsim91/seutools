@@ -2480,12 +2480,12 @@ seurat_dge <- function(seurat_object,
         cond<-relevel(cond,"Group1")
         colData(my_sca)$category <- cond
 
-        if (!is.null(re.var)) {
-          if (!re.var %in% latv) {
+        if (!is.null(mixed_effect_variable)) {
+          if (!mixed_effect_variable %in% latv) {
             stop("Random effect variable (sample ID) should be included in latent variables! Specify sample ID using arg 'pid_column'")
           }
-          latv <- latv[!latv %in% re.var]
-          fmla <- as.formula(object = paste0(" ~ category + ", paste(latv, collapse = "+"), glue::glue(" + (1|{re.var})")))
+          latv <- latv[!latv %in% mixed_effect_variable]
+          fmla <- as.formula(object = paste0(" ~ category + ", paste(latv, collapse = "+"), glue::glue(" + (1|{mixed_effect_variable})")))
           print(fmla)
           zlmCond <- MAST::zlm(formula = fmla,
                                sca = my_sca,
