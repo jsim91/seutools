@@ -2051,7 +2051,7 @@ seurat_dge <- function(seurat_object,
                        freq_expressed = 0.1,
                        fc_threshold = log2(1.5),
                        test_clusters = "all", # one or more clusters to test, or "all"
-                       mast_lane = NULL, 
+                       mast_lane = NULL,
                        cluster_column = "cell_type",
                        category_column = "age_group",
                        test_categories = c("younger","older"), # order matters: translates into (test_categories[1]/test_categories[2]) for DESeq2 pseudobulk
@@ -2066,7 +2066,7 @@ seurat_dge <- function(seurat_object,
   })
   # testing
   # seurat_object = seu_small
-  # dge_method = "wilcox"
+  # dge_method = "mast"
   # assay = "RNA"
   # freq_expressed = 0.1
   # fc_threshold = log2(1.5)
@@ -2078,6 +2078,8 @@ seurat_dge <- function(seurat_object,
   # condition_column = "condition"
   # pid_column = "pid"
   # pseudobulk_test_mode = "cluster_identity"
+  # mast_lane = NULL
+  # return_all_pseudobulk = TRUE
 
 
   if(test_condition[1]!="all") {
@@ -2280,14 +2282,14 @@ seurat_dge <- function(seurat_object,
       # p_return_threshold = padj_threshold
       # stim = seu_conditions
       # use_adj = use_adj_p
-      
+
       count_data <- arg1[[1]]
       meta_data <- arg1[[2]]
-      
+
       test_cats_order <- levels(meta_data$group_id)
-      
+
       count_data <- round(count_data)
-      
+
       if(nrow(meta_data)==0) {
         fn_flag <- 0
         res <- "Not enough cells from either of the tested groups. Min cells is 10."
@@ -2439,44 +2441,140 @@ seurat_dge <- function(seurat_object,
       if(tolower(dge_method) == "mast") {
         suppressPackageStartupMessages({
           require(MAST)
+          require(data.table)
+          require(ggplot2)
         })
-        binary_expr_matrix <- subs2@assays[[assay]]@layers$counts > 0
-        percent_expr <- rowSums(binary_expr_matrix) / ncol(binary_expr_matrix); names(percent_expr) <- row.names(subs2)
-        genes_to_keep <- row.names(subs2)[percent_expr >= freq_expressed]
-        if(sum(is.na(genes_to_keep))>0) {
-          # stop("one or more genes is NA")
-          genes_to_keep <- genes_to_keep[!is.na(genes_to_keep)]
+        test_idents <- c(ident1, ident2)
+        print("dropping lowly expressed genes. Threshold >= 10% of cells.")
+        keep_genes <- vector("list", length = length(test_idents)); names(keep_genes) <- test_idents
+        num_unique_genes <- nrow(subs2)
+        for(i in 1:2) {
+          subs2_grp <- subset(x = subs2, cells = which(subs2@meta.data[,category_column]==test_idents[i]))
+          bem <- subs2_grp@assays[[assay]]@layers$counts > 0
+          percent_expr <- rowSums(bem) / ncol(bem); names(percent_expr) <- row.names(subs2)
+          keep_genes[[i]] <- row.names(subs2)[percent_expr >= freq_expressed]
         }
+        grp_genes <- unlist(keep_genes); grp_genes <- grp_genes[!is.na(grp_genes)]
+        genes_to_keep <- names(table(grp_genes)[which(table(grp_genes)==2)])
         if(length(genes_to_keep)==0) {
+          warning("no genes passed thresholding")
           next
+        } else {
+          print(paste0("number of lowly expressed genes dropped: ",num_unique_genes - length(genes_to_keep)," genes. ",length(genes_to_keep)," genes left for MAST testing."))
         }
         subs2 <- subset(x = subs2, features = genes_to_keep)
-        seu_as_sce <- as.SingleCellExperiment(subs2, assay = assay)
-        logcounts(seu_as_sce) <- log2(counts(seu_as_sce) + 1)
+        subs2$category <- subs2@meta.data[,category_column]
+        subs2$category <- ifelse(subs2$category==ident1,"Group1","Group2")
+        Idents(subs2) <- subs2$category
+        seu_as_sce <- as.SingleCellExperiment(subs2, assay = "RNA")
+        seu_as_sce <- scuttle::logNormCounts(seu_as_sce, log = TRUE)
         cdr <- colSums(seu_as_sce@assays@data@listData[["logcounts"]]>0) # cellular detection rate; number of genes detected which is a well-known confounder (https://bioconductor.org/packages/release/bioc/vignettes/MAST/inst/doc/MAITAnalysis.html#22_Filtering)
         seu_as_sce$cngeneson <- scale(cdr)
-        subs2@assays[[assay]]@layers$data <- seu_as_sce@assays@data@listData[["logcounts"]]
-        subs2@meta.data <- as.data.frame(seu_as_sce@colData)
+        my_sca <- SceToSingleCellAssay(seu_as_sce, check_sanity = FALSE)
         if(!is.null(mast_lane)) {
           latv <- c("cngeneson",pid_column,mast_lane)
         } else {
           latv <- c("cngeneson",pid_column)
         }
-        #if(pid_column %in% latv) {
-        #  latv <- latv[-which(latv==pid_column)]
-        #}
-        #mast_res <- Seurat::FindMarkers(object = subs2, assay = assay, ident.1 = ident1, ident.2 = ident2,
-        #                                test.use = "MAST", only.pos = FALSE, latent.vars = latv)
-        #mast_res <- FindMarkers(object = subs2, ident.1 = ident1, ident.2 = ident2, only.pos = FALSE, test.use = "MAST", 
-        #                        verbose = F, latent.vars = latv, re.var = pid_column, ebayes = F)
-        mast_res <- seutools:::suppl_MAST(sca = seu_as_sce, latent.vars = latv, re.var = pid_column)
-        # colnames(mast_res)[which(colnames(mast_res)=="pct.1")] <- gsub(" ","_",paste0("pct.",ident1))
-        # colnames(mast_res)[which(colnames(mast_res)=="pct.2")] <- gsub(" ","",paste0("pct.",ident2))
-        mast_res$gene <- row.names(mast_res)
-        mast_res <- mast_res[mast_res$p_val_adj<0.05,]
-        mast_res <- mast_res[which(abs(mast_res$avg_log2FC)>fc_threshold),]
+        cond<-factor(colData(my_sca)$category)
+        cond<-relevel(cond,"Group1")
+        colData(my_sca)$category <- cond
 
-        dge_outs[[i]][[j]] <- mast_res
+        if (!is.null(re.var)) {
+          if (!re.var %in% latv) {
+            stop("Random effect variable (sample ID) should be included in latent variables! Specify sample ID using arg 'pid_column'")
+          }
+          latv <- latv[!latv %in% re.var]
+          fmla <- as.formula(object = paste0(" ~ category + ", paste(latv, collapse = "+"), glue::glue(" + (1|{re.var})")))
+          print(fmla)
+          zlmCond <- MAST::zlm(formula = fmla,
+                               sca = my_sca,
+                               exprs_value = 'logcounts',
+                               method="glmer",
+                               ebayes=FALSE,
+                               silent=T,
+                               fitArgsD = list(nAGQ = 0),
+                               strictConvergence = FALSE)
+                               # fitArgsD = list(nAGQ = 1)
+        } else {
+          stop("Trying to run without mixed effect model but this is not supported. Sample ID must be specified with arg 'pid_column'")
+        }
+        summaryCond <- MAST::summary(object = zlmCond, doLRT = 'categoryGroup2')
+        summaryDt <- summaryCond$datatable
+
+        fcHurdle <- merge(summaryDt[contrast=='categoryGroup2' & component=='H',.(primerid, `Pr(>Chisq)`)], #hurdle P values
+                          summaryDt[contrast=='categoryGroup2' & component=='logFC', .(primerid, coef, ci.hi, ci.lo)], by='primerid') #logFC coefficients
+
+        fcHurdle[,fdr:=p.adjust(`Pr(>Chisq)`, 'fdr')]
+        fcHurdleSig <- merge(fcHurdle[fdr<.05 & abs(coef)>fc_threshold], data.table::as.data.table(mcols(my_sca)), by='primerid')
+        setorder(fcHurdleSig, fdr)
+
+        lfcs <- MAST::logFC(zlmfit = zlmCond); lfc1 <- as.data.frame(lfcs$logFC[mast_res$primerid,]); lfc1$primerid <- row.names(lfc1)
+        as.data.frame(lfcs$varLogFC[mast_res$primerid,])
+
+        getlfcs <- as.data.frame(MAST::getLogFC(zlmfit = zlmCond)); getlfcs <- getlfcs[which(getlfcs$contrast!="cngeneson"),]
+        row.names(getlfcs) <- getlfcs$primerid; getlfcs <- getlfcs[mast_res$primerid,]
+
+        mast_res <- as.data.frame(fcHurdleSig)
+        mast_res <- merge(x = mast_res, y = getlfcs, by = "primerid", sort = FALSE, all.x = TRUE)
+        mast_res$contrast <- paste0(category_column,".",ident2)
+        mast_res$cluster <- names(dge_outs[[i]])[j]
+
+        entrez_to_plot <- fcHurdleSig[,primerid]
+        flat_dat <- as(my_sca[entrez_to_plot,], 'data.table')
+        flat_dat$category <- ifelse(flat_dat$category=="Group1",ident1,ident2)
+        ggbase <- ggplot(flat_dat, aes(x=category, y=logcounts, color=category)) + geom_jitter() + facet_wrap(~primerid, scale='free_y')+ggtitle("DE Genes")
+        mast_violins <- ggbase+geom_violin()
+
+        ##### plotting stuff from mast; leaving for now; ggbase+geom_violin() may be particularly useful
+        # entrez_to_plot <- fcHurdleSig[,primerid]
+        # flat_dat <- as(my_sca[entrez_to_plot,], 'data.table')
+        # ggbase <- ggplot(flat_dat, aes(x=category, y=logcounts, color=category)) + geom_jitter() + facet_wrap(~primerid, scale='free_y')+ggtitle("DE Genes")
+        # ggbase+geom_violin()
+        #
+        # flat_dat[,lmPred:=lm(logcounts~cngeneson + category)$fitted, key=primerid]
+        # ggbase + aes(x=cngeneson) + geom_line(aes(y=lmPred), lty=1) + xlab('Standardized Cellular Detection Rate')
+        #
+        # MM <- model.matrix(~category,unique(colData(my_sca)[,c("category"),drop=FALSE]))
+        # rname_map <- colData(my_sca)$category; names(rname_map) <- colData(my_sca)$barcode
+        # rownames(MM) <- rname_map[row.names(MM)]
+        # predicted <- predict(zlmCond,modelmatrix=MM)
+        #
+        # predicted[, primerid:=as.character(primerid)]
+        # predicted_sig <- merge(mcols(my_sca), predicted[primerid%in%entrez_to_plot], by='primerid')
+        # predicted_sig <- as.data.table(predicted_sig)
+        #
+        # ggplot(predicted_sig)+aes(x=invlogit(etaD),y=muC,xse=seD,yse=seC,col=sample)+
+        #   facet_wrap(~primerid,scales="free_y")+theme_linedraw()+
+        #   geom_point(size=0.5)+scale_x_continuous("Proportion expression")+
+        #   scale_y_continuous("Estimated Mean")+
+        #   stat_ell(aes(x=etaD,y=muC),level=0.95, invert='x')
+        #
+        # # heatmap, exprs per cell, split by group
+        # mat_to_plot <- assay(my_sca[entrez_to_plot,])
+        # symbols_to_plot <- fcHurdleSig[,primerid]
+        # rownames(mat_to_plot) <- symbols_to_plot
+        # assay_as_matrix <- as.matrix(mat_to_plot)
+        # NMF::aheatmap(assay_as_matrix,annCol=colData(my_sca)[,"category"],main="DE genes",
+        #               col=rev(colorRampPalette(colors = RColorBrewer::brewer.pal(name="PiYG",n=10))(20)), labCol = NA)
+        #
+        # # gsea
+        # boots <- bootVcov1(zlmCond, R = 50)
+        # module <- "BTM"
+        # min_gene_in_module <- 5
+        # packageExt <- system.file("extdata", package='MAST')
+        # module_file <- list.files(packageExt, pattern = module, full.names = TRUE)
+        # gene_set <- getGmt(module_file)
+        # gene_ids <- geneIds(gene_set)
+        # gene_ids <- gene_ids[!names(gene_ids)%like%"TBA"&!names(gene_ids)%like%"B cell"]
+        # sets_indices <- limma::ids2indices(gene_ids, mcols(sca)$symbolid)
+        # # Only keep modules with at least min_gene_in_module
+        # sets_indices <- sets_indices[sapply(sets_indices, length) >= min_gene_in_module]
+        # gsea <- gseaAfterBoot(zlmCond, boots, sets_indices, CoefficientHypothesis("conditionStim"))
+        # z_stat_comb <- summary(gsea, testType='normal')
+        #####
+
+        dge_outs[[i]][[j]] <- list(res = mast_res, gene_plots = mast_violins)
       } else if(tolower(dge_method) == "wilcox") {
         suppressPackageStartupMessages({
           require(SeuratWrappers)

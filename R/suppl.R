@@ -9,6 +9,14 @@ suppl_MAST <- function(
     ...
 ) {
   # https://github.com/satijalab/seurat/issues/3712#issuecomment-1379578940
+  # testing
+  sca = seu_as_sce
+  latent.vars = latv
+  re.var = pid_column
+  verbose = TRUE
+  cells.1 = c1
+  cells.2 = c2
+
   # Check for MAST
   #if (!rlang::check_installed('MAST')) {
   #  stop("Please install MAST - learn more at https://github.com/RGLab/MAST")
@@ -33,7 +41,7 @@ suppl_MAST <- function(
   cond <- factor(x = SummarizedExperiment::colData(sca)$group)
   cond <- relevel(x = cond, ref = "Group1")
   SummarizedExperiment::colData(sca)$condition <- cond
-  
+
   # This is the main change in the code - we want ~ ( 1 | re.var) in the formula:
   # ~ condition + lat.vars + (1 | re.var)
   if (!is.null(re.var)) {
@@ -48,7 +56,7 @@ suppl_MAST <- function(
     )
     # print(fmla)
     # We need glmer to make this work
-    method <-  "glmer" # trying to troubleshoot this - it can clash with the already existing method var in the function call    
+    method <-  "glmer" # trying to troubleshoot this - it can clash with the already existing method var in the function call
     zlmCond <- MAST::zlm(formula = fmla, sca = sca, method = "glmer", ...)
   } else {
     # Original code
@@ -59,7 +67,7 @@ suppl_MAST <- function(
   }
   summaryCond <- MAST::summary(object = zlmCond, doLRT = 'conditionGroup2')
   summaryDt <- summaryCond$datatable
-  
+
   # The output format is slightly different, so we need adapt the code
   if(!is.null(re.var)) {
     p_val <- summaryDt[summaryDt$"component" == "H", 4]$`Pr(>Chisq)`
@@ -68,31 +76,31 @@ suppl_MAST <- function(
     p_val <- summaryDt[summaryDt[, "component"] == "H", 4]
     genes.return <- summaryDt[summaryDt[, "component"] == "H", 1]
   }
-  
+
   to.return <- data.frame(p_val, row.names = genes.return)
   return(to.return)
 }
 
 # This is the zlm function with a minor change to fix a buggy variable being passed possibly due to namespace clash
-suppl_zlm <- function (formula, sca, method = "bayesglm", silent = TRUE, ebayes = TRUE, 
-                    ebayesControl = NULL, force = FALSE, hook = NULL, parallel = TRUE, 
-                    LMlike, onlyCoef = FALSE, exprs_values = MAST::assay_idx(sca)$aidx, 
-                    ...) 
+suppl_zlm <- function (formula, sca, method = "bayesglm", silent = TRUE, ebayes = TRUE,
+                    ebayesControl = NULL, force = FALSE, hook = NULL, parallel = TRUE,
+                    LMlike, onlyCoef = FALSE, exprs_values = MAST::assay_idx(sca)$aidx,
+                    ...)
 {
   dotsdata = list(...)$data
   if (!is.null(dotsdata)) {
-    if (!missing(sca)) 
+    if (!missing(sca))
       stop("Cannot provide both `sca` and `data`")
     sca = dotsdata
   }
   if (!inherits(sca, "SingleCellAssay")) {
     if (inherits(sca, "data.frame")) {
       if (!is.null(dotsdata)) {
-        return(.zlm(formula, method = method, silent = silent, 
+        return(.zlm(formula, method = method, silent = silent,
                     ...))
       }
       else {
-        return(.zlm(formula, data = sca, method = method, 
+        return(.zlm(formula, data = sca, method = method,
                     silent = silent, ...))
       }
     }
@@ -103,31 +111,31 @@ suppl_zlm <- function (formula, sca, method = "bayesglm", silent = TRUE, ebayes 
   if (missing(LMlike)) {
     method <- match.arg(method, MAST:::methodDict[, keyword])
     method <- MAST:::methodDict[keyword == method, lmMethod]
-    if (!is(sca, "SingleCellAssay")) 
+    if (!is(sca, "SingleCellAssay"))
       stop("'sca' must be (or inherit) 'SingleCellAssay'")
-    if (!is(formula, "formula")) 
+    if (!is(formula, "formula"))
       stop("'formula' must be class 'formula'")
     Formula <- MAST:::removeResponse(formula)
     priorVar <- 1
     priorDOF <- 0
     if (ebayes) {
-      # if (!methodDict[lmMethod == method, implementsEbayes]) 
+      # if (!methodDict[lmMethod == method, implementsEbayes])
       if (!all(MAST:::methodDict[lmMethod == method, implementsEbayes]))
         stop("Method", method, " does not implement empirical bayes variance shrinkage.")
-      ebparm <- MAST:::ebayes(t(SummarizedExperiment:::assay(sca, exprs_values)), ebayesControl, 
+      ebparm <- MAST:::ebayes(t(SummarizedExperiment:::assay(sca, exprs_values)), ebayesControl,
                               model.matrix(Formula, SummarizedExperiment::colData(sca)))
       priorVar <- ebparm[["v"]]
       priorDOF <- ebparm[["df"]]
       stopifnot(all(!is.na(ebparm)))
     }
-    obj <- MAST:::new_with_repaired_slots(classname = method, design = SummarizedExperiment::colData(sca), 
-                                          formula = Formula, priorVar = priorVar, priorDOF = priorDOF, 
+    obj <- MAST:::new_with_repaired_slots(classname = method, design = SummarizedExperiment::colData(sca),
+                                          formula = Formula, priorVar = priorVar, priorDOF = priorDOF,
                                           extra = list(...))
   }
   else {
-    if (!missing(formula)) 
+    if (!missing(formula))
       warning("Ignoring formula and using model defined in 'objLMLike'")
-    if (!inherits(LMlike, "LMlike")) 
+    if (!inherits(LMlike, "LMlike"))
       stop("'LMlike' must inherit from class 'LMlike'")
     obj <- LMlike
   }
@@ -143,9 +151,9 @@ suppl_zlm <- function (formula, sca, method = "bayesglm", silent = TRUE, ebayes 
   .fitGeneSet <- function(idx) {
     hookOut <- NULL
     tt <- try({
-      obj <- MAST:::fit(obj, response = ee[, idx], silent = silent, 
+      obj <- MAST:::fit(obj, response = ee[, idx], silent = silent,
                         quick = TRUE)
-      if (!is.null(hook)) 
+      if (!is.null(hook))
         hookOut <- hook(obj)
       nerror <- 0
     })
@@ -155,12 +163,12 @@ suppl_zlm <- function (formula, sca, method = "bayesglm", silent = TRUE, ebayes 
       nerror <- nerror + 1
       totalerr = totalerr + 1
       if (nerror > 5 & !force) {
-        stop("We seem to be having a lot of problems here...are your tests specified correctly?  \n If you're sure, set force=TRUE.", 
+        stop("We seem to be having a lot of problems here...are your tests specified correctly?  \n If you're sure, set force=TRUE.",
              tt)
       }
     }
     pb$tick(tokens = list(err = totalerr))
-    if (onlyCoef) 
+    if (onlyCoef)
       return(cbind(C = coef(obj, "C"), D = coef(obj, "D")))
     summaries <- MAST:::summarize(obj)
     structure(summaries, hookOut = hookOut)
@@ -169,7 +177,7 @@ suppl_zlm <- function (formula, sca, method = "bayesglm", silent = TRUE, ebayes 
     listOfSummaries <- lapply(listEE, .fitGeneSet)
   }
   else {
-    listOfSummaries <- parallel::mclapply(listEE, .fitGeneSet, 
+    listOfSummaries <- parallel::mclapply(listEE, .fitGeneSet,
                                           mc.preschedule = TRUE, mc.silent = silent)
   }
   if (onlyCoef) {
@@ -177,13 +185,13 @@ suppl_zlm <- function (formula, sca, method = "bayesglm", silent = TRUE, ebayes 
     return(aperm(out, c(3, 1, 2)))
   }
   cls <- sapply(listOfSummaries, function(x) class(x))
-  complain <- if (force) 
+  complain <- if (force)
     warning
   else stop
-  if (mean(cls == "try-error") > 0.5) 
+  if (mean(cls == "try-error") > 0.5)
     complain("Lots of errors here..something is amiss.")
   hookOut <- NULL
-  if (!is.null(hook)) 
+  if (!is.null(hook))
     hookOut <- lapply(listOfSummaries, attr, which = "hookOut")
   message("\nDone!")
   summaries <- MAST:::collectSummaries(listOfSummaries)
