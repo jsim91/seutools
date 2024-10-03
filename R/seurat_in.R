@@ -2508,23 +2508,29 @@ seurat_dge <- function(seurat_object,
         fcHurdle[,fdr:=p.adjust(`Pr(>Chisq)`, 'fdr')]
         fcHurdleSig <- merge(fcHurdle[fdr<.05 & abs(coef)>fc_threshold], data.table::as.data.table(mcols(my_sca)), by='primerid')
         setorder(fcHurdleSig, fdr)
-
-        lfcs <- MAST::logFC(zlmfit = zlmCond); lfc1 <- as.data.frame(lfcs$logFC[mast_res$primerid,]); lfc1$primerid <- row.names(lfc1)
-        as.data.frame(lfcs$varLogFC[mast_res$primerid,])
-
-        getlfcs <- as.data.frame(MAST::getLogFC(zlmfit = zlmCond)); getlfcs <- getlfcs[which(getlfcs$contrast!="cngeneson"),]
-        row.names(getlfcs) <- getlfcs$primerid; getlfcs <- getlfcs[mast_res$primerid,]
-
         mast_res <- as.data.frame(fcHurdleSig)
-        mast_res <- merge(x = mast_res, y = getlfcs, by = "primerid", sort = FALSE, all.x = TRUE)
-        mast_res$contrast <- paste0(category_column,".",ident2)
-        mast_res$cluster <- names(dge_outs[[i]])[j]
 
-        entrez_to_plot <- fcHurdleSig[,primerid]
-        flat_dat <- as(my_sca[entrez_to_plot,], 'data.table')
-        flat_dat$category <- ifelse(flat_dat$category=="Group1",ident1,ident2)
-        ggbase <- ggplot(flat_dat, aes(x=category, y=logcounts, color=category)) + geom_jitter() + facet_wrap(~primerid, scale='free_y')+ggtitle("DE Genes")
-        mast_violins <- ggbase+geom_violin()
+        if(sum(fdr<.05 & abs(coef)>fc_threshold)!=0) {
+          lfcs <- MAST::logFC(zlmfit = zlmCond); lfc1 <- as.data.frame(lfcs$logFC[mast_res$primerid,]); lfc1$primerid <- row.names(lfc1)
+          as.data.frame(lfcs$varLogFC[mast_res$primerid,])
+
+          getlfcs <- as.data.frame(MAST::getLogFC(zlmfit = zlmCond)); getlfcs <- getlfcs[which(getlfcs$contrast!="cngeneson"),]
+          row.names(getlfcs) <- getlfcs$primerid; getlfcs <- getlfcs[mast_res$primerid,]
+
+          mast_res <- merge(x = mast_res, y = getlfcs, by = "primerid", sort = FALSE, all.x = TRUE)
+          mast_res$contrast <- paste0(category_column,".",ident2)
+          mast_res$cluster <- names(dge_outs[[i]])[j]
+
+          entrez_to_plot <- fcHurdleSig[,primerid]
+          flat_dat <- as(my_sca[entrez_to_plot,], 'data.table')
+          flat_dat$category <- ifelse(flat_dat$category=="Group1",ident1,ident2)
+          ggbase <- ggplot(flat_dat, aes(x=category, y=logcounts, color=category)) + geom_jitter() + facet_wrap(~primerid, scale='free_y')+ggtitle("DE Genes")
+          mast_violins <- ggbase+geom_violin()
+
+          dge_outs[[i]][[j]] <- list(res = mast_res, gene_plots = mast_violins)
+        } else {
+          dge_outs[[i]][[j]] <- list("no dge", list(fdr = 0.05, fc_threshold = fc_threshold))
+        }
 
         ##### plotting stuff from mast; leaving for now; ggbase+geom_violin() may be particularly useful
         # entrez_to_plot <- fcHurdleSig[,primerid]
@@ -2573,8 +2579,6 @@ seurat_dge <- function(seurat_object,
         # gsea <- gseaAfterBoot(zlmCond, boots, sets_indices, CoefficientHypothesis("conditionStim"))
         # z_stat_comb <- summary(gsea, testType='normal')
         #####
-
-        dge_outs[[i]][[j]] <- list(res = mast_res, gene_plots = mast_violins)
       } else if(tolower(dge_method) == "wilcox") {
         suppressPackageStartupMessages({
           require(SeuratWrappers)
