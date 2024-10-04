@@ -28,7 +28,7 @@ if(F) {
 }
 
 if(F) {
-  seu_small <- subset(x = seu, subset = cell_type %in% c("Th1/Th17","CM_CD4","CM_CD8"))
+  seu_small <- subset(x = seu, subset = cell_type %in% c("Th1/Th17","CM_CD4"))
   seu_mast <- seurat_dge(seurat_object = seu_small,
                          dge_method = "mast",
                          assay = "RNA",
