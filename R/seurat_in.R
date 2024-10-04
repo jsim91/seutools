@@ -2418,7 +2418,9 @@ seurat_dge <- function(seurat_object,
           subs1 <- AddMetaData(object = subs1, metadata = subs1@meta.data[,cluster_column], col.name = "l")
           subs2 <- subset(x = subs1, subset = l == names(dge_outs[[i]])[j])
         } else {
-          subs1 <- AddMetaData(object = subs1, metadata = ifelse(subs1@meta.data[,cluster_column]==names(dge_outs[[i]])[j], names(dge_outs[[i]])[j], "other"), col.name = "l")
+          subs1 <- AddMetaData(object = subs1,
+                               metadata = ifelse(subs1@meta.data[,cluster_column]==names(dge_outs[[i]])[j], names(dge_outs[[i]])[j], "other"),
+                               col.name = "l")
           subs2 <- subs1
         }
       } else {
@@ -2447,11 +2449,11 @@ seurat_dge <- function(seurat_object,
         print("dropping lowly expressed genes. Threshold >= 10% of cells.")
         keep_genes <- vector("list", length = length(test_idents)); names(keep_genes) <- test_idents
         num_unique_genes <- nrow(subs2)
-        for(i in 1:2) {
-          subs2_grp <- subset(x = subs2, cells = which(subs2@meta.data[,category_column]==test_idents[i]))
+        for(k in 1:2) {
+          subs2_grp <- subset(x = subs2, cells = which(subs2@meta.data[,category_column]==test_idents[k]))
           bem <- subs2_grp@assays[[assay]]@layers$counts > 0
           percent_expr <- rowSums(bem) / ncol(bem); names(percent_expr) <- row.names(subs2)
-          keep_genes[[i]] <- row.names(subs2)[percent_expr >= freq_expressed]
+          keep_genes[[k]] <- row.names(subs2)[percent_expr >= freq_expressed]
         }
         grp_genes <- unlist(keep_genes); grp_genes <- grp_genes[!is.na(grp_genes)]
         genes_to_keep <- names(table(grp_genes)[which(table(grp_genes)==2)])
