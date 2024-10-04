@@ -2487,7 +2487,7 @@ seurat_dge <- function(seurat_object,
           }
           latv <- latv[!latv %in% pid_column]
           fmla <- as.formula(object = paste0(" ~ category + ", paste(latv, collapse = "+"), glue::glue(" + (1|{pid_column})")))
-          print(fmla)
+          # print(fmla)
           zlmCond <- MAST::zlm(formula = fmla,
                                sca = my_sca,
                                exprs_value = 'logcounts',
@@ -2528,9 +2528,9 @@ seurat_dge <- function(seurat_object,
           ggbase <- ggplot(flat_dat, aes(x=category, y=logcounts, color=category)) + geom_jitter() + facet_wrap(~primerid, scale='free_y')+ggtitle("DE Genes")
           mast_violins <- ggbase+geom_violin()
 
-          dge_outs[[i]][[j]] <- list(res = mast_res, gene_plots = mast_violins)
+          dge_outs[[i]][[j]] <- list(filtered_res = mast_res, raw_res = fcHurdle, gene_plots = mast_violins)
         } else {
-          dge_outs[[i]][[j]] <- list("no dge", list(fdr = 0.05, fc_threshold = fc_threshold))
+          dge_outs[[i]][[j]] <- list(filtered_res = "no dge", raw_res = fcHurdle, gene_plots = NA)
         }
 
         ##### plotting stuff from mast; leaving for now; ggbase+geom_violin() may be particularly useful
