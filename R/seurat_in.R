@@ -2079,7 +2079,6 @@ seurat_dge <- function(seurat_object,
   # pid_column = "pid"
   # pseudobulk_test_mode = "cluster_identity"
   # mast_lane = NULL
-  # return_all_pseudobulk = TRUE
 
 
   if(test_condition[1]!="all") {
@@ -2510,7 +2509,7 @@ seurat_dge <- function(seurat_object,
         setorder(fcHurdleSig, fdr)
         mast_res <- as.data.frame(fcHurdleSig)
 
-        if(sum(fdr<.05 & abs(coef)>fc_threshold)!=0) {
+        if(nrow(fcHurdleSig)!=0) {
           lfcs <- MAST::logFC(zlmfit = zlmCond); lfc1 <- as.data.frame(lfcs$logFC[mast_res$primerid,]); lfc1$primerid <- row.names(lfc1)
           as.data.frame(lfcs$varLogFC[mast_res$primerid,])
 
