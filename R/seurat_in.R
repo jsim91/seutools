@@ -2080,7 +2080,6 @@ seurat_dge <- function(seurat_object,
   # pseudobulk_test_mode = "cluster_identity"
   # mast_lane = NULL
 
-
   if(test_condition[1]!="all") {
     conditions <- test_condition[test_condition %in% seurat_object@meta.data[,condition_column]]
   } else {
@@ -2446,7 +2445,7 @@ seurat_dge <- function(seurat_object,
           require(ggplot2)
         })
         test_idents <- c(ident1, ident2)
-        print("dropping lowly expressed genes. Threshold >= 10% of cells.")
+        print(paste0("dropping lowly expressed genes. Threshold >= ",freq_expressed*100,"% of cells."))
         keep_genes <- vector("list", length = length(test_idents)); names(keep_genes) <- test_idents
         num_unique_genes <- nrow(subs2)
         for(k in 1:2) {
@@ -2487,7 +2486,7 @@ seurat_dge <- function(seurat_object,
           }
           latv <- latv[!latv %in% pid_column]
           fmla <- as.formula(object = paste0(" ~ category + ", paste(latv, collapse = "+"), glue::glue(" + (1|{pid_column})")))
-          # print(fmla)
+          print(fmla)
           zlmCond <- MAST::zlm(formula = fmla,
                                sca = my_sca,
                                exprs_value = 'logcounts',
@@ -2506,33 +2505,46 @@ seurat_dge <- function(seurat_object,
         fcHurdle <- merge(summaryDt[contrast=='categoryGroup2' & component=='H',.(primerid, `Pr(>Chisq)`)], #hurdle P values
                           summaryDt[contrast=='categoryGroup2' & component=='logFC', .(primerid, coef, ci.hi, ci.lo)], by='primerid') #logFC coefficients
 
-        fcHurdle[,fdr:=p.adjust(`Pr(>Chisq)`, 'fdr')]
+        fcHurdle[,fdr:=p.adjust(`Pr(>Chisq)`, 'fdr')]; fcHurdle_all <- fcHurdle
         fcHurdleSig <- merge(fcHurdle[fdr<.05 & abs(coef)>fc_threshold], data.table::as.data.table(mcols(my_sca)), by='primerid')
-        setorder(fcHurdleSig, fdr)
+        setorder(fcHurdleSig, fdr); setorder(fcHurdle_all, fdr); fcHurdle_all <- fcHurdle_all[!is.na(fcHurdle_all$fdr),]
         mast_res <- as.data.frame(fcHurdleSig)
+        mast_res2 <- as.data.frame(fcHurdle_all)
 
-        if(nrow(fcHurdleSig)!=0) {
-          lfcs <- MAST::logFC(zlmfit = zlmCond); lfc1 <- as.data.frame(lfcs$logFC[mast_res$primerid,]); lfc1$primerid <- row.names(lfc1)
-          as.data.frame(lfcs$varLogFC[mast_res$primerid,])
+        lfcs <- MAST::logFC(zlmfit = zlmCond)
 
-          getlfcs <- as.data.frame(MAST::getLogFC(zlmfit = zlmCond)); getlfcs <- getlfcs[which(getlfcs$contrast!="cngeneson"),]
-          row.names(getlfcs) <- getlfcs$primerid; getlfcs <- getlfcs[mast_res$primerid,]
+        lfc1 <- as.data.frame(lfcs$logFC[mast_res$primerid,])
+        lfc1$primerid <- row.names(lfc1)
 
-          mast_res <- merge(x = mast_res, y = getlfcs, by = "primerid", sort = FALSE, all.x = TRUE)
+        lfc2 <- as.data.frame(lfcs$logFC[mast_res2$primerid,])
+        lfc2$primerid <- row.names(lfc2)
+
+        getlfcs <- as.data.frame(MAST::getLogFC(zlmfit = zlmCond))
+        getlfcs <- getlfcs[which(getlfcs$contrast!="cngeneson"),]
+        row.names(getlfcs) <- getlfcs$primerid
+
+        getlfcs1 <- getlfcs[mast_res$primerid,]
+        getlfcs2 <- getlfcs[mast_res2$primerid,]
+
+        if(nrow(mast_res)!=0) {
+          mast_res <- merge(x = mast_res, y = getlfcs1, by = "primerid", sort = FALSE, all.x = TRUE)
           mast_res$contrast <- paste0(category_column,".",ident2)
           mast_res$cluster <- names(dge_outs[[i]])[j]
+        }
 
+        mast_res2 <- merge(x = mast_res2, y = getlfcs2, by = "primerid", sort = FALSE, all.x = TRUE)
+        mast_res2$contrast <- paste0(category_column,".",ident2)
+        mast_res2$cluster <- names(dge_outs[[i]])[j]
+        if(nrow(fcHurdleSig)!=0) {
           entrez_to_plot <- fcHurdleSig[,primerid]
           flat_dat <- as(my_sca[entrez_to_plot,], 'data.table')
           flat_dat$category <- ifelse(flat_dat$category=="Group1",ident1,ident2)
           ggbase <- ggplot(flat_dat, aes(x=category, y=logcounts, color=category)) + geom_jitter() + facet_wrap(~primerid, scale='free_y')+ggtitle("DE Genes")
           mast_violins <- ggbase+geom_violin()
-
-          dge_outs[[i]][[j]] <- list(filtered_res = mast_res, raw_res = fcHurdle, gene_plots = mast_violins)
+          dge_outs[[i]][[j]] <- list(filtered_res = mast_res, raw_res = mast_res2, gene_plots = mast_violins)
         } else {
-          dge_outs[[i]][[j]] <- list(filtered_res = "no dge", raw_res = fcHurdle, gene_plots = NA)
+          dge_outs[[i]][[j]] <- list(filtered_res = "no dge", raw_res = mast_res2, gene_plots = NA)
         }
-
         ##### plotting stuff from mast; leaving for now; ggbase+geom_violin() may be particularly useful
         # entrez_to_plot <- fcHurdleSig[,primerid]
         # flat_dat <- as(my_sca[entrez_to_plot,], 'data.table')
