@@ -2467,7 +2467,12 @@ seurat_dge <- function(seurat_object,
         subs2$category <- ifelse(subs2$category==ident1,"Group1","Group2")
         Idents(subs2) <- subs2$category
         seu_as_sce <- as.SingleCellExperiment(subs2, assay = "RNA")
-        seu_as_sce <- scuttle::logNormCounts(seu_as_sce, log = TRUE)
+        #seu_as_sce <- scuttle::logNormCounts(seu_as_sce, log = TRUE)
+        #logcounts(seu_as_sce) <- log2(seu_as_sce)
+        no_dense <- counts(seu_as_sce)
+        nzero_ct <- no_dense@x
+        no_dense@x <- log2(nzero_ct+1)
+        logcounts(seu_as_sce) <- no_dense # log2 counts without sparse->dense coercion
         cdr <- colSums(seu_as_sce@assays@data@listData[["logcounts"]]>0) # cellular detection rate; number of genes detected which is a well-known confounder (https://bioconductor.org/packages/release/bioc/vignettes/MAST/inst/doc/MAITAnalysis.html#22_Filtering)
         seu_as_sce$cngeneson <- scale(cdr)
         my_sca <- SceToSingleCellAssay(seu_as_sce, check_sanity = FALSE)
