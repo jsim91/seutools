@@ -2295,6 +2295,11 @@ seurat_dge <- function(seurat_object,
         group_id <- levels(meta_data$group_id)
         num_g1 <- sum(meta_data$group_id==group_id[1])
         num_g2 <- sum(meta_data$group_id==group_id[2])
+        print(paste0("num_g1 is [",num_g1,"]"))
+        print(paste0("group_id[1] is [",group_id[1],"]"))
+        print(paste0("num_g2 is [",num_g2,"]"))
+        print(paste0("group_id[2] is [",group_id[2],"]"))
+        print(paste0("[",num_g1,"] data points available for [",group_id[1],"] and [",num_g2,"] data points available for [",group_id[2],"]"))
         if(any(num_g1<=1,num_g2<=1)) {
           fn_flag <- 0
           res <- paste0("[",num_g1,"] from group [",group_id[1],"] and [",num_g2,"] from group [",group_id[2],"] available for testing. Not enough to test. Min cells is 10.")
