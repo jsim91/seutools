@@ -2049,6 +2049,7 @@ seurat_dge <- function(seurat_object,
                        dge_method = c("mast", "wilcox", "pseudobulk"),
                        assay = "RNA",
                        freq_expressed = 0.1,
+                       filter_genes = "inner", # "inner" is more restrictive than "outer"
                        fc_threshold = log2(1.5),
                        test_clusters = "all", # one or more clusters to test, or "all"
                        mast_lane = NULL,
@@ -2460,7 +2461,11 @@ seurat_dge <- function(seurat_object,
           keep_genes[[k]] <- row.names(subs2)[percent_expr >= freq_expressed]
         }
         grp_genes <- unlist(keep_genes); grp_genes <- grp_genes[!is.na(grp_genes)]
-        genes_to_keep <- names(table(grp_genes)[which(table(grp_genes)==2)])
+        if(filter_genes=="inner") {
+          genes_to_keep <- names(table(grp_genes)[which(table(grp_genes)==2)])
+        } else if(filter_genes=="outer") {
+          genes_to_keep <- grp_genes
+        }
         if(length(genes_to_keep)==0) {
           warning("no genes passed thresholding")
           next
