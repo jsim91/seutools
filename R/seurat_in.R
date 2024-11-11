@@ -2636,7 +2636,6 @@ seurat_dge <- function(seurat_object,
   }
   print(paste0("total test time: ",round(as.numeric(difftime(Sys.time(), start_test, units = "hours")),3)," hours"))
   return(dge_outs)
-  }
 }
                          
 seurat_dge2 <- function(seurat_object,
