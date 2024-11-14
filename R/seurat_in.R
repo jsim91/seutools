@@ -2059,6 +2059,7 @@ seurat_dge <- function(seurat_object,
                        test_condition = "all",
                        condition_column = "condition",
                        pid_column = "pid",
+                       wilcox_only_positive = FALSE, 
                        pseudobulk_test_mode = c("cluster_identity","cluster_by_category","cluster_by_condition"),
                        return_all_pseudobulk = FALSE) {
   suppressPackageStartupMessages({
@@ -2080,7 +2081,9 @@ seurat_dge <- function(seurat_object,
   # pid_column = "study_id"
   # pseudobulk_test_mode = "cluster_by_category"
   # return_all_pseudobulk = TRUE
-  
+  if(all(!is.na(test_categories), pseudobulk_test_mode!="cluster_category")) {
+    stop("'test_categories' should be set to NA when 'pseudobulk_test_mode' is set to 'cluster_category'")
+  }
   if(test_condition[1]!="all") {
     conditions <- test_condition[test_condition %in% seurat_object@meta.data[,condition_column]]
   } else {
@@ -2618,7 +2621,7 @@ seurat_dge <- function(seurat_object,
         })
         subs2 <- Seurat::NormalizeData(object = subs2, assay = assay, normalization.method = "LogNormalize")
         wilcox_res <- SeuratWrappers::RunPresto(object = subs2, assay = assay, ident.1 = ident1, ident.2 = ident2,
-                                                test.use = "wilcox", only.pos = FALSE, min.pct = 0.01)
+                                                test.use = "wilcox", only.pos = wilcox_only_positive, min.pct = 0.01)
         # colnames(wilcox_res)[which(colnames(wilcox_res)=="pct.1")] <- gsub(" ","",paste0("pct.",ident1))
         # colnames(wilcox_res)[which(colnames(wilcox_res)=="pct.2")] <- gsub(" ","",paste0("pct.",ident2))
         wilcox_res$gene <- row.names(wilcox_res)
@@ -2673,7 +2676,7 @@ seurat_dge2 <- function(seurat_object,
   # pid_column = "pid"
   # pseudobulk_test_mode = "cluster_identity"
   # mast_lane = NULL
-
+  
   if(test_condition[1]!="all") {
     conditions <- test_condition[test_condition %in% seurat_object@meta.data[,condition_column]]
   } else {
