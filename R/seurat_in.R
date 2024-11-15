@@ -2081,8 +2081,8 @@ seurat_dge <- function(seurat_object,
   # pid_column = "study_id"
   # pseudobulk_test_mode = "cluster_by_category"
   # return_all_pseudobulk = TRUE
-  if(all(!is.null(test_categories), pseudobulk_test_mode!="cluster_category")) {
-    stop("'test_categories' should be set to NULL when 'pseudobulk_test_mode' is set to 'cluster_category'")
+  if(all(!is.null(test_categories), pseudobulk_test_mode!="cluster_by_category")) {
+    stop("'test_categories' should be set to NULL when 'pseudobulk_test_mode' is not set to 'cluster_category'")
   }
   if(test_condition[1]!="all") {
     conditions <- test_condition[test_condition %in% seurat_object@meta.data[,condition_column]]
