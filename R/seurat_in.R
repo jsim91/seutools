@@ -2485,7 +2485,7 @@ for(i in 1:length(dge_outs)) {
         print(paste0("number of lowly expressed genes dropped: ",num_unique_genes - length(genes_to_keep)," genes. ",length(genes_to_keep)," genes left for MAST testing."))
       }
       subs2 <- subset(x = subs2, features = genes_to_keep)
-      if(pseudobulk_test_mode=="cluster_by_identity") {
+      if(pseudobulk_test_mode=="cluster_by_category") {
         subs2$category <- subs2@meta.data[,category_column]
       } else if(pseudobulk_test_mode=="cluster_identity") {
         subs2$category <- subs2@meta.data[,"l"]
