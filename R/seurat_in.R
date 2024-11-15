@@ -2082,563 +2082,571 @@ seurat_dge <- function(seurat_object,
   # pseudobulk_test_mode = "cluster_by_category"
   # return_all_pseudobulk = TRUE
   if(all(!is.null(test_categories), pseudobulk_test_mode!="cluster_by_category")) {
-    stop("'test_categories' should be set to NULL when 'pseudobulk_test_mode' is not set to 'cluster_category'")
-  }
-  if(test_condition[1]!="all") {
-    conditions <- test_condition[test_condition %in% seurat_object@meta.data[,condition_column]]
+  stop("'test_categories' should be set to NULL when 'pseudobulk_test_mode' is not set to 'cluster_category'")
+}
+if(test_condition[1]!="all") {
+  conditions <- test_condition[test_condition %in% seurat_object@meta.data[,condition_column]]
+} else {
+  conditions <- unique(seurat_object@meta.data[,condition_column])
+}
+if(length(conditions)==0) {
+  conditions <- NULL
+  warning("None of the requested 'conditions' found in seurat_object@meta.data[,condition_column]. Continuing without subsetting on any condition(s).")
+} else {
+  which_is_condition <- seurat_object@meta.data[,condition_column] %in% conditions
+  seurat_object <- subset(x = seurat_object, cells = which(which_is_condition))
+  print(paste0("seurat_object subset for: ",paste0(unique(seurat_object@meta.data[,condition_column]), collapse = ",")))
+}
+seu_conditions <- ifelse(test_condition[1]=="all","all",unique(seurat_object@meta.data[,condition_column]))
+if(length(seu_conditions)!=1) {
+  seu_conditions <- paste0(seu_conditions, collapse = ".")
+}
+if(test_clusters[1]!="all") {
+  test_clusters <- test_clusters[test_clusters %in% seurat_object@meta.data[,cluster_column]]
+  if(length(test_clusters)==0) {
+    annos <- NULL
+    warning("None of 'test_clusters' found in seurat_object@meta.data[,cluster_column]. Continuing with test(s) on all cells.")
   } else {
-    conditions <- unique(seurat_object@meta.data[,condition_column])
+    annos <- test_clusters
   }
-  if(length(conditions)==0) {
-    conditions <- NULL
-    warning("None of the requested 'conditions' found in seurat_object@meta.data[,condition_column]. Continuing without subsetting on any condition(s).")
-  } else {
-    which_is_condition <- seurat_object@meta.data[,condition_column] %in% conditions
-    seurat_object <- subset(x = seurat_object, cells = which(which_is_condition))
-    print(paste0("seurat_object subset for: ",paste0(unique(seurat_object@meta.data[,condition_column]), collapse = ",")))
-  }
-  seu_conditions <- ifelse(test_condition[1]=="all","all",unique(seurat_object@meta.data[,condition_column]))
-  if(length(seu_conditions)!=1) {
-    seu_conditions <- paste0(seu_conditions, collapse = ".")
-  }
-  if(test_clusters[1]!="all") {
-    test_clusters <- test_clusters[test_clusters %in% seurat_object@meta.data[,cluster_column]]
-    if(length(test_clusters)==0) {
-      annos <- NULL
-      warning("None of 'test_clusters' found in seurat_object@meta.data[,cluster_column]. Continuing with test(s) on all cells.")
-    } else {
-      annos <- test_clusters
-    }
-  } else {
-    annos <- unique(seurat_object@meta.data[,cluster_column])
-  }
-  if(is.null(test_categories)) {
+} else {
+  annos <- unique(seurat_object@meta.data[,cluster_column])
+}
+if(is.null(test_categories)) {
+  test_cats <- NULL
+} else if(test_categories[1]!="all") {
+  test_categories <- test_categories[test_categories %in% seurat_object@meta.data[,category_column]]
+  if(length(test_categories)==0) {
     test_cats <- NULL
-  } else if(test_categories[1]!="all") {
-    test_categories <- test_categories[test_categories %in% seurat_object@meta.data[,category_column]]
-    if(length(test_categories)==0) {
-      test_cats <- NULL
-      warning("no categories by 'test_categories' were found in seurat_object@meta.data[,category_column]")
-    } else {
-      test_cats <- test_categories
-    }
+    warning("no categories by 'test_categories' were found in seurat_object@meta.data[,category_column]")
   } else {
-    test_categories <- unique(seurat_object@meta.data[,category_column])
     test_cats <- test_categories
   }
-  if(all(is.null(annos), is.null(test_cats))) {
-    stop("Nothing to compare")
-  }
+} else {
+  test_categories <- unique(seurat_object@meta.data[,category_column])
+  test_cats <- test_categories
+}
+if(all(is.null(annos), is.null(test_cats))) {
+  stop("Nothing to compare")
+}
+
+if(tolower(dge_method)=="pseudobulk") {
+  require(data.table)
+  require(DESeq2)
+  require(ashr)
+  # if(length(test_cats)!=2) {
+  #   stop("Test_categories must be length 2 when doing pseudobulk. If testing cluster vs rest, do c('in','out') mapped to what cluster is being tested. If testing ")
+  # }
+  capture_dir <- system.file(package = "seutools")
+  Matrix::writeMM(obj = seurat_object@assays[[assay]]@layers$counts,
+                  file = paste0(capture_dir,"/temp_files/__python_ct_matrix__.mtx"))
+  write.csv(x = seurat_object@meta.data,
+            file = paste0(capture_dir,"/temp_files/__python_obs_matrix__.csv"), row.names = FALSE)
+  write.csv(x = data.frame(v1 = row.names(seurat_object)),
+            file = paste0(capture_dir,"/temp_files/__python_feature_names__.csv"), row.names = FALSE)
+  system(command = paste0("python ",
+                          paste0(capture_dir,"/python/create_pseudobulk_profile.py")," ",
+                          paste0(capture_dir,"/temp_files/__python_ct_matrix__.mtx")," ",
+                          capture_dir,"/temp_files"," ",
+                          paste0(capture_dir,"/temp_files/__python_obs_matrix__.csv")," ",
+                          ifelse(pseudobulk_test_mode=="cluster_identity",cluster_column,category_column)," ",
+                          paste0(capture_dir,"/temp_files/__python_feature_names__.csv")," ",
+                          condition_column," ",
+                          pid_column," ",
+                          pseudobulk_test_mode))
+  # ct_data <- read.csv(paste0(capture_dir,"/temp_files/__pseudobulk_sum_counts__.csv"), check.names = FALSE, header = FALSE)
   
-  if(tolower(dge_method)=="pseudobulk") {
-    require(data.table)
-    require(DESeq2)
-    require(ashr)
-    # if(length(test_cats)!=2) {
-    #   stop("Test_categories must be length 2 when doing pseudobulk. If testing cluster vs rest, do c('in','out') mapped to what cluster is being tested. If testing ")
-    # }
-    capture_dir <- system.file(package = "seutools")
-    Matrix::writeMM(obj = seurat_object@assays[[assay]]@layers$counts,
-                    file = paste0(capture_dir,"/temp_files/__python_ct_matrix__.mtx"))
-    write.csv(x = seurat_object@meta.data,
-              file = paste0(capture_dir,"/temp_files/__python_obs_matrix__.csv"), row.names = FALSE)
-    write.csv(x = data.frame(v1 = row.names(seurat_object)),
-              file = paste0(capture_dir,"/temp_files/__python_feature_names__.csv"), row.names = FALSE)
-    system(command = paste0("python ",
-                            paste0(capture_dir,"/python/create_pseudobulk_profile.py")," ",
-                            paste0(capture_dir,"/temp_files/__python_ct_matrix__.mtx")," ",
-                            capture_dir,"/temp_files"," ",
-                            paste0(capture_dir,"/temp_files/__python_obs_matrix__.csv")," ",
-                            ifelse(pseudobulk_test_mode=="cluster_identity",cluster_column,category_column)," ",
-                            paste0(capture_dir,"/temp_files/__python_feature_names__.csv")," ",
-                            condition_column," ",
-                            pid_column," ",
-                            pseudobulk_test_mode))
-    # ct_data <- read.csv(paste0(capture_dir,"/temp_files/__pseudobulk_sum_counts__.csv"), check.names = FALSE, header = FALSE)
-    
-    # drop_novar <- function(arg1, rpat = gsub("_$","",id_pattern)) {
-    #   if(ncol(arg1)>nrow(arg1)) {
-    #     row.names(arg1) <- stringr::str_extract(string = row.names(arg1), pattern = rpat)
-    #     check_var <- apply(X = arg1, MARGIN = 2, FUN = stats::var)
-    #     which_novar <- which(check_var==0)
-    #     if(length(which_novar)!=0) {
-    #       arg1 <- arg1[,-which_novar]
-    #     }
-    #   } else {
-    #     colnames(arg1) <- stringr::str_extract(string = colnames(arg1), pattern = rpat)
-    #     check_var <- apply(X = arg1, MARGIN = 1, FUN = stats::var)
-    #     which_novar <- which(check_var==0)
-    #     if(length(which_novar)!=0) {
-    #       arg1 <- arg1[-which_novar,]
-    #     }
-    #   }
-    #   if(ncol(arg1)>nrow(arg1)) {
-    #     arg1 <- t(arg1)
-    #   }
-    #   return(arg1)
-    # }
-    drop_novar2 <- function(arg1) {
-      if(ncol(arg1)>nrow(arg1)) {
-        check_var <- apply(X = arg1, MARGIN = 2, FUN = stats::var)
-        which_novar <- which(check_var==0)
-        if(length(which_novar)!=0) {
-          arg1 <- arg1[,-which_novar]
-        }
-      } else {
-        check_var <- apply(X = arg1, MARGIN = 1, FUN = stats::var)
-        which_novar <- which(check_var==0)
-        if(length(which_novar)!=0) {
-          arg1 <- arg1[-which_novar,]
-        }
-      }
-      if(ncol(arg1)>nrow(arg1)) {
-        arg1 <- t(arg1)
-      }
-      return(arg1)
-    }
-    
-    if(pseudobulk_test_mode=="cluster_identity") {
-      ct_spl <- vector("list", length = length(unique(seurat_object@meta.data[,cluster_column])))
-      names(ct_spl) <- gsub("( |\\-|\\/)","_",unique(seurat_object@meta.data[,cluster_column]))
-      meta_list <- vector("list", length = length(ct_spl)); names(meta_list) <- names(ct_spl)
-      for(i in 1:length(ct_spl)) {
-        ##
-        ct_spl[[i]] <- as.data.frame(data.table::fread(paste0(capture_dir,"/temp_files/__pseudobulk_sum_counts_", names(ct_spl)[i], "__.csv"), check.names = FALSE, header = FALSE))
-        if(file.exists(paste0(capture_dir,"/temp_files/__pseudobulk_sum_counts_", names(ct_spl)[i], "__.csv"))) {
-          file.remove(paste0(capture_dir,"/temp_files/__pseudobulk_sum_counts_", names(ct_spl)[i], "__.csv"))
-        }
-        meta_list[[i]] <- read.csv(paste0(capture_dir,"/temp_files/__pseudobulk_obs_", names(ct_spl)[i], "__.csv"), check.names = FALSE, row.names = 1)
-        meta_list[[i]]$cell_group <- row.names(meta_list[[i]])
-        if(file.exists(paste0(capture_dir,"/temp_files/__pseudobulk_obs_", names(ct_spl)[i], "__.csv"))) {
-          file.remove(paste0(capture_dir,"/temp_files/__pseudobulk_obs_", names(ct_spl)[i], "__.csv"))
-        }
-        obj_var <- read.csv(paste0(capture_dir,"/temp_files/__pseudobulk_var_", names(ct_spl)[i], "__.csv"))[,1]
-        if(file.exists(paste0(capture_dir,"/temp_files/__pseudobulk_var_", names(ct_spl)[i], "__.csv"))) {
-          file.remove(paste0(capture_dir,"/temp_files/__pseudobulk_var_", names(ct_spl)[i], "__.csv"))
-        }
-        row.names(ct_spl[[i]]) <- meta_list[[i]]$cell_group
-        colnames(ct_spl[[i]]) <- obj_var
-        ct_spl[[i]] <- drop_novar2(ct_spl[[i]])
-        ##
-        meta_list[[i]]$cluster_id <- meta_list[[i]][,cluster_column]
-        meta_list[[i]]$sample_id <- meta_list[[i]][,pid_column]
-        meta_list[[i]]$group_id <- factor(meta_list[[i]][,cluster_column], levels = c("in_cluster","out"))
-        row.names(meta_list[[i]]) <- meta_list[[i]]$cell_group
-        drop_indices <- which(!meta_list[[i]][,pid_column] %in% names(table(meta_list[[i]][,pid_column])[table(meta_list[[i]][,pid_column])==2]))
-        if(length(drop_indices)!=0) {
-          meta_list[[i]] <- meta_list[[i]][which(!1:nrow(meta_list[[i]]) %in% drop_indices),]
-        }
-        ct_spl[[i]] <- ct_spl[[i]][,which(colnames(ct_spl[[i]]) %in% meta_list[[i]]$cell_group)]
+  # drop_novar <- function(arg1, rpat = gsub("_$","",id_pattern)) {
+  #   if(ncol(arg1)>nrow(arg1)) {
+  #     row.names(arg1) <- stringr::str_extract(string = row.names(arg1), pattern = rpat)
+  #     check_var <- apply(X = arg1, MARGIN = 2, FUN = stats::var)
+  #     which_novar <- which(check_var==0)
+  #     if(length(which_novar)!=0) {
+  #       arg1 <- arg1[,-which_novar]
+  #     }
+  #   } else {
+  #     colnames(arg1) <- stringr::str_extract(string = colnames(arg1), pattern = rpat)
+  #     check_var <- apply(X = arg1, MARGIN = 1, FUN = stats::var)
+  #     which_novar <- which(check_var==0)
+  #     if(length(which_novar)!=0) {
+  #       arg1 <- arg1[-which_novar,]
+  #     }
+  #   }
+  #   if(ncol(arg1)>nrow(arg1)) {
+  #     arg1 <- t(arg1)
+  #   }
+  #   return(arg1)
+  # }
+  drop_novar2 <- function(arg1) {
+    if(ncol(arg1)>nrow(arg1)) {
+      check_var <- apply(X = arg1, MARGIN = 2, FUN = stats::var)
+      which_novar <- which(check_var==0)
+      if(length(which_novar)!=0) {
+        arg1 <- arg1[,-which_novar]
       }
     } else {
-      ##
-      ct_data <- as.data.frame(data.table::fread(paste0(capture_dir,"/temp_files/__pseudobulk_sum_counts__.csv"), check.names = FALSE, header = FALSE))
-      if(file.exists(paste0(capture_dir,"/temp_files/__pseudobulk_sum_counts__.csv"))) {
-        file.remove(paste0(capture_dir,"/temp_files/__pseudobulk_sum_counts__.csv"))
-      }
-      obj_obs <- read.csv(paste0(capture_dir,"/temp_files/__pseudobulk_obs__.csv"), check.names = FALSE, row.names = 1)
-      obj_obs$cell_group <- row.names(obj_obs)
-      if(file.exists(paste0(capture_dir,"/temp_files/__pseudobulk_obs__.csv"))) {
-        file.remove(paste0(capture_dir,"/temp_files/__pseudobulk_obs__.csv"))
-      }
-      obj_var <- read.csv(paste0(capture_dir,"/temp_files/__pseudobulk_var__.csv"))[,1]
-      if(file.exists(paste0(capture_dir,"/temp_files/__pseudobulk_var__.csv"))) {
-        file.remove(paste0(capture_dir,"/temp_files/__pseudobulk_var__.csv"))
-      }
-      row.names(ct_data) <- obj_obs$cell_group
-      colnames(ct_data) <- obj_var
-      ##
-      id_pattern <- paste0(gsub("-","\\\\-",paste0("(",paste0(unique(seurat_object@meta.data[,pid_column]), collapse = "|"),")")),"_")
-      # ct_spl <- split(x = ct_data, f = gsub(id_pattern,"",row.names(ct_data)))
-      ct_spl <- split(x = ct_data, f = obj_obs[,cluster_column])
-      # ct_spl <- lapply(X = ct_spl, FUN = drop_novar)
-      ct_spl <- lapply(X = ct_spl, FUN = drop_novar2)
-      # meta_spl <- split(x = obj_obs, f = obj_obs[,cluster_column])
-      meta_list <- vector("list", length = length(ct_spl)); names(meta_list) <- names(ct_spl)
-      for(i in 1:length(meta_list)) {
-        tmp_meta <- obj_obs
-        # tmp_meta <- tmp_meta[which(tmp_meta[,pid_column] %in% colnames(ct_spl[[i]])),]
-        # tmp_meta <- tmp_meta[which(gsub(id_pattern,"",row.names(obj_obs)) %in% names(ct_spl)[i]),]
-        # if(mean(tmp_meta[,pid_column]==colnames(ct_spl[[i]]))!=1) {
-        tmp_meta <- tmp_meta[which(tmp_meta[,"cell_group"] %in% colnames(ct_spl[[i]])),]
-        tmp_meta <- tmp_meta[which(tmp_meta[,cluster_column]==names(ct_spl)[i]),]
-        if(mean(row.names(tmp_meta)==colnames(ct_spl[[i]]))!=1) {
-          stop("pid mismatch (1)")
-        }
-        tmp_meta$cluster_id <- names(meta_list)[i]
-        tmp_meta$sample_id <- tmp_meta[,pid_column]
-        tmp_meta$group_id <- factor(tmp_meta[,category_column], levels = test_categories)
-        # row.names(tmp_meta) <- tmp_meta$sample_id
-        meta_list[[i]] <- tmp_meta
+      check_var <- apply(X = arg1, MARGIN = 1, FUN = stats::var)
+      which_novar <- which(check_var==0)
+      if(length(which_novar)!=0) {
+        arg1 <- arg1[-which_novar,]
       }
     }
-    
-    deseq_input <- vector("list", length = length(ct_spl)); names(deseq_input) <- names(ct_spl)
-    for(i in 1:length(deseq_input)) {
-      deseq_input[[i]] <- list(ct_spl[[i]], meta_list[[i]])
+    if(ncol(arg1)>nrow(arg1)) {
+      arg1 <- t(arg1)
     }
-    
-    # return(deseq_input) # check input is correct for "identity" testing
-    
-    use_adj_p <- TRUE # hard coding use adjusted p values; consider allowing use unadjusted for discovery
-    padj_threshold <- 0.05 # hard coding 0.05; consider allowing to change
-    do_deseq <- function(arg1, p_return_threshold = padj_threshold, stim = seu_conditions,
-                         use_adj = use_adj_p) {
-      # testing
-      # arg1 <- deseq_input[[1]]
-      # p_return_threshold = padj_threshold
-      # stim = seu_conditions
-      # use_adj = use_adj_p
-      
-      count_data <- arg1[[1]]
-      meta_data <- arg1[[2]]
-      
-      test_cats_order <- levels(meta_data$group_id)
-      
-      count_data <- round(count_data)
-      
-      if(nrow(meta_data)==0) {
-        fn_flag <- 0
-        res <- "Not enough cells from either of the tested groups. Min cells is 10."
-      } else {
-        group_id <- levels(meta_data$group_id)
-        num_g1 <- sum(meta_data$group_id==group_id[1])
-        num_g2 <- sum(meta_data$group_id==group_id[2])
-        print(paste0("num_g1 is [",num_g1,"]"))
-        print(paste0("group_id[1] is [",group_id[1],"]"))
-        print(paste0("num_g2 is [",num_g2,"]"))
-        print(paste0("group_id[2] is [",group_id[2],"]"))
-        print(paste0("[",num_g1,"] data points available for [",group_id[1],"] and [",num_g2,"] data points available for [",group_id[2],"]"))
-        if(any(num_g1<=1,num_g2<=1)) {
-          fn_flag <- 0
-          res <- paste0("[",num_g1,"] from group [",group_id[1],"] and [",num_g2,"] from group [",group_id[2],"] available for testing. Not enough to test. Min cells is 10.")
-        } else {
-          fn_flag <- 1
-          dds <- DESeqDataSetFromMatrix(countData = count_data,
-                                        colData = meta_data,
-                                        design = ~ group_id)
-          dds <- DESeq(dds)
-          normalized_counts <- counts(dds, normalized = TRUE)
-          contrast <- c("group_id", test_cats_order[1], test_cats_order[2])
-          res <- results(dds,
-                         contrast = contrast,
-                         alpha = 0.05)
-          res <- lfcShrink(dds,
-                           contrast = contrast,
-                           res=res,
-                           type = "ashr")
-          norm_ct <- DESeq2::counts(dds, normalized = TRUE)
-          res <- data.frame(res); res <- res[!is.na(res$padj),]
-          if(sum(is.na(res$padj))!=0) {
-            res$padj <- p.adjust(p = res$pvalue, method = "fdr")
-          }
-          res$gene <- row.names(res)
-          res$condition <- stim
-          if(use_adj) {
-            if(!is.null(p_return_threshold)) {
-              res <- res[res$padj<=p_return_threshold,]
-            }
-          } else {
-            if(!is.null(p_return_threshold)) {
-              res <- res[res$pvalue<=p_return_threshold,]
-            }
-          }
-        }
-      }
-      # if(nrow(res)!=0) {
-      #   if(nrow(res)>40) {
-      #     sig_genes <- res$gene[order(abs(res$log2FoldChange))][1:40]
-      #   } else {
-      #     sig_genes <- res$gene
-      #   }
-      #   sig_norm <- as.data.frame(norm_ct[which(row.names(norm_ct) %in% sig_genes),])
-      #
-      #   pheatm <- pheatmap(sig_norm,
-      #                      cluster_rows = T,
-      #                      show_rownames = T,
-      #                      # annotation = data.frame(group_id = meta_data[, c("group_id")]),
-      #                      annotation = meta_data[,c(cluster_column,"group_id")],
-      #                      border_color = NA,
-      #                      fontsize = 10,
-      #                      scale = "row",
-      #                      fontsize_row = 10,
-      #                      height = 20)
-      # } else {
-      #   pheatm <- "no features plotted"
-      # }
-      if(fn_flag==1) {
-        return(list(res = res, norm_ct = norm_ct, meta = meta_data))#, hm = pheatm))
-      } else {
-        return(list(res = res, meta = meta_data))#, hm = pheatm))
-      }
-    }
-    deseq_out <- lapply(X = deseq_input, FUN = do_deseq, p_return_threshold = padj_threshold,
-                        stim = seu_conditions, use_adj = use_adj_p)
-    
-    if(return_all_pseudobulk) {
-      return(deseq_out)
-    }
-    
-    drop_indices <- c()
-    for(i in 1:length(deseq_out)) {
-      if(nrow(deseq_out[[i]][[1]])!=0) {
-        deseq_out[[i]][[1]]$cluster <- names(deseq_out)[i]
-      } else {
-        drop_indices <- append(drop_indices, i)
-      }
-    }
-    if(length(drop_indices)==1) {
-      deseq_out <- deseq_out[[-drop_indices]]
-    } else if(length(drop_indices)>1) {
-      deseq_out <- deseq_out[-drop_indices]
-    }
-    
-    deseq_res <- lapply(X = deseq_out, FUN = function(arg1) return(arg1[[1]]))
-    deseq_write <- do.call(rbind, deseq_res)
-    return(deseq_write)
+    return(arg1)
   }
   
-  dge_outs <- vector("list", length = ifelse(is.null(conditions), 1, length(conditions)))
-  if(is.null(conditions)) {
-    names(dge_outs) <- "all"
+  if(pseudobulk_test_mode=="cluster_identity") {
+    ct_spl <- vector("list", length = length(unique(seurat_object@meta.data[,cluster_column])))
+    names(ct_spl) <- gsub("( |\\-|\\/)","_",unique(seurat_object@meta.data[,cluster_column]))
+    meta_list <- vector("list", length = length(ct_spl)); names(meta_list) <- names(ct_spl)
+    for(i in 1:length(ct_spl)) {
+      ##
+      ct_spl[[i]] <- as.data.frame(data.table::fread(paste0(capture_dir,"/temp_files/__pseudobulk_sum_counts_", names(ct_spl)[i], "__.csv"), check.names = FALSE, header = FALSE))
+      if(file.exists(paste0(capture_dir,"/temp_files/__pseudobulk_sum_counts_", names(ct_spl)[i], "__.csv"))) {
+        file.remove(paste0(capture_dir,"/temp_files/__pseudobulk_sum_counts_", names(ct_spl)[i], "__.csv"))
+      }
+      meta_list[[i]] <- read.csv(paste0(capture_dir,"/temp_files/__pseudobulk_obs_", names(ct_spl)[i], "__.csv"), check.names = FALSE, row.names = 1)
+      meta_list[[i]]$cell_group <- row.names(meta_list[[i]])
+      if(file.exists(paste0(capture_dir,"/temp_files/__pseudobulk_obs_", names(ct_spl)[i], "__.csv"))) {
+        file.remove(paste0(capture_dir,"/temp_files/__pseudobulk_obs_", names(ct_spl)[i], "__.csv"))
+      }
+      obj_var <- read.csv(paste0(capture_dir,"/temp_files/__pseudobulk_var_", names(ct_spl)[i], "__.csv"))[,1]
+      if(file.exists(paste0(capture_dir,"/temp_files/__pseudobulk_var_", names(ct_spl)[i], "__.csv"))) {
+        file.remove(paste0(capture_dir,"/temp_files/__pseudobulk_var_", names(ct_spl)[i], "__.csv"))
+      }
+      row.names(ct_spl[[i]]) <- meta_list[[i]]$cell_group
+      colnames(ct_spl[[i]]) <- obj_var
+      ct_spl[[i]] <- drop_novar2(ct_spl[[i]])
+      ##
+      meta_list[[i]]$cluster_id <- meta_list[[i]][,cluster_column]
+      meta_list[[i]]$sample_id <- meta_list[[i]][,pid_column]
+      meta_list[[i]]$group_id <- factor(meta_list[[i]][,cluster_column], levels = c("in_cluster","out"))
+      row.names(meta_list[[i]]) <- meta_list[[i]]$cell_group
+      drop_indices <- which(!meta_list[[i]][,pid_column] %in% names(table(meta_list[[i]][,pid_column])[table(meta_list[[i]][,pid_column])==2]))
+      if(length(drop_indices)!=0) {
+        meta_list[[i]] <- meta_list[[i]][which(!1:nrow(meta_list[[i]]) %in% drop_indices),]
+      }
+      ct_spl[[i]] <- ct_spl[[i]][,which(colnames(ct_spl[[i]]) %in% meta_list[[i]]$cell_group)]
+    }
   } else {
-    names(dge_outs) <- conditions
+    ##
+    ct_data <- as.data.frame(data.table::fread(paste0(capture_dir,"/temp_files/__pseudobulk_sum_counts__.csv"), check.names = FALSE, header = FALSE))
+    if(file.exists(paste0(capture_dir,"/temp_files/__pseudobulk_sum_counts__.csv"))) {
+      file.remove(paste0(capture_dir,"/temp_files/__pseudobulk_sum_counts__.csv"))
+    }
+    obj_obs <- read.csv(paste0(capture_dir,"/temp_files/__pseudobulk_obs__.csv"), check.names = FALSE, row.names = 1)
+    obj_obs$cell_group <- row.names(obj_obs)
+    if(file.exists(paste0(capture_dir,"/temp_files/__pseudobulk_obs__.csv"))) {
+      file.remove(paste0(capture_dir,"/temp_files/__pseudobulk_obs__.csv"))
+    }
+    obj_var <- read.csv(paste0(capture_dir,"/temp_files/__pseudobulk_var__.csv"))[,1]
+    if(file.exists(paste0(capture_dir,"/temp_files/__pseudobulk_var__.csv"))) {
+      file.remove(paste0(capture_dir,"/temp_files/__pseudobulk_var__.csv"))
+    }
+    row.names(ct_data) <- obj_obs$cell_group
+    colnames(ct_data) <- obj_var
+    ##
+    id_pattern <- paste0(gsub("-","\\\\-",paste0("(",paste0(unique(seurat_object@meta.data[,pid_column]), collapse = "|"),")")),"_")
+    # ct_spl <- split(x = ct_data, f = gsub(id_pattern,"",row.names(ct_data)))
+    ct_spl <- split(x = ct_data, f = obj_obs[,cluster_column])
+    # ct_spl <- lapply(X = ct_spl, FUN = drop_novar)
+    ct_spl <- lapply(X = ct_spl, FUN = drop_novar2)
+    # meta_spl <- split(x = obj_obs, f = obj_obs[,cluster_column])
+    meta_list <- vector("list", length = length(ct_spl)); names(meta_list) <- names(ct_spl)
+    for(i in 1:length(meta_list)) {
+      tmp_meta <- obj_obs
+      # tmp_meta <- tmp_meta[which(tmp_meta[,pid_column] %in% colnames(ct_spl[[i]])),]
+      # tmp_meta <- tmp_meta[which(gsub(id_pattern,"",row.names(obj_obs)) %in% names(ct_spl)[i]),]
+      # if(mean(tmp_meta[,pid_column]==colnames(ct_spl[[i]]))!=1) {
+      tmp_meta <- tmp_meta[which(tmp_meta[,"cell_group"] %in% colnames(ct_spl[[i]])),]
+      tmp_meta <- tmp_meta[which(tmp_meta[,cluster_column]==names(ct_spl)[i]),]
+      if(mean(row.names(tmp_meta)==colnames(ct_spl[[i]]))!=1) {
+        stop("pid mismatch (1)")
+      }
+      tmp_meta$cluster_id <- names(meta_list)[i]
+      tmp_meta$sample_id <- tmp_meta[,pid_column]
+      tmp_meta$group_id <- factor(tmp_meta[,category_column], levels = test_categories)
+      # row.names(tmp_meta) <- tmp_meta$sample_id
+      meta_list[[i]] <- tmp_meta
+    }
   }
-  dge_outs <- lapply(X = dge_outs, FUN = function(arg1, ann = annos){
-    tmpv <- vector("list", length = ifelse(is.null(ann), 1, length(ann)))
-    if(is.null(ann)) {
-      names(tmpv) <- "all"
-    } else {
-      names(tmpv) <- ann
-    }
-    return(tmpv)
-  })
   
-  start_test <- Sys.time()
-  for(i in 1:length(dge_outs)) {
-    start_i <- Sys.time()
-    if(names(dge_outs)[i]=="all") {
-      subs1 <- seurat_object
+  deseq_input <- vector("list", length = length(ct_spl)); names(deseq_input) <- names(ct_spl)
+  for(i in 1:length(deseq_input)) {
+    deseq_input[[i]] <- list(ct_spl[[i]], meta_list[[i]])
+  }
+  
+  # return(deseq_input) # check input is correct for "identity" testing
+  
+  use_adj_p <- TRUE # hard coding use adjusted p values; consider allowing use unadjusted for discovery
+  padj_threshold <- 0.05 # hard coding 0.05; consider allowing to change
+  do_deseq <- function(arg1, p_return_threshold = padj_threshold, stim = seu_conditions,
+                       use_adj = use_adj_p) {
+    # testing
+    # arg1 <- deseq_input[[1]]
+    # p_return_threshold = padj_threshold
+    # stim = seu_conditions
+    # use_adj = use_adj_p
+    
+    count_data <- arg1[[1]]
+    meta_data <- arg1[[2]]
+    
+    test_cats_order <- levels(meta_data$group_id)
+    
+    count_data <- round(count_data)
+    
+    if(nrow(meta_data)==0) {
+      fn_flag <- 0
+      res <- "Not enough cells from either of the tested groups. Min cells is 10."
     } else {
-      seurat_object <- AddMetaData(object = seurat_object, metadata = seurat_object@meta.data[,condition_column], col.name = "c")
-      subs1 <- subset(x = seurat_object, subset = c == names(dge_outs)[i])
-    }
-    for(j in 1:length(dge_outs[[i]])){
-      start_j <- Sys.time()
-      print(paste0("starting on [",names(dge_outs[[i]])[j],"] in [",names(dge_outs)[i],"] at ",Sys.time()))
-      if(!is.null(annos)) {
-        if(!is.null(test_cats)) {
-          subs1 <- AddMetaData(object = subs1, metadata = subs1@meta.data[,cluster_column], col.name = "l")
-          subs2 <- subset(x = subs1, subset = l == names(dge_outs[[i]])[j])
-        } else {
-          subs1 <- AddMetaData(object = subs1,
-                               metadata = ifelse(subs1@meta.data[,cluster_column]==names(dge_outs[[i]])[j], names(dge_outs[[i]])[j], "other"),
-                               col.name = "l")
-          subs2 <- subs1
-        }
+      group_id <- levels(meta_data$group_id)
+      num_g1 <- sum(meta_data$group_id==group_id[1])
+      num_g2 <- sum(meta_data$group_id==group_id[2])
+      print(paste0("num_g1 is [",num_g1,"]"))
+      print(paste0("group_id[1] is [",group_id[1],"]"))
+      print(paste0("num_g2 is [",num_g2,"]"))
+      print(paste0("group_id[2] is [",group_id[2],"]"))
+      print(paste0("[",num_g1,"] data points available for [",group_id[1],"] and [",num_g2,"] data points available for [",group_id[2],"]"))
+      if(any(num_g1<=1,num_g2<=1)) {
+        fn_flag <- 0
+        res <- paste0("[",num_g1,"] from group [",group_id[1],"] and [",num_g2,"] from group [",group_id[2],"] available for testing. Not enough to test. Min cells is 10.")
       } else {
+        fn_flag <- 1
+        dds <- DESeqDataSetFromMatrix(countData = count_data,
+                                      colData = meta_data,
+                                      design = ~ group_id)
+        dds <- DESeq(dds)
+        normalized_counts <- counts(dds, normalized = TRUE)
+        contrast <- c("group_id", test_cats_order[1], test_cats_order[2])
+        res <- results(dds,
+                       contrast = contrast,
+                       alpha = 0.05)
+        res <- lfcShrink(dds,
+                         contrast = contrast,
+                         res=res,
+                         type = "ashr")
+        norm_ct <- DESeq2::counts(dds, normalized = TRUE)
+        res <- data.frame(res); res <- res[!is.na(res$padj),]
+        if(sum(is.na(res$padj))!=0) {
+          res$padj <- p.adjust(p = res$pvalue, method = "fdr")
+        }
+        res$gene <- row.names(res)
+        res$condition <- stim
+        if(use_adj) {
+          if(!is.null(p_return_threshold)) {
+            res <- res[res$padj<=p_return_threshold,]
+          }
+        } else {
+          if(!is.null(p_return_threshold)) {
+            res <- res[res$pvalue<=p_return_threshold,]
+          }
+        }
+      }
+    }
+    # if(nrow(res)!=0) {
+    #   if(nrow(res)>40) {
+    #     sig_genes <- res$gene[order(abs(res$log2FoldChange))][1:40]
+    #   } else {
+    #     sig_genes <- res$gene
+    #   }
+    #   sig_norm <- as.data.frame(norm_ct[which(row.names(norm_ct) %in% sig_genes),])
+    #
+    #   pheatm <- pheatmap(sig_norm,
+    #                      cluster_rows = T,
+    #                      show_rownames = T,
+    #                      # annotation = data.frame(group_id = meta_data[, c("group_id")]),
+    #                      annotation = meta_data[,c(cluster_column,"group_id")],
+    #                      border_color = NA,
+    #                      fontsize = 10,
+    #                      scale = "row",
+    #                      fontsize_row = 10,
+    #                      height = 20)
+    # } else {
+    #   pheatm <- "no features plotted"
+    # }
+    if(fn_flag==1) {
+      return(list(res = res, norm_ct = norm_ct, meta = meta_data))#, hm = pheatm))
+    } else {
+      return(list(res = res, meta = meta_data))#, hm = pheatm))
+    }
+  }
+  deseq_out <- lapply(X = deseq_input, FUN = do_deseq, p_return_threshold = padj_threshold,
+                      stim = seu_conditions, use_adj = use_adj_p)
+  
+  if(return_all_pseudobulk) {
+    return(deseq_out)
+  }
+  
+  drop_indices <- c()
+  for(i in 1:length(deseq_out)) {
+    if(nrow(deseq_out[[i]][[1]])!=0) {
+      deseq_out[[i]][[1]]$cluster <- names(deseq_out)[i]
+    } else {
+      drop_indices <- append(drop_indices, i)
+    }
+  }
+  if(length(drop_indices)==1) {
+    deseq_out <- deseq_out[[-drop_indices]]
+  } else if(length(drop_indices)>1) {
+    deseq_out <- deseq_out[-drop_indices]
+  }
+  
+  deseq_res <- lapply(X = deseq_out, FUN = function(arg1) return(arg1[[1]]))
+  deseq_write <- do.call(rbind, deseq_res)
+  return(deseq_write)
+}
+
+dge_outs <- vector("list", length = ifelse(is.null(conditions), 1, length(conditions)))
+if(is.null(conditions)) {
+  names(dge_outs) <- "all"
+} else {
+  names(dge_outs) <- conditions
+}
+dge_outs <- lapply(X = dge_outs, FUN = function(arg1, ann = annos){
+  tmpv <- vector("list", length = ifelse(is.null(ann), 1, length(ann)))
+  if(is.null(ann)) {
+    names(tmpv) <- "all"
+  } else {
+    names(tmpv) <- ann
+  }
+  return(tmpv)
+})
+
+start_test <- Sys.time()
+for(i in 1:length(dge_outs)) {
+  start_i <- Sys.time()
+  if(names(dge_outs)[i]=="all") {
+    subs1 <- seurat_object
+  } else {
+    seurat_object <- AddMetaData(object = seurat_object, metadata = seurat_object@meta.data[,condition_column], col.name = "c")
+    subs1 <- subset(x = seurat_object, subset = c == names(dge_outs)[i])
+  }
+  for(j in 1:length(dge_outs[[i]])){
+    start_j <- Sys.time()
+    print(paste0("starting on [",names(dge_outs[[i]])[j],"] in [",names(dge_outs)[i],"] at ",Sys.time()))
+    if(!is.null(annos)) {
+      if(!is.null(test_cats)) {
+        subs1 <- AddMetaData(object = subs1, metadata = subs1@meta.data[,cluster_column], col.name = "l")
+        subs2 <- subset(x = subs1, subset = l == names(dge_outs[[i]])[j])
+      } else {
+        subs1 <- AddMetaData(object = subs1,
+                             metadata = ifelse(subs1@meta.data[,cluster_column]==names(dge_outs[[i]])[j], names(dge_outs[[i]])[j], "other"),
+                             col.name = "l")
         subs2 <- subs1
       }
-      if(!is.null(test_cats)) {
-        ident1 <- test_categories[1]
-        ident2 <- test_categories[2]
-        Idents(subs2) <- subs2@meta.data[,category_column]
-      } else {
-        ident1 <- names(dge_outs[[i]])[j] # will be either "all" or a cluster
-        if(is.null(ident1)) {
-          stop("Nothing to test")
-        }
-        ident2 <- "other"
-        Idents(subs2) <- ifelse(subs2@meta.data[,cluster_column]==ident1, ident1, "other")
-      }
-      print(paste0("for [",names(dge_outs[[i]])[j],"] in [",names(dge_outs)[i],"] ident.1 = ",ident1,", ident.2 = ",ident2))
-      if(tolower(dge_method) == "mast") {
-        suppressPackageStartupMessages({
-          require(MAST)
-          require(data.table)
-          require(ggplot2)
-        })
-        test_idents <- c(ident1, ident2)
-        print(paste0("dropping lowly expressed genes. Threshold >= ",freq_expressed*100,"% of cells."))
-        keep_genes <- vector("list", length = length(test_idents)); names(keep_genes) <- test_idents
-        num_unique_genes <- nrow(subs2)
-        for(k in 1:2) {
-          subs2_grp <- subset(x = subs2, cells = which(subs2@meta.data[,category_column]==test_idents[k]))
-          bem <- subs2_grp@assays[[assay]]@layers$counts > 0
-          percent_expr <- rowSums(bem) / ncol(bem); names(percent_expr) <- row.names(subs2)
-          keep_genes[[k]] <- row.names(subs2)[percent_expr >= freq_expressed]
-        }
-        grp_genes <- unlist(keep_genes); grp_genes <- grp_genes[!is.na(grp_genes)]
-        if(filter_genes=="inner") {
-          genes_to_keep <- names(table(grp_genes)[which(table(grp_genes)==2)])
-        } else if(filter_genes=="outer") {
-          genes_to_keep <- grp_genes
-        }
-        if(length(genes_to_keep)==0) {
-          warning("no genes passed thresholding")
-          next
-        } else {
-          print(paste0("number of lowly expressed genes dropped: ",num_unique_genes - length(genes_to_keep)," genes. ",length(genes_to_keep)," genes left for MAST testing."))
-        }
-        subs2 <- subset(x = subs2, features = genes_to_keep)
-        subs2$category <- subs2@meta.data[,category_column]
-        subs2$category <- ifelse(subs2$category==ident1,"Group1","Group2")
-        Idents(subs2) <- subs2$category
-        seu_as_sce <- as.SingleCellExperiment(subs2, assay = "RNA")
-        #seu_as_sce <- scuttle::logNormCounts(seu_as_sce, log = TRUE)
-        #logcounts(seu_as_sce) <- log2(seu_as_sce)
-        no_dense <- counts(seu_as_sce)
-        nzero_ct <- no_dense@x
-        no_dense@x <- log2(nzero_ct+1)
-        logcounts(seu_as_sce) <- no_dense # log2 counts without sparse->dense coercion
-        cdr <- colSums(seu_as_sce@assays@data@listData[["logcounts"]]>0) # cellular detection rate; number of genes detected which is a well-known confounder (https://bioconductor.org/packages/release/bioc/vignettes/MAST/inst/doc/MAITAnalysis.html#22_Filtering)
-        seu_as_sce$cngeneson <- scale(cdr)
-        my_sca <- SceToSingleCellAssay(seu_as_sce, check_sanity = FALSE)
-        if(!is.null(mast_lane)) {
-          latv <- c("cngeneson",pid_column,mast_lane)
-        } else {
-          latv <- c("cngeneson",pid_column)
-        }
-        cond<-factor(colData(my_sca)$category)
-        cond<-relevel(cond,"Group1")
-        colData(my_sca)$category <- cond
-        
-        if (!is.null(pid_column)) {
-          if (!pid_column %in% latv) {
-            stop("Random effect variable (sample ID) should be included in latent variables! Specify sample ID using arg 'pid_column'")
-          }
-          latv <- latv[!latv %in% pid_column]
-          fmla <- as.formula(object = paste0(" ~ category + ", paste(latv, collapse = "+"), glue::glue(" + (1|{pid_column})")))
-          print(fmla)
-          zlmCond <- MAST::zlm(formula = fmla,
-                               sca = my_sca,
-                               exprs_value = 'logcounts',
-                               method="glmer",
-                               ebayes=FALSE,
-                               silent=T,
-                               fitArgsD = list(nAGQ = 0),
-                               strictConvergence = FALSE)
-          # fitArgsD = list(nAGQ = 1)
-        } else {
-          stop("Trying to run without mixed effect model but this is not supported. Sample ID must be specified with arg 'pid_column'")
-        }
-        summaryCond <- MAST::summary(object = zlmCond, doLRT = 'categoryGroup2')
-        summaryDt <- summaryCond$datatable
-        
-        fcHurdle <- merge(summaryDt[contrast=='categoryGroup2' & component=='H',.(primerid, `Pr(>Chisq)`)], #hurdle P values
-                          summaryDt[contrast=='categoryGroup2' & component=='logFC', .(primerid, coef, ci.hi, ci.lo)], by='primerid') #logFC coefficients
-        
-        fcHurdle[,fdr:=p.adjust(`Pr(>Chisq)`, 'fdr')]; fcHurdle_all <- fcHurdle
-        fcHurdleSig <- merge(fcHurdle[fdr<.05 & abs(coef)>fc_threshold], data.table::as.data.table(mcols(my_sca)), by='primerid')
-        setorder(fcHurdleSig, fdr); setorder(fcHurdle_all, fdr); fcHurdle_all <- fcHurdle_all[!is.na(fcHurdle_all$fdr),]
-        mast_res <- as.data.frame(fcHurdleSig)
-        mast_res2 <- as.data.frame(fcHurdle_all)
-        
-        lfcs <- MAST::logFC(zlmfit = zlmCond)
-        
-        lfc1 <- as.data.frame(lfcs$logFC[mast_res$primerid,])
-        lfc1$primerid <- row.names(lfc1)
-        
-        lfc2 <- as.data.frame(lfcs$logFC[mast_res2$primerid,])
-        lfc2$primerid <- row.names(lfc2)
-        
-        getlfcs <- as.data.frame(MAST::getLogFC(zlmfit = zlmCond))
-        getlfcs <- getlfcs[which(getlfcs$contrast!="cngeneson"),]
-        row.names(getlfcs) <- getlfcs$primerid
-        
-        getlfcs1 <- getlfcs[mast_res$primerid,]
-        getlfcs2 <- getlfcs[mast_res2$primerid,]
-        
-        if(nrow(mast_res)!=0) {
-          mast_res <- merge(x = mast_res, y = getlfcs1, by = "primerid", sort = FALSE, all.x = TRUE)
-          mast_res$contrast <- paste0(category_column,".",ident2)
-          mast_res$cluster <- names(dge_outs[[i]])[j]
-        }
-        
-        mast_res2 <- merge(x = mast_res2, y = getlfcs2, by = "primerid", sort = FALSE, all.x = TRUE)
-        mast_res2$contrast <- paste0(category_column,".",ident2)
-        mast_res2$cluster <- names(dge_outs[[i]])[j]
-        if(nrow(fcHurdleSig)!=0) {
-          entrez_to_plot <- fcHurdleSig[,primerid]
-          flat_dat <- as(my_sca[entrez_to_plot,], 'data.table')
-          flat_dat$category <- ifelse(flat_dat$category=="Group1",ident1,ident2)
-          ggbase <- ggplot(flat_dat, aes(x=category, y=logcounts, color=category)) + geom_jitter() + facet_wrap(~primerid, scale='free_y')+ggtitle("DE Genes")
-          mast_violins <- ggbase+geom_violin()
-          dge_outs[[i]][[j]] <- list(filtered_res = mast_res, raw_res = mast_res2, gene_plots = mast_violins)
-        } else {
-          dge_outs[[i]][[j]] <- list(filtered_res = "no dge", raw_res = mast_res2, gene_plots = NA)
-        }
-        ##### plotting stuff from mast; leaving for now; ggbase+geom_violin() may be particularly useful
-        # entrez_to_plot <- fcHurdleSig[,primerid]
-        # flat_dat <- as(my_sca[entrez_to_plot,], 'data.table')
-        # ggbase <- ggplot(flat_dat, aes(x=category, y=logcounts, color=category)) + geom_jitter() + facet_wrap(~primerid, scale='free_y')+ggtitle("DE Genes")
-        # ggbase+geom_violin()
-        #
-        # flat_dat[,lmPred:=lm(logcounts~cngeneson + category)$fitted, key=primerid]
-        # ggbase + aes(x=cngeneson) + geom_line(aes(y=lmPred), lty=1) + xlab('Standardized Cellular Detection Rate')
-        #
-        # MM <- model.matrix(~category,unique(colData(my_sca)[,c("category"),drop=FALSE]))
-        # rname_map <- colData(my_sca)$category; names(rname_map) <- colData(my_sca)$barcode
-        # rownames(MM) <- rname_map[row.names(MM)]
-        # predicted <- predict(zlmCond,modelmatrix=MM)
-        #
-        # predicted[, primerid:=as.character(primerid)]
-        # predicted_sig <- merge(mcols(my_sca), predicted[primerid%in%entrez_to_plot], by='primerid')
-        # predicted_sig <- as.data.table(predicted_sig)
-        #
-        # ggplot(predicted_sig)+aes(x=invlogit(etaD),y=muC,xse=seD,yse=seC,col=sample)+
-        #   facet_wrap(~primerid,scales="free_y")+theme_linedraw()+
-        #   geom_point(size=0.5)+scale_x_continuous("Proportion expression")+
-        #   scale_y_continuous("Estimated Mean")+
-        #   stat_ell(aes(x=etaD,y=muC),level=0.95, invert='x')
-        #
-        # # heatmap, exprs per cell, split by group
-        # mat_to_plot <- assay(my_sca[entrez_to_plot,])
-        # symbols_to_plot <- fcHurdleSig[,primerid]
-        # rownames(mat_to_plot) <- symbols_to_plot
-        # assay_as_matrix <- as.matrix(mat_to_plot)
-        # NMF::aheatmap(assay_as_matrix,annCol=colData(my_sca)[,"category"],main="DE genes",
-        #               col=rev(colorRampPalette(colors = RColorBrewer::brewer.pal(name="PiYG",n=10))(20)), labCol = NA)
-        #
-        # # gsea
-        # boots <- bootVcov1(zlmCond, R = 50)
-        # module <- "BTM"
-        # min_gene_in_module <- 5
-        # packageExt <- system.file("extdata", package='MAST')
-        # module_file <- list.files(packageExt, pattern = module, full.names = TRUE)
-        # gene_set <- getGmt(module_file)
-        # gene_ids <- geneIds(gene_set)
-        # gene_ids <- gene_ids[!names(gene_ids)%like%"TBA"&!names(gene_ids)%like%"B cell"]
-        # sets_indices <- limma::ids2indices(gene_ids, mcols(sca)$symbolid)
-        # # Only keep modules with at least min_gene_in_module
-        # sets_indices <- sets_indices[sapply(sets_indices, length) >= min_gene_in_module]
-        # gsea <- gseaAfterBoot(zlmCond, boots, sets_indices, CoefficientHypothesis("conditionStim"))
-        # z_stat_comb <- summary(gsea, testType='normal')
-        #####
-      } else if(tolower(dge_method) == "wilcox") {
-        suppressPackageStartupMessages({
-          require(SeuratWrappers)
-        })
-        subs2 <- Seurat::NormalizeData(object = subs2, assay = assay, normalization.method = "LogNormalize")
-        wilcox_res <- SeuratWrappers::RunPresto(object = subs2, assay = assay, ident.1 = ident1, ident.2 = ident2,
-                                                test.use = "wilcox", only.pos = wilcox_only_positive, min.pct = 0.01)
-        # colnames(wilcox_res)[which(colnames(wilcox_res)=="pct.1")] <- gsub(" ","",paste0("pct.",ident1))
-        # colnames(wilcox_res)[which(colnames(wilcox_res)=="pct.2")] <- gsub(" ","",paste0("pct.",ident2))
-        wilcox_res$gene <- row.names(wilcox_res)
-        wilcox_res$cluster <- ident1
-        wilcox_res <- wilcox_res[wilcox_res$p_val_adj<0.05,]
-        wilcox_res <- wilcox_res[which(abs(wilcox_res$avg_log2FC)>fc_threshold),]
-        
-        dge_outs[[i]][[j]] <- wilcox_res
-      } else {
-        stop("no supported 'dge_method' requested: supported algorithms are: 'wilcox', 'mast', or 'pseudobulk'")
-      }
-      print(paste0("[",names(dge_outs[[i]])[j],"] in [",names(dge_outs)[i],"] testing took ",round(as.numeric(difftime(Sys.time(), start_j, units = "mins")),2)," mins"))
+    } else {
+      subs2 <- subs1
     }
-    print(paste0("[",names(dge_outs)[i],"] testing took ",round(as.numeric(difftime(Sys.time(), start_i, units = "mins")),2)," mins"))
+    if(!is.null(test_cats)) {
+      ident1 <- test_categories[1]
+      ident2 <- test_categories[2]
+      Idents(subs2) <- subs2@meta.data[,category_column]
+    } else {
+      ident1 <- names(dge_outs[[i]])[j] # will be either "all" or a cluster
+      if(is.null(ident1)) {
+        stop("Nothing to test")
+      }
+      ident2 <- "other"
+      Idents(subs2) <- ifelse(subs2@meta.data[,cluster_column]==ident1, ident1, "other")
+    }
+    print(paste0("for [",names(dge_outs[[i]])[j],"] in [",names(dge_outs)[i],"] ident.1 = ",ident1,", ident.2 = ",ident2))
+    if(tolower(dge_method) == "mast") {
+      suppressPackageStartupMessages({
+        require(MAST)
+        require(data.table)
+        require(ggplot2)
+      })
+      test_idents <- c(ident1, ident2)
+      print(paste0("dropping lowly expressed genes. Threshold >= ",freq_expressed*100,"% of cells."))
+      keep_genes <- vector("list", length = length(test_idents)); names(keep_genes) <- test_idents
+      num_unique_genes <- nrow(subs2)
+      for(k in 1:2) {
+        if(pseudobulk_test_mode=="cluster_by_category") {
+          subs2_grp <- subset(x = subs2, cells = which(subs2@meta.data[,category_column]==test_idents[k]))
+        } else if(pseudobulk_test_mode=="cluster_identity") {
+          subs2_grp <- subset(x = subs2, cells = which(subs2@meta.data[,"l"]==test_idents[k]))
+        }
+        bem <- subs2_grp@assays[[assay]]@layers$counts > 0
+        percent_expr <- rowSums(bem) / ncol(bem); names(percent_expr) <- row.names(subs2)
+        keep_genes[[k]] <- row.names(subs2)[percent_expr >= freq_expressed]
+      }
+      grp_genes <- unlist(keep_genes); grp_genes <- grp_genes[!is.na(grp_genes)]
+      if(filter_genes=="inner") {
+        genes_to_keep <- names(table(grp_genes)[which(table(grp_genes)==2)])
+      } else if(filter_genes=="outer") {
+        genes_to_keep <- grp_genes
+      }
+      if(length(genes_to_keep)==0) {
+        warning("no genes passed thresholding")
+        next
+      } else {
+        print(paste0("number of lowly expressed genes dropped: ",num_unique_genes - length(genes_to_keep)," genes. ",length(genes_to_keep)," genes left for MAST testing."))
+      }
+      subs2 <- subset(x = subs2, features = genes_to_keep)
+      if(pseudobulk_test_mode=="cluster_by_identity") {
+        subs2$category <- subs2@meta.data[,category_column]
+      } else if(pseudobulk_test_mode=="cluster_identity") {
+        subs2$category <- subs2@meta.data[,"l"]
+      }
+      subs2$category <- ifelse(subs2$category==ident1,"Group1","Group2")
+      Idents(subs2) <- subs2$category
+      seu_as_sce <- as.SingleCellExperiment(subs2, assay = "RNA")
+      #seu_as_sce <- scuttle::logNormCounts(seu_as_sce, log = TRUE)
+      #logcounts(seu_as_sce) <- log2(seu_as_sce)
+      no_dense <- counts(seu_as_sce)
+      nzero_ct <- no_dense@x
+      no_dense@x <- log2(nzero_ct+1)
+      logcounts(seu_as_sce) <- no_dense # log2 counts without sparse->dense coercion
+      cdr <- colSums(seu_as_sce@assays@data@listData[["logcounts"]]>0) # cellular detection rate; number of genes detected which is a well-known confounder (https://bioconductor.org/packages/release/bioc/vignettes/MAST/inst/doc/MAITAnalysis.html#22_Filtering)
+      seu_as_sce$cngeneson <- scale(cdr)
+      my_sca <- SceToSingleCellAssay(seu_as_sce, check_sanity = FALSE)
+      if(!is.null(mast_lane)) {
+        latv <- c("cngeneson",pid_column,mast_lane)
+      } else {
+        latv <- c("cngeneson",pid_column)
+      }
+      cond<-factor(colData(my_sca)$category)
+      cond<-relevel(cond,"Group1")
+      colData(my_sca)$category <- cond
+      
+      if (!is.null(pid_column)) {
+        if (!pid_column %in% latv) {
+          stop("Random effect variable (sample ID) should be included in latent variables! Specify sample ID using arg 'pid_column'")
+        }
+        latv <- latv[!latv %in% pid_column]
+        fmla <- as.formula(object = paste0(" ~ category + ", paste(latv, collapse = "+"), glue::glue(" + (1|{pid_column})")))
+        print(fmla)
+        zlmCond <- MAST::zlm(formula = fmla,
+                             sca = my_sca,
+                             exprs_value = 'logcounts',
+                             method="glmer",
+                             ebayes=FALSE,
+                             silent=T,
+                             fitArgsD = list(nAGQ = 0),
+                             strictConvergence = FALSE)
+        # fitArgsD = list(nAGQ = 1)
+      } else {
+        stop("Trying to run without mixed effect model but this is not supported. Sample ID must be specified with arg 'pid_column'")
+      }
+      summaryCond <- MAST::summary(object = zlmCond, doLRT = 'categoryGroup2')
+      summaryDt <- summaryCond$datatable
+      
+      fcHurdle <- merge(summaryDt[contrast=='categoryGroup2' & component=='H',.(primerid, `Pr(>Chisq)`)], #hurdle P values
+                        summaryDt[contrast=='categoryGroup2' & component=='logFC', .(primerid, coef, ci.hi, ci.lo)], by='primerid') #logFC coefficients
+      
+      fcHurdle[,fdr:=p.adjust(`Pr(>Chisq)`, 'fdr')]; fcHurdle_all <- fcHurdle
+      fcHurdleSig <- merge(fcHurdle[fdr<.05 & abs(coef)>fc_threshold], data.table::as.data.table(mcols(my_sca)), by='primerid')
+      setorder(fcHurdleSig, fdr); setorder(fcHurdle_all, fdr); fcHurdle_all <- fcHurdle_all[!is.na(fcHurdle_all$fdr),]
+      mast_res <- as.data.frame(fcHurdleSig)
+      mast_res2 <- as.data.frame(fcHurdle_all)
+      
+      lfcs <- MAST::logFC(zlmfit = zlmCond)
+      
+      lfc1 <- as.data.frame(lfcs$logFC[mast_res$primerid,])
+      lfc1$primerid <- row.names(lfc1)
+      
+      lfc2 <- as.data.frame(lfcs$logFC[mast_res2$primerid,])
+      lfc2$primerid <- row.names(lfc2)
+      
+      getlfcs <- as.data.frame(MAST::getLogFC(zlmfit = zlmCond))
+      getlfcs <- getlfcs[which(getlfcs$contrast!="cngeneson"),]
+      row.names(getlfcs) <- getlfcs$primerid
+      
+      getlfcs1 <- getlfcs[mast_res$primerid,]
+      getlfcs2 <- getlfcs[mast_res2$primerid,]
+      
+      if(nrow(mast_res)!=0) {
+        mast_res <- merge(x = mast_res, y = getlfcs1, by = "primerid", sort = FALSE, all.x = TRUE)
+        mast_res$contrast <- paste0(category_column,".",ident2)
+        mast_res$cluster <- names(dge_outs[[i]])[j]
+      }
+      
+      mast_res2 <- merge(x = mast_res2, y = getlfcs2, by = "primerid", sort = FALSE, all.x = TRUE)
+      mast_res2$contrast <- paste0(category_column,".",ident2)
+      mast_res2$cluster <- names(dge_outs[[i]])[j]
+      if(nrow(fcHurdleSig)!=0) {
+        entrez_to_plot <- fcHurdleSig[,primerid]
+        flat_dat <- as(my_sca[entrez_to_plot,], 'data.table')
+        flat_dat$category <- ifelse(flat_dat$category=="Group1",ident1,ident2)
+        ggbase <- ggplot(flat_dat, aes(x=category, y=logcounts, color=category)) + geom_jitter() + facet_wrap(~primerid, scale='free_y')+ggtitle("DE Genes")
+        mast_violins <- ggbase+geom_violin()
+        dge_outs[[i]][[j]] <- list(filtered_res = mast_res, raw_res = mast_res2, gene_plots = mast_violins)
+      } else {
+        dge_outs[[i]][[j]] <- list(filtered_res = "no dge", raw_res = mast_res2, gene_plots = NA)
+      }
+      ##### plotting stuff from mast; leaving for now; ggbase+geom_violin() may be particularly useful
+      # entrez_to_plot <- fcHurdleSig[,primerid]
+      # flat_dat <- as(my_sca[entrez_to_plot,], 'data.table')
+      # ggbase <- ggplot(flat_dat, aes(x=category, y=logcounts, color=category)) + geom_jitter() + facet_wrap(~primerid, scale='free_y')+ggtitle("DE Genes")
+      # ggbase+geom_violin()
+      #
+      # flat_dat[,lmPred:=lm(logcounts~cngeneson + category)$fitted, key=primerid]
+      # ggbase + aes(x=cngeneson) + geom_line(aes(y=lmPred), lty=1) + xlab('Standardized Cellular Detection Rate')
+      #
+      # MM <- model.matrix(~category,unique(colData(my_sca)[,c("category"),drop=FALSE]))
+      # rname_map <- colData(my_sca)$category; names(rname_map) <- colData(my_sca)$barcode
+      # rownames(MM) <- rname_map[row.names(MM)]
+      # predicted <- predict(zlmCond,modelmatrix=MM)
+      #
+      # predicted[, primerid:=as.character(primerid)]
+      # predicted_sig <- merge(mcols(my_sca), predicted[primerid%in%entrez_to_plot], by='primerid')
+      # predicted_sig <- as.data.table(predicted_sig)
+      #
+      # ggplot(predicted_sig)+aes(x=invlogit(etaD),y=muC,xse=seD,yse=seC,col=sample)+
+      #   facet_wrap(~primerid,scales="free_y")+theme_linedraw()+
+      #   geom_point(size=0.5)+scale_x_continuous("Proportion expression")+
+      #   scale_y_continuous("Estimated Mean")+
+      #   stat_ell(aes(x=etaD,y=muC),level=0.95, invert='x')
+      #
+      # # heatmap, exprs per cell, split by group
+      # mat_to_plot <- assay(my_sca[entrez_to_plot,])
+      # symbols_to_plot <- fcHurdleSig[,primerid]
+      # rownames(mat_to_plot) <- symbols_to_plot
+      # assay_as_matrix <- as.matrix(mat_to_plot)
+      # NMF::aheatmap(assay_as_matrix,annCol=colData(my_sca)[,"category"],main="DE genes",
+      #               col=rev(colorRampPalette(colors = RColorBrewer::brewer.pal(name="PiYG",n=10))(20)), labCol = NA)
+      #
+      # # gsea
+      # boots <- bootVcov1(zlmCond, R = 50)
+      # module <- "BTM"
+      # min_gene_in_module <- 5
+      # packageExt <- system.file("extdata", package='MAST')
+      # module_file <- list.files(packageExt, pattern = module, full.names = TRUE)
+      # gene_set <- getGmt(module_file)
+      # gene_ids <- geneIds(gene_set)
+      # gene_ids <- gene_ids[!names(gene_ids)%like%"TBA"&!names(gene_ids)%like%"B cell"]
+      # sets_indices <- limma::ids2indices(gene_ids, mcols(sca)$symbolid)
+      # # Only keep modules with at least min_gene_in_module
+      # sets_indices <- sets_indices[sapply(sets_indices, length) >= min_gene_in_module]
+      # gsea <- gseaAfterBoot(zlmCond, boots, sets_indices, CoefficientHypothesis("conditionStim"))
+      # z_stat_comb <- summary(gsea, testType='normal')
+      #####
+    } else if(tolower(dge_method) == "wilcox") {
+      suppressPackageStartupMessages({
+        require(SeuratWrappers)
+      })
+      subs2 <- Seurat::NormalizeData(object = subs2, assay = assay, normalization.method = "LogNormalize")
+      wilcox_res <- SeuratWrappers::RunPresto(object = subs2, assay = assay, ident.1 = ident1, ident.2 = ident2,
+                                              test.use = "wilcox", only.pos = wilcox_only_positive, min.pct = 0.01)
+      # colnames(wilcox_res)[which(colnames(wilcox_res)=="pct.1")] <- gsub(" ","",paste0("pct.",ident1))
+      # colnames(wilcox_res)[which(colnames(wilcox_res)=="pct.2")] <- gsub(" ","",paste0("pct.",ident2))
+      wilcox_res$gene <- row.names(wilcox_res)
+      wilcox_res$cluster <- ident1
+      wilcox_res <- wilcox_res[wilcox_res$p_val_adj<0.05,]
+      wilcox_res <- wilcox_res[which(abs(wilcox_res$avg_log2FC)>fc_threshold),]
+      
+      dge_outs[[i]][[j]] <- wilcox_res
+    } else {
+      stop("no supported 'dge_method' requested: supported algorithms are: 'wilcox', 'mast', or 'pseudobulk'")
+    }
+    print(paste0("[",names(dge_outs[[i]])[j],"] in [",names(dge_outs)[i],"] testing took ",round(as.numeric(difftime(Sys.time(), start_j, units = "mins")),2)," mins"))
   }
-  print(paste0("total test time: ",round(as.numeric(difftime(Sys.time(), start_test, units = "hours")),3)," hours"))
-  return(dge_outs)
+  print(paste0("[",names(dge_outs)[i],"] testing took ",round(as.numeric(difftime(Sys.time(), start_i, units = "mins")),2)," mins"))
+}
+print(paste0("total test time: ",round(as.numeric(difftime(Sys.time(), start_test, units = "hours")),3)," hours"))
+return(dge_outs)
 }
                          
 seurat_dge2 <- function(seurat_object,
