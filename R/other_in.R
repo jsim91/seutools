@@ -397,6 +397,68 @@ seu_mast_venns <- function(mast_output, venn_colors = c("#F57336","#32671D","#33
   ####
 }
 
+seu_mast_sets <- function() {
+  packageExt <- system.file("extdata", package='seutools')
+  # module_file <- list.files(path = packageExt, pattern = "gsea", full.names = TRUE)
+  module_file <- list.files(path = "J:/seutools/seutools/inst/extdata", pattern = "gsea", full.names = TRUE)
+  shortened_gmt <- sapply(X = module_file, FUN = function(arg1){
+    string_out <- strsplit(x = arg1, split = "\\/")[[1]]
+    neat_path <- gsub(pattern = "_modules_gsea\\.gmt", replacement = "", x = string_out[length(string_out)])
+    return(neat_path)
+  })
+  data.frame(gene_set_db = as.character(shortened_gmt))
+  print("gene set databases can be found here: https://www.gsea-msigdb.org/gsea/msigdb/human/genesets.jsp")
+  print(paste0("use one or more of: ",paste0(as.character(shortened_gmt), collapse = ", ")))
+}
+
+seu_mast_gsea <- function(mast_dge_result, seu_mast_sets, num_boots = 50,
+                          gs_min = 5, gs_max = Inf, gs_regex = NULL,
+                          nthread = ceiling(parallel::detectCores()/2)) {
+  # zlmCond <- readRDS(file = "J:/seutools/seutools/test_script/mast_zlm.rds")
+  mast_zlmfit <- mast_dge_result[['zlmfit']]
+  sca <- mast_dge_result[['sca']]
+
+  db_pattern <- paste0("(",paste0(seu_mast_sets, collapse = "|"),")")
+
+  nthread <- round(nthread)
+  makecl <- parallel::makePSOCKcluster(nthread)
+
+  boots <- pbootVcov1(zlmfit = zlmCond2, R = num_boots, cl = makecl)
+  boots <- readRDS(file = "J:/seutools/seutools/test_script/mast_boots.rds")
+
+  packageExt <- system.file("extdata", package='seutools')
+  module_file <- list.files(packageExt, pattern = "modules_gsea\\.gmt", full.names = TRUE)
+  module_file <- module_file[grep(pattern = db_pattern, x = module_file)]
+  gene_set <- GSEABase::getGmt(module_file)
+  gene_ids <- GSEABase::geneIds(gene_set)
+  sets_indices <- limma::ids2indices(gene_ids, mcols(sca)$primerid)
+  gs_min_thresh <- which(sapply(sets_indices, length) >= gs_min)
+  gs_max_thresh <- which(sapply(sets_indices, length) <= gs_max)
+  keep_gs_indices_length <- intersect(gs_min_thresh, gs_max_thresh)
+  if(!is.null(gs_regex)) {
+    keep_gs_indices_regex <- grep(pattern = gs_regex, x = names(sets_indices))
+    keep_gs_indices <- intersect(keep_gs_indices_length, keep_gs_indices_regex)
+  } else {
+    keep_gs_indices <- keep_gs_indices_length
+  }
+  if(length(keep_gs_indices)==1) {
+    sets_indices <- sets_indices[[keep_gs_indices]]
+  } else if(length(keep_gs_indices)>1) {
+    sets_indices <- sets_indices[keep_gs_indices]
+  } else {
+    stop("no gene sets to test with current 'gs_min', 'gs_max'")
+  }
+
+  gsea <- gseaAfterBoot(mast_zlmfit, boots, sets_indices, CoefficientHypothesis("categoryGroup2"))
+  z_stat_comb <- summary(gsea, testType='normal')
+
+  return(as.data.frame(z_stat_comb))
+  # gseaTable <- melt(most_sigModules[,.(set, disc_Z, cont_Z, combined_Z)], id.vars='set')
+  # ggplot(gseaTable, aes(y=set, x=variable, fill=value)) + geom_raster() +
+  #   scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = 0) +
+  #   theme_bw()
+}
+
 
 seu_pathfindr <- function(dge_dataframe, deseq_ct = NULL, deseq_meta = NULL,
                           pid_column = "pid", group_column = "group_id", group_str = c("group1","group2"),
