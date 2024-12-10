@@ -28,37 +28,60 @@ if(F) {
 }
 
 if(F) {
-  seu_small <- subset(x = seu, subset = cell_type %in% c("Th1/Th17","CM_CD4"))
-  seu_mast <- seurat_dge(seurat_object = seu_small,
+  seu_small <- subset(x = seu, subset = cell_type %in% c("ISG_Mono","Mono"))
+  seu_small_subset <- subset(x = seu_small, cells = union(which(paste0(seu_small$cell_type,seu_small$condition)=="ISG_Monostim"),
+                                                          which(paste0(seu_small$cell_type,seu_small$condition)=="Monomedia")))
+  seu_small_subset$condition_custom <- "custom_compare"
+  seu_small_subset$cluster_custom <- "custom_cluster"
+  # seu_small_subset$test_groups <- paste0(seu_small_subset$cell_type,"_",seu_small_subset$condition)
+  seu_mast <- seurat_dge(seurat_object = seu_small_subset,
                          dge_method = "mast",
                          assay = "RNA",
-                         freq_expressed = 0.1,
+                         freq_expressed = 0.2,
                          fc_threshold = log2(1.5),
-                         test_clusters = "all",
-                         cluster_column = "cell_type",
-                         category_column = "age_group",
-                         test_categories = c("younger","older"),
-                         test_condition = c("stim","media"),
-                         condition_column = "condition",
+                         test_clusters = "custom_cluster",
+                         cluster_column = "cluster_custom",
+                         category_column = "cell_type",
+                         test_categories = c("Mono","ISG_Mono"),
+                         test_condition = "custom_compare",
+                         condition_column = "condition_custom",
                          pid_column = "pid",
-                         pseudobulk_test_mode = "cluster_identity")
+                         pseudobulk_test_mode = "cluster_by_category",
+                         filter_genes = "outer")
+  # saveRDS(object = seu_mast, file = "J:/seutools/seutools_mast_dge_output_test_obj.rds")
+  seu_mast <- readRDS("J:/seutools/seutools_mast_dge_output_test_obj.rds")
+
+  start_mast_gsea <- Sys.time()
+  mast_gsea <- seutools:::seu_mast_gsea(mast_dge_result = seu_mast$custom_compare$custom_cluster,
+                                        seu_mast_sets = c("C2_CP_Reactome","C5_GO_BP",
+                                                          "C5_GO_MF","H_Hallmark"),
+                                        num_boots = 10, gs_min = 3, prepare_plot_n = 20,
+                                        gs_max = Inf, gs_regex = NULL, nthread = 2)
+  difftime(Sys.time(), start_mast_gsea) # roughly 2hrs for ISG_Mono vs Mono, 2threads 10boots
+  saveRDS(object = mast_gsea, file = "J:/seutools/seutools_mast_gsea_output_test_obj.rds")
+
+  ggplot(mast_gsea$C2_CP_Reactome$melted_result, aes(y=set, x=variable, fill=value)) + geom_raster() + scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = 0) + theme_bw()
+  ggplot(mast_gsea$C5_GO_BP$melted_result, aes(y=set, x=variable, fill=value)) + geom_raster() + scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = 0) + theme_bw()
+  ggplot(mast_gsea$C5_GO_MF$melted_result, aes(y=set, x=variable, fill=value)) + geom_raster() + scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = 0) + theme_bw()
+  ggplot(mast_gsea$H_Hallmark$melted_result, aes(y=set, x=variable, fill=value)) + geom_raster() + scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = 0) + theme_bw()
 }
 
 if(F) {
-  seu_small = subset(x = seu, subset = cell_type %in% c("Th1/Th17","CM_CD4","CM_CD8"))
-  seu_pbulk <- seurat_dge(seurat_object = seu_small,
+  # seu_small = subset(x = seu, subset = cell_type %in% c("Th1/Th17","CM_CD4","CM_CD8"))
+  seu_pbulk <- seurat_dge(seurat_object = seu_small_subset,
                           dge_method = "pseudobulk",
                           assay = "RNA",
-                          freq_expressed = 0.1,
+                          freq_expressed = 0.4,
                           fc_threshold = log2(1.5),
                           test_clusters = "all",
                           cluster_column = "cell_type",
-                          category_column = "age_group",
-                          test_categories = c("younger","older"),
-                          test_condition = "all",
-                          condition_column = "condition",
+                          category_column = "test_groups",
+                          test_categories = NULL,
+                          test_condition = "custom_compare",
+                          condition_column = "condition_custom",
                           pid_column = "pid",
-                          pseudobulk_test_mode = "cluster_identity")
+                          pseudobulk_test_mode = "cluster_identity",
+                          filter_genes = "outer")
 }
 
 if(F) { # testing seutools volcano

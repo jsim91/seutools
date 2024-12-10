@@ -9,6 +9,6 @@ Description: More about what it does (maybe more than one line)
 License: What license is it under?
 Encoding: UTF-8
 LazyData: true
-Depends: Seurat, SeuratObject, SeuratWrappers, Matrix, ggplot2, ggpubr, data.table, reshape2, combinat, MAST, ggrastr, Boruta, rstatix, ComplexHeatmap, grid, circlize, ZIR, dplyr, scales, ggpmisc, stringr
+Depends: Seurat, SeuratObject, SeuratWrappers, Matrix, ggplot2, ggpubr, data.table, reshape2, combinat, MAST, ggrastr, Boruta, rstatix, ComplexHeatmap, grid, circlize, ZIR, dplyr, scales, ggpmisc, stringr, parallel
 VignetteBuilder: knitr
 Suggests: BiocStyle, knitr, rmarkdown

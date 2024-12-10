@@ -2065,22 +2065,21 @@ seurat_dge <- function(seurat_object,
   suppressPackageStartupMessages({
     require(Seurat)
   })
-  # seurat_object = mpa
-  # dge_method = "wilcox"
+  # seurat_object = seu_small_subset
+  # dge_method = "mast"
   # assay = "RNA"
-  # freq_expressed = 0.1
-  # filter_genes = "outer"
+  # freq_expressed = 0.6
   # fc_threshold = log2(1.5)
-  # test_clusters = "all"
-  # mast_lane = NULL
-  # cluster_column = "tmp_cluster"
-  # category_column = "type"
-  # test_categories = c("sim", "real")
-  # test_condition = "all"
-  # condition_column = "tmp_condition"
-  # pid_column = "study_id"
+  # test_clusters = "custom_cluster"
+  # cluster_column = "cluster_custom"
+  # category_column = "cell_type"
+  # test_categories = c("ISG_Mono","Mono")
+  # test_condition = "custom_compare"
+  # condition_column = "condition_custom"
+  # pid_column = "pid"
   # pseudobulk_test_mode = "cluster_by_category"
-  # return_all_pseudobulk = TRUE
+  # filter_genes = "outer"
+
   if(all(!is.null(test_categories), pseudobulk_test_mode!="cluster_by_category")) {
     stop("'test_categories' should be set to NULL when 'pseudobulk_test_mode' is not set to 'cluster_category'")
   }
@@ -2154,29 +2153,7 @@ seurat_dge <- function(seurat_object,
                             condition_column," ",
                             pid_column," ",
                             pseudobulk_test_mode))
-    # ct_data <- read.csv(paste0(capture_dir,"/temp_files/__pseudobulk_sum_counts__.csv"), check.names = FALSE, header = FALSE)
 
-    # drop_novar <- function(arg1, rpat = gsub("_$","",id_pattern)) {
-    #   if(ncol(arg1)>nrow(arg1)) {
-    #     row.names(arg1) <- stringr::str_extract(string = row.names(arg1), pattern = rpat)
-    #     check_var <- apply(X = arg1, MARGIN = 2, FUN = stats::var)
-    #     which_novar <- which(check_var==0)
-    #     if(length(which_novar)!=0) {
-    #       arg1 <- arg1[,-which_novar]
-    #     }
-    #   } else {
-    #     colnames(arg1) <- stringr::str_extract(string = colnames(arg1), pattern = rpat)
-    #     check_var <- apply(X = arg1, MARGIN = 1, FUN = stats::var)
-    #     which_novar <- which(check_var==0)
-    #     if(length(which_novar)!=0) {
-    #       arg1 <- arg1[-which_novar,]
-    #     }
-    #   }
-    #   if(ncol(arg1)>nrow(arg1)) {
-    #     arg1 <- t(arg1)
-    #   }
-    #   return(arg1)
-    # }
     drop_novar2 <- function(arg1) {
       if(ncol(arg1)>nrow(arg1)) {
         check_var <- apply(X = arg1, MARGIN = 2, FUN = stats::var)
@@ -2345,27 +2322,6 @@ seurat_dge <- function(seurat_object,
           }
         }
       }
-      # if(nrow(res)!=0) {
-      #   if(nrow(res)>40) {
-      #     sig_genes <- res$gene[order(abs(res$log2FoldChange))][1:40]
-      #   } else {
-      #     sig_genes <- res$gene
-      #   }
-      #   sig_norm <- as.data.frame(norm_ct[which(row.names(norm_ct) %in% sig_genes),])
-      #
-      #   pheatm <- pheatmap(sig_norm,
-      #                      cluster_rows = T,
-      #                      show_rownames = T,
-      #                      # annotation = data.frame(group_id = meta_data[, c("group_id")]),
-      #                      annotation = meta_data[,c(cluster_column,"group_id")],
-      #                      border_color = NA,
-      #                      fontsize = 10,
-      #                      scale = "row",
-      #                      fontsize_row = 10,
-      #                      height = 20)
-      # } else {
-      #   pheatm <- "no features plotted"
-      # }
       if(fn_flag==1) {
         return(list(res = res, norm_ct = norm_ct, meta = meta_data))#, hm = pheatm))
       } else {

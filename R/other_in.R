@@ -413,46 +413,99 @@ seu_mast_sets <- function() {
 
 seu_mast_gsea <- function(mast_dge_result, seu_mast_sets, num_boots = 50,
                           gs_min = 5, gs_max = Inf, gs_regex = NULL,
-                          nthread = ceiling(parallel::detectCores()/2)) {
+                          nthread = 1, prepare_plot_n = 20, verbose = TRUE) {
   # zlmCond <- readRDS(file = "J:/seutools/seutools/test_script/mast_zlm.rds")
+  # testing
+  # mast_dge_result = seu_mast$custom_compare$ISG_Mono
+  # seu_mast_sets = c("C2_CP_Reactome","C5_GO_BP","C5_GO_MF","H_Hallmark")
+  # num_boots = 4
+  # gs_min = 3
+  # gs_max = Inf
+  # gs_regex = NULL
+  # nthread = 2
+  # prepare_plot_n = 20
+
+  positive_group <- gsub(pattern = "^.+\\.", replacement = "", x = mast_dge_result$raw_res$contrast[1])
   mast_zlmfit <- mast_dge_result[['zlmfit']]
   sca <- mast_dge_result[['sca']]
 
+  packageExt <- system.file("extdata", package='seutools')
+
+  if(verbose==TRUE) {
+    if(num_boots<=50) {
+      warning(paste0("'num_boots = ",num_boots,". MAST authors recommend >50 should be used if values will be reported. Less is fine for exploration."))
+    }
+    print(paste0("Users may specify their own gene sets by inserting gmt files here: ", packageExt," Inserted gmt file names must end with 'modules_gsea.gmt'. See existing gmt files for examples."))
+  }
+
   db_pattern <- paste0("(",paste0(seu_mast_sets, collapse = "|"),")")
 
-  nthread <- round(nthread)
-  makecl <- parallel::makePSOCKcluster(nthread)
-
-  boots <- pbootVcov1(zlmfit = zlmCond2, R = num_boots, cl = makecl)
-  boots <- readRDS(file = "J:/seutools/seutools/test_script/mast_boots.rds")
-
-  packageExt <- system.file("extdata", package='seutools')
-  module_file <- list.files(packageExt, pattern = "modules_gsea\\.gmt", full.names = TRUE)
-  module_file <- module_file[grep(pattern = db_pattern, x = module_file)]
-  gene_set <- GSEABase::getGmt(module_file)
-  gene_ids <- GSEABase::geneIds(gene_set)
-  sets_indices <- limma::ids2indices(gene_ids, mcols(sca)$primerid)
-  gs_min_thresh <- which(sapply(sets_indices, length) >= gs_min)
-  gs_max_thresh <- which(sapply(sets_indices, length) <= gs_max)
-  keep_gs_indices_length <- intersect(gs_min_thresh, gs_max_thresh)
-  if(!is.null(gs_regex)) {
-    keep_gs_indices_regex <- grep(pattern = gs_regex, x = names(sets_indices))
-    keep_gs_indices <- intersect(keep_gs_indices_length, keep_gs_indices_regex)
+  if(nthread==1) {
+    boots <- bootVcov1(zlmfit = mast_zlmfit, R = num_boots)
   } else {
-    keep_gs_indices <- keep_gs_indices_length
+    nthread <- round(nthread)
+    makecl <- parallel::makePSOCKcluster(nthread)
+
+    boots <- pbootVcov1(zlmfit = mast_zlmfit, R = num_boots, cl = makecl)
   }
-  if(length(keep_gs_indices)==1) {
-    sets_indices <- sets_indices[[keep_gs_indices]]
-  } else if(length(keep_gs_indices)>1) {
-    sets_indices <- sets_indices[keep_gs_indices]
-  } else {
-    stop("no gene sets to test with current 'gs_min', 'gs_max'")
+  # saveRDS(object = boots, file = "J:/seutools/seutools/test_script/mast_boots.rds")
+  # boots <- readRDS(file = "J:/seutools/seutools/test_script/mast_boots.rds")
+  # parallel::stopCluster(makecl)
+  # lapply(makecl, function(node) {
+  #   try(parallel::stopCluster(node), silent = TRUE)
+  # })
+
+  list_module_files <- list.files(packageExt, pattern = "modules_gsea\\.gmt", full.names = TRUE)
+  module_files <- list_module_files[grep(pattern = db_pattern, x = list_module_files)]
+  if(length(module_files)==0) {
+    stop("No supported gene set databases found for testing. See args(seu_mast_gsea) for supported gene set databases or insert your own according to print messages given by 'verbose' = TRUE")
   }
 
-  gsea <- gseaAfterBoot(mast_zlmfit, boots, sets_indices, CoefficientHypothesis("categoryGroup2"))
-  z_stat_comb <- summary(gsea, testType='normal')
+  gsea_result <- vector("list", length = length(module_files))
 
-  return(as.data.frame(z_stat_comb))
+  for(i in 1:length(module_files)) {
+    module_file <- module_files[i]
+    target_module <- stringr::str_extract(string = module_file, pattern = db_pattern)
+    names(gsea_result)[i] <- target_module
+    gene_set <- GSEABase::getGmt(module_file)
+    gene_ids <- GSEABase::geneIds(gene_set)
+    sets_indices <- limma::ids2indices(gene_ids, mcols(sca)$primerid)
+    gs_min_thresh <- which(sapply(sets_indices, length) >= gs_min)
+    gs_max_thresh <- which(sapply(sets_indices, length) <= gs_max)
+    keep_gs_indices_length <- intersect(gs_min_thresh, gs_max_thresh)
+    if(!is.null(gs_regex)) {
+      keep_gs_indices_regex <- grep(pattern = gs_regex, x = names(sets_indices))
+      keep_gs_indices <- intersect(keep_gs_indices_length, keep_gs_indices_regex)
+    } else {
+      keep_gs_indices <- keep_gs_indices_length
+    }
+    if(length(keep_gs_indices)==1) {
+      sets_indices <- sets_indices[[keep_gs_indices]]
+    } else if(length(keep_gs_indices)>1) {
+      sets_indices <- sets_indices[keep_gs_indices]
+    } else {
+      stop("no gene sets to test with current 'gs_min', 'gs_max'")
+    }
+
+    gsea <- gseaAfterBoot(mast_zlmfit, boots, sets_indices, CoefficientHypothesis("categoryGroup2"))
+    gsea_table <- summary(gsea, testType='normal')
+    gsea_table_top <- gsea_table[gsea_table$combined_Z>0,]; gsea_table_top <- gsea_table_top[order(gsea_table_top$combined_Z, decreasing = T),]
+    if(nrow(gsea_table_top)>prepare_plot_n) {
+      gsea_table_top <- gsea_table_top[1:prepare_plot_n,]
+    }
+    gsea_table_bottom <- gsea_table[gsea_table$combined_Z<0,]; gsea_table_bottom <- gsea_table_bottom[order(gsea_table_bottom$combined_Z, decreasing = F),]
+    if(nrow(gsea_table_bottom)>prepare_plot_n) {
+      gsea_table_bottom <- gsea_table_bottom[1:prepare_plot_n,]
+    }
+    gsea_top_bottom_table <- rbind(gsea_table_top, gsea_table_bottom[order(gsea_table_bottom$combined_Z, decreasing = T),])
+    gseaTable_plot <- melt(gsea_top_bottom_table[,.(set, disc_Z, cont_Z, combined_Z)], id.vars='set')
+    gseaTable_report <- as.data.frame(gsea_table)
+    gseaTable_report$positive_score_group <- positive_group
+    gsea_result[[i]] <- list(result = gseaTable_report,
+                             melted_result = gseaTable_plot)
+  }
+
+  return(gsea_result)
   # gseaTable <- melt(most_sigModules[,.(set, disc_Z, cont_Z, combined_Z)], id.vars='set')
   # ggplot(gseaTable, aes(y=set, x=variable, fill=value)) + geom_raster() +
   #   scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = 0) +
