@@ -2143,7 +2143,7 @@ seurat_dge <- function(seurat_object,
               file = paste0(capture_dir,"/temp_files/__python_obs_matrix__.csv"), row.names = FALSE)
     write.csv(x = data.frame(v1 = row.names(seurat_object)),
               file = paste0(capture_dir,"/temp_files/__python_feature_names__.csv"), row.names = FALSE)
-    system(command = paste0("python ",
+    system(command = paste0("python3 ",
                             paste0(capture_dir,"/python/create_pseudobulk_profile.py")," ",
                             paste0(capture_dir,"/temp_files/__python_ct_matrix__.mtx")," ",
                             capture_dir,"/temp_files"," ",
