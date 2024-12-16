@@ -944,10 +944,10 @@ seurat_mean_count_hm <- function(seurat_object,
     }
     cluster_annotation_color <- gg_color_hue(length(split_clus_mats))
     for(i in 1:length(cluster_annotation_color)) {
-      if(i>length(ref)) {
+      if(i>length(cluster_annotation_ref)) {
         names(cluster_annotation_color)[i] <- "other"
       } else {
-        names(cluster_annotation_color)[i] <- names(ref)[i]
+        names(cluster_annotation_color)[i] <- names(cluster_annotation_ref)[i]
       }
     }
   } #else {
