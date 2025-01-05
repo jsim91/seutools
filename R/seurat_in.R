@@ -944,10 +944,10 @@ seurat_mean_count_hm <- function(seurat_object,
     }
     cluster_annotation_color <- gg_color_hue(length(split_clus_mats))
     for(i in 1:length(cluster_annotation_color)) {
-      if(i>length(ref)) {
+      if(i>length(cluster_annotation_ref)) {
         names(cluster_annotation_color)[i] <- "other"
       } else {
-        names(cluster_annotation_color)[i] <- names(ref)[i]
+        names(cluster_annotation_color)[i] <- names(cluster_annotation_ref)[i]
       }
     }
   } #else {
@@ -2061,7 +2061,8 @@ seurat_dge <- function(seurat_object,
                        pid_column = "pid",
                        wilcox_only_positive = FALSE,
                        pseudobulk_test_mode = c("cluster_identity","cluster_by_category","cluster_by_condition"),
-                       return_all_pseudobulk = FALSE) {
+                       return_all_pseudobulk = FALSE, 
+                       gene_set_blacklist = NULL) {
   suppressPackageStartupMessages({
     require(Seurat)
   })
@@ -2416,7 +2417,7 @@ seurat_dge <- function(seurat_object,
         })
         test_idents <- c(ident1, ident2)
         print(paste0("dropping lowly expressed genes. Threshold >= ",freq_expressed*100,"% of cells."))
-        keep_genes <- vector("list", length = length(test_idents)); names(keep_genes) <- test_idents
+        keep_genes <- vector("list", length = length(test_idents)); names(keep_genes) <- test_idents; drop_blacklist_genes <- keep_genes
         num_unique_genes <- nrow(subs2)
         for(k in 1:2) {
           if(pseudobulk_test_mode=="cluster_by_category") {
@@ -2427,8 +2428,15 @@ seurat_dge <- function(seurat_object,
           bem <- subs2_grp@assays[[assay]]@layers$counts > 0
           percent_expr <- rowSums(bem) / ncol(bem); names(percent_expr) <- row.names(subs2)
           keep_genes[[k]] <- row.names(subs2)[percent_expr >= freq_expressed]
+          if(!is.null(gene_set_blacklist)) {
+            drop_blacklist_genes[[k]] <- keep_genes[[k]][keep_genes[[k]] %in% gene_set_blacklist]
+            keep_genes[[k]] <- keep_genes[[k]][!keep_genes[[k]] %in% gene_set_blacklist]
+          } else {
+            drop_blacklist_genes[[k]] <- c()
+          }
         }
         grp_genes <- unlist(keep_genes); grp_genes <- grp_genes[!is.na(grp_genes)]
+        num_blacklist_genes <- length(unique(unlist(drop_blacklist_genes)))
         if(filter_genes=="inner") {
           genes_to_keep <- names(table(grp_genes)[which(table(grp_genes)==2)])
         } else if(filter_genes=="outer") {
@@ -2438,7 +2446,8 @@ seurat_dge <- function(seurat_object,
           warning("no genes passed thresholding")
           next
         } else {
-          print(paste0("number of lowly expressed genes dropped: ",num_unique_genes - length(genes_to_keep)," genes. ",length(genes_to_keep)," genes left for MAST testing."))
+          print(paste0("number of dropped genes through blacklisting: ",num_blacklist_genes," genes."))
+          print(paste0("total number of genes dropped: ",num_unique_genes - length(genes_to_keep)," genes. ",length(genes_to_keep)," genes left for MAST testing."))
         }
         subs2 <- subset(x = subs2, features = genes_to_keep)
         if(pseudobulk_test_mode=="cluster_by_category") {
