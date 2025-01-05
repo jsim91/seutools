@@ -2081,7 +2081,7 @@ seurat_dge <- function(seurat_object,
   # filter_genes = "outer"
 
   if(all(!is.null(test_categories), pseudobulk_test_mode!="cluster_by_category")) {
-    stop("'test_categories' should be set to NULL when 'pseudobulk_test_mode' is not set to 'cluster_category'")
+    stop("'test_categories' should be set to NULL when 'pseudobulk_test_mode' is not set to 'cluster_by_category'")
   }
   if(test_condition[1]!="all") {
     conditions <- test_condition[test_condition %in% seurat_object@meta.data[,condition_column]]

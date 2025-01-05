@@ -11,20 +11,27 @@ und_cl <- paste0("Undecided",1:5)
 
 # testing seutools::seurat_dge()
 if(F) {
-  seu_small <- subset(x = seu, subset = cell_type %in% c("Th1/Th17","CM_CD4","CM_CD8"))
-  seu_wilc <- seurat_dge(seurat_object = seu_small,
-                         dge_method = "wilcox",
-                         assay = "RNA",
-                         freq_expressed = 0.1,
-                         fc_threshold = log2(1.5),
-                         test_clusters = "all",
-                         cluster_column = "cell_type",
-                         category_column = "age_group",
-                         test_categories = c("younger","older"),
-                         test_condition = c("stim","media"),
-                         condition_column = "condition",
-                         pid_column = "pid",
-                         pseudobulk_test_mode = "cluster_identity")
+  seu_small <- subset(x = seu, subset = cell_type %in% c("ISG_Mono","CD14_Mono"))#,"CM_CD8"))
+  seu_mast <- seurat_dge(seurat_object, dge_method = "mast",
+                         assay = "RNA", freq_expressed = 0.1, filter_genes = "outer",
+                         fc_threshold = log2(1.5), test_clusters = "all", mast_lane = NULL,
+                         cluster_column = "cell_type", category_column = "age_group",
+                         test_categories = NULL, test_condition = "stim",
+                         condition_column = "condition", pid_column = "pid", wilcox_only_positive = FALSE,
+                         pseudobulk_test_mode = "cluster_identity", return_all_pseudobulk = FALSE)
+  # seu_wilc <- seurat_dge(seurat_object = seu_small,
+  #                        dge_method = "wilcox",
+  #                        assay = "RNA",
+  #                        freq_expressed = 0.1,
+  #                        fc_threshold = log2(1.5),
+  #                        test_clusters = "all",
+  #                        cluster_column = "cell_type",
+  #                        category_column = "age_group",
+  #                        test_categories = c("younger","older"),
+  #                        test_condition = c("stim","media"),
+  #                        condition_column = "condition",
+  #                        pid_column = "pid",
+  #                        pseudobulk_test_mode = "cluster_identity")
 }
 
 if(F) {
