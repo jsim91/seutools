@@ -411,20 +411,28 @@ seu_mast_sets <- function() {
   print(paste0("use one or more of: ",paste0(as.character(shortened_gmt), collapse = ", ")))
 }
 
-seu_mast_gsea <- function(mast_dge_result, seu_mast_sets, num_boots = 50,
-                          gs_min = 5, gs_max = Inf, gs_regex = NULL,
+seu_mast_gsea <- function(mast_dge_result, seu_mast_sets,
+                          num_boots = 50, gs_min = 5, gs_max = Inf, gs_regex = NULL,
                           nthread = 1, prepare_plot_n = 20, verbose = TRUE) {
-  # zlmCond <- readRDS(file = "J:/seutools/seutools/test_script/mast_zlm.rds")
   # testing
-  # mast_dge_result = seu_mast$custom_compare$ISG_Mono
-  # seu_mast_sets = c("C2_CP_Reactome","C5_GO_BP","C5_GO_MF","H_Hallmark")
-  # num_boots = 4
+  # mast_dge_result = mast_res[["ISG_Mono"]][["stim"]][["ISG_Mono"]]
+  # seu_mast_sets = c("C2_CP_Reactome","C5_GO_BP",
+  #                   "C5_GO_MF","H_Hallmark",
+  #                   "C2_CP_KEGG_LEGACY","C2_CP_KEGG_MEDICUS",
+  #                   "C7_ImmuneSigDB","C7_VAX")
+  # num_boots = 8
   # gs_min = 3
+  # prepare_plot_n = 20
   # gs_max = Inf
   # gs_regex = NULL
   # nthread = 2
-  # prepare_plot_n = 20
+  # verbose = TRUE
 
+  if(sum(duplicated(mast_dge_result$raw_res$primerid))!=0) {
+    stop(paste0('mast_dge_result$raw_res$primerid must not contain duplicates'))
+  } else {
+    row.names(mast_dge_result$raw_res) <- mast_dge_result$raw_res$primerid
+  }
   positive_group <- gsub(pattern = "^.+\\.", replacement = "", x = mast_dge_result$raw_res$contrast[1])
   mast_zlmfit <- mast_dge_result[['zlmfit']]
   sca <- mast_dge_result[['sca']]
@@ -486,6 +494,15 @@ seu_mast_gsea <- function(mast_dge_result, seu_mast_sets, num_boots = 50,
     } else {
       stop("no gene sets to test with current 'gs_min', 'gs_max'")
     }
+    geneset_meta <- vector('list', length = length(sets_indices)); names(geneset_meta) <- names(sets_indices)
+    for(j in 1:length(sets_indices)) {
+      genes_found <- mcols(sca)$primerid[sets_indices[[j]]]
+      geneset_res <- mast_dge_result$raw_res[gene_ids[[j]],]
+      geneset_res$primerid <- gene_ids[[j]]
+      geneset_res$geneset <- names(sets_indices)[j]
+      row.names(geneset_res) <- NULL
+      geneset_meta[[j]] <- geneset_res
+    }
 
     gsea <- gseaAfterBoot(mast_zlmfit, boots, sets_indices, CoefficientHypothesis("categoryGroup2"))
     gsea_table <- summary(gsea, testType='normal')
@@ -502,7 +519,8 @@ seu_mast_gsea <- function(mast_dge_result, seu_mast_sets, num_boots = 50,
     gseaTable_report <- as.data.frame(gsea_table)
     gseaTable_report$positive_score_group <- positive_group
     gsea_result[[i]] <- list(result = gseaTable_report,
-                             melted_result = gseaTable_plot)
+                             melted_result = gseaTable_plot,
+                             geneset_mast_res = geneset_meta)
   }
 
   return(gsea_result)

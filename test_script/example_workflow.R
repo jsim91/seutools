@@ -11,14 +11,63 @@ und_cl <- paste0("Undecided",1:5)
 
 # testing seutools::seurat_dge()
 if(F) {
-  seu_small <- subset(x = seu, subset = cell_type %in% c("ISG_Mono","CD14_Mono"))#,"CM_CD8"))
-  seu_mast <- seurat_dge(seurat_object, dge_method = "mast",
-                         assay = "RNA", freq_expressed = 0.1, filter_genes = "outer",
-                         fc_threshold = log2(1.5), test_clusters = "all", mast_lane = NULL,
-                         cluster_column = "cell_type", category_column = "age_group",
-                         test_categories = NULL, test_condition = "stim",
-                         condition_column = "condition", pid_column = "pid", wilcox_only_positive = FALSE,
-                         pseudobulk_test_mode = "cluster_identity", return_all_pseudobulk = FALSE)
+  ###
+  test_clusters <- c("ISG_Mono","CD14_Mono")
+  # cat_col <- "study_day"
+
+  seu_test <- subset(x = seu, subset = cell_type %in% test_clusters)
+
+  mast_res <- vector("list", length = length(test_clusters)); names(mast_res) <- test_clusters
+
+  for(i in 1:length(mast_res)) {
+    start_mast_i <- Sys.time()
+    print(paste0("starting: ",names(mast_res)[i]," [",i,"] of [",length(mast_res),"] clusters"))
+    target_cluster <- names(mast_res)[i]
+    test_cats <- c("other",target_cluster)
+    seu_test$category_custom <- ifelse(seu_test$cell_type==target_cluster,target_cluster,"other")
+    seu_test$cluster_custom <- target_cluster
+
+    try(seu_mast <- seutools::seurat_dge(seurat_object = seu_test,
+                                         dge_method = "mast",
+                                         assay = "RNA",
+                                         freq_expressed = 0.3,
+                                         fc_threshold = log2(1.25),
+                                         test_clusters = target_cluster,
+                                         cluster_column = "cluster_custom",
+                                         category_column = "category_custom",
+                                         test_categories = test_cats,
+                                         test_condition = "stim",
+                                         condition_column = "condition",
+                                         pid_column = "pid",
+                                         pseudobulk_test_mode = "cluster_by_category",
+                                         filter_genes = "outer"), silent = TRUE)
+    mast_res[[i]] <- seu_mast
+
+    print(paste0("finished: ",names(mast_res)[i]," in ",round(as.numeric(difftime(Sys.time(), start_mast_i, units = "mins")),1)," mins"))
+  }
+
+  ###
+
+
+  start_mast_gsea_isg_mono <- Sys.time()
+  mast_gsea_isg_mono <- seutools:::seu_mast_gsea(mast_dge_result = seu_mast[["stim"]][["ISG_Mono"]],
+                                                 seu_mast_sets = c("C2_CP_Reactome","C5_GO_BP",
+                                                                   "C5_GO_MF","H_Hallmark",
+                                                                   "C2_CP_KEGG_LEGACY","C2_CP_KEGG_MEDICUS",
+                                                                   "C7_ImmuneSigDB","C7_VAX"),
+                                                 num_boots = 20, gs_min = 3, prepare_plot_n = 20,
+                                                 gs_max = Inf, gs_regex = NULL, nthread = 2)
+  difftime(Sys.time(), start_mast_gsea_isg_mono)
+
+  start_mast_gsea_cmo <- Sys.time()
+  mast_gsea_cmo <- seutools:::seu_mast_gsea(mast_dge_result = seu_mast[["stim"]][["CD14_Mono"]],
+                                            seu_mast_sets = c("C2_CP_Reactome","C5_GO_BP",
+                                                              "C5_GO_MF","H_Hallmark",
+                                                              "C2_CP_KEGG_LEGACY","C2_CP_KEGG_MEDICUS",
+                                                              "C7_ImmuneSigDB","C7_VAX"),
+                                            num_boots = 20, gs_min = 3, prepare_plot_n = 20,
+                                            gs_max = Inf, gs_regex = NULL, nthread = 2)
+  difftime(Sys.time(), start_mast_gsea_cmo)
   # seu_wilc <- seurat_dge(seurat_object = seu_small,
   #                        dge_method = "wilcox",
   #                        assay = "RNA",
