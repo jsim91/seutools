@@ -453,7 +453,7 @@ seu_mast_gsea <- function(mast_dge_result, seu_mast_sets,
   } else {
     nthread <- round(nthread)
     makecl <- parallel::makePSOCKcluster(nthread)
-
+    on.exit(parallel::stopCluster(makecl)) # Ensure the cluster is stopped
     boots <- pbootVcov1(zlmfit = mast_zlmfit, R = num_boots, cl = makecl)
   }
   # saveRDS(object = boots, file = "J:/seutools/seutools/test_script/mast_boots.rds")
