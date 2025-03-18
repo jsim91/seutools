@@ -2061,7 +2061,7 @@ seurat_dge <- function(seurat_object,
                        pid_column = "pid",
                        wilcox_only_positive = FALSE,
                        pseudobulk_test_mode = c("cluster_identity","cluster_by_category","cluster_by_condition"),
-                       return_all_pseudobulk = FALSE, 
+                       return_all_pseudobulk = TRUE, 
                        gene_set_blacklist = NULL) {
   suppressPackageStartupMessages({
     require(Seurat)
@@ -2209,13 +2209,19 @@ seurat_dge <- function(seurat_object,
         ct_spl[[i]] <- ct_spl[[i]][,which(colnames(ct_spl[[i]]) %in% meta_list[[i]]$cell_group)]
       }
     } else {
-      ##
       ct_data <- as.data.frame(data.table::fread(paste0(capture_dir,"/temp_files/__pseudobulk_sum_counts__.csv"), check.names = FALSE, header = FALSE))
       if(file.exists(paste0(capture_dir,"/temp_files/__pseudobulk_sum_counts__.csv"))) {
         file.remove(paste0(capture_dir,"/temp_files/__pseudobulk_sum_counts__.csv"))
       }
       obj_obs <- read.csv(paste0(capture_dir,"/temp_files/__pseudobulk_obs__.csv"), check.names = FALSE, row.names = 1)
       obj_obs$cell_group <- row.names(obj_obs)
+      if(length(test_clusters)>1) {
+        obj_obs[,cluster_column] <- paste0(test_clusters, collapse=",")
+      } else if(length(test_clusters)==1) {
+        obj_obs[,cluster_column] <- test_clusters
+      } else {
+        stop("'test_clusters' should be a single cluster or multiple clusters that will be joined when not testing for cluster identity")
+      }
       if(file.exists(paste0(capture_dir,"/temp_files/__pseudobulk_obs__.csv"))) {
         file.remove(paste0(capture_dir,"/temp_files/__pseudobulk_obs__.csv"))
       }
@@ -2232,23 +2238,27 @@ seurat_dge <- function(seurat_object,
       # ct_spl <- lapply(X = ct_spl, FUN = drop_novar)
       ct_spl <- lapply(X = ct_spl, FUN = drop_novar2)
       # meta_spl <- split(x = obj_obs, f = obj_obs[,cluster_column])
-      meta_list <- vector("list", length = length(ct_spl)); names(meta_list) <- names(ct_spl)
-      for(i in 1:length(meta_list)) {
-        tmp_meta <- obj_obs
-        # tmp_meta <- tmp_meta[which(tmp_meta[,pid_column] %in% colnames(ct_spl[[i]])),]
-        # tmp_meta <- tmp_meta[which(gsub(id_pattern,"",row.names(obj_obs)) %in% names(ct_spl)[i]),]
-        # if(mean(tmp_meta[,pid_column]==colnames(ct_spl[[i]]))!=1) {
-        tmp_meta <- tmp_meta[which(tmp_meta[,"cell_group"] %in% colnames(ct_spl[[i]])),]
-        tmp_meta <- tmp_meta[which(tmp_meta[,cluster_column]==names(ct_spl)[i]),]
-        if(mean(row.names(tmp_meta)==colnames(ct_spl[[i]]))!=1) {
-          stop("pid mismatch (1)")
-        }
-        tmp_meta$cluster_id <- names(meta_list)[i]
-        tmp_meta$sample_id <- tmp_meta[,pid_column]
-        tmp_meta$group_id <- factor(tmp_meta[,category_column], levels = test_categories)
-        # row.names(tmp_meta) <- tmp_meta$sample_id
-        meta_list[[i]] <- tmp_meta
-      }
+      #meta_list <- vector("list", length = length(ct_spl)); names(meta_list) <- names(ct_spl)
+      #for(i in 1:length(meta_list)) {
+      #  tmp_meta <- obj_obs
+      # tmp_meta <- tmp_meta[which(tmp_meta[,pid_column] %in% colnames(ct_spl[[i]])),]
+      # tmp_meta <- tmp_meta[which(gsub(id_pattern,"",row.names(obj_obs)) %in% names(ct_spl)[i]),]
+      # if(mean(tmp_meta[,pid_column]==colnames(ct_spl[[i]]))!=1) {
+      # tmp_meta <- tmp_meta[which(tmp_meta[,"cell_group"] %in% colnames(ct_spl[[i]])),]
+      #  tmp_meta <- tmp_meta[which(tmp_meta[,category_column]==names(ct_spl)[i]),]
+      #  if(mean(row.names(tmp_meta)==colnames(ct_spl[[i]]))!=1) {
+      #    stop("pid mismatch (1)")
+      #  }
+      #  tmp_meta$cluster_id <- names(meta_list)[i]
+      #  tmp_meta$sample_id <- tmp_meta[,pid_column]
+      #  tmp_meta$group_id <- factor(tmp_meta[,category_column], levels = test_categories)
+      # row.names(tmp_meta) <- tmp_meta$sample_id
+      #  meta_list[[i]] <- tmp_meta
+      #}
+      obj_obs$cluster_id <- obj_obs[,cluster_column]
+      obj_obs$sample_id <- obj_obs[,pid_column]
+      obj_obs$group_id <- factor(obj_obs[,category_column], levels = test_categories)
+      meta_list <- list(obj_obs)
     }
 
     deseq_input <- vector("list", length = length(ct_spl)); names(deseq_input) <- names(ct_spl)
@@ -2312,6 +2322,8 @@ seurat_dge <- function(seurat_object,
           }
           res$gene <- row.names(res)
           res$condition <- stim
+          res$contrast_ident.1 <- test_cats_order[1]
+          res$contrast_ident.2 <- test_cats_order[2]
           if(use_adj) {
             if(!is.null(p_return_threshold)) {
               res <- res[res$padj<=p_return_threshold,]
@@ -2334,6 +2346,8 @@ seurat_dge <- function(seurat_object,
 
     if(return_all_pseudobulk) {
       return(deseq_out)
+    } else {
+      print("'return_all_pseudobulk' is set to FALSE; trimming non-significant results. Set 'return_all_pseudobulk' to TRUE (recommended) to return significant and non-significant results.")
     }
 
     drop_indices <- c()
