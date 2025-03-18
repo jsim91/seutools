@@ -2139,7 +2139,7 @@ seurat_dge <- function(seurat_object,
     #   stop("Test_categories must be length 2 when doing pseudobulk. If testing cluster vs rest, do c('in','out') mapped to what cluster is being tested. If testing ")
     # }
     if(pseudobulk_test_mode!='cluster_identity') {
-      seurat_obj <- subset(seurat_obj, cells = which(seurat_obj@meta.data[,category_column] %in% test_cats))
+      seurat_object <- subset(seurat_object, cells = which(seurat_object@meta.data[,category_column] %in% test_cats))
     }
     capture_dir <- system.file(package = "seutools")
     Matrix::writeMM(obj = seurat_object@assays[[assay]]@layers$counts,
