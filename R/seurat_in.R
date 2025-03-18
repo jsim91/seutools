@@ -2123,6 +2123,7 @@ seurat_dge <- function(seurat_object,
       test_cats <- test_categories
     }
   } else {
+    warning("Setting 'test_categories' to 'all' or using 'all' as a tested category may produce errors or unexpected results. Categories should be explicitly defined.")
     test_categories <- unique(seurat_object@meta.data[,category_column])
     test_cats <- test_categories
   }
@@ -2137,6 +2138,9 @@ seurat_dge <- function(seurat_object,
     # if(length(test_cats)!=2) {
     #   stop("Test_categories must be length 2 when doing pseudobulk. If testing cluster vs rest, do c('in','out') mapped to what cluster is being tested. If testing ")
     # }
+    if(pseudobulk_test_mode!='cluster_identity') {
+      seurat_obj <- subset(seurat_obj, cells = which(seurat_obj@meta.data[,category_column] %in% test_cats))
+    }
     capture_dir <- system.file(package = "seutools")
     Matrix::writeMM(obj = seurat_object@assays[[assay]]@layers$counts,
                     file = paste0(capture_dir,"/temp_files/__python_ct_matrix__.mtx"))
