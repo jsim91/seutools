@@ -194,7 +194,7 @@ seu_plot_volcano <- function(dge_input, plot_clusters = "all",
 
     pgene <- c(gene_set_up[1:topg], gene_set_dn[1:topg], prio_genes); pgene <- pgene[!is.na(pgene)]
     pgene <- pgene[pgene %in% vol_in$gene]
-    vol_in <- vol_in[vol_in$p_val_adj_nlog10>y1,] # new
+    vol_in <- vol_in[vol_in$p_val_adj_nlog10>y_thresh,] # new
 
     volc <- ggplot(data = vol_in, mapping = aes(x = avg_directional_log2FC, y = p_val_adj_nlog10)) +
       # ylim(maxy_seg,0) +
@@ -210,7 +210,7 @@ seu_plot_volcano <- function(dge_input, plot_clusters = "all",
       # if(length(prio_row)!=0) {
       # if(length(pgene)!=0) {
       prio_data <- vol_in[which(vol_in$gene %in% pgene),]
-      prio_data <- prio_data[prio_data$p_val_adj_nlog10>y1,] # new
+      prio_data <- prio_data[prio_data$p_val_adj_nlog10>y_thresh,] # new
       volc <- volc + geom_point(pch = 21) +
         geom_point(data = prio_data,
                    mapping = aes(x = avg_directional_log2FC, y = p_val_adj_nlog10),
