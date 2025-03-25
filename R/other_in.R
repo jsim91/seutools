@@ -26,7 +26,7 @@ seu_plot_volcano <- function(dge_input, plot_clusters = "all",
                              gene_set = NA, prio_top_genes = 5,
                              pval_threshold = 1, table_height = 50,
                              fc_threshold = log2(1.5),
-                             de_method = c("seurat_presto","pseudobulk_py","mast"),
+                             de_method = c("seurat_presto","pseudobulk_py","mast","edger"),
                              feature_gsub_pattern = "Hu\\.|Mu\\.",
                              include_gene_table = TRUE,
                              expand_y_axis_factor = 1) # input here is the seurat_dge output list
@@ -52,7 +52,7 @@ seu_plot_volcano <- function(dge_input, plot_clusters = "all",
   # feature_gsub_pattern = "Hu\\.|Mu\\."
   # include_gene_table = TRUE
 
-
+  de_method <- tolower(de_method)
   if(length(de_method)!=1) {
     stop("use one of 'seurat_presto', 'pseudobulk_py', or 'mast' for 'de_method'; length of 'de_method' must be 1")
   }
@@ -77,6 +77,14 @@ seu_plot_volcano <- function(dge_input, plot_clusters = "all",
         stop("'padj_colname not found in dge_input")
       }
     }
+    dge_input$p_val_adj_nlog10 <- -log10(dge_input[,padj_colname])
+  } else if(de_method=="edger") {
+    logFC_colname <- "logFC"
+    padj_colname <- "weighted_fdr"
+    if(!padj_colname %in% colnames(dge_input)) {
+        padj_colname <- "FDR"
+    }
+    cluster_colname <- "cluster"
     dge_input$p_val_adj_nlog10 <- -log10(dge_input[,padj_colname])
   }
 
