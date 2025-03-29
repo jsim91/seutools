@@ -1795,7 +1795,7 @@ seurat_feature_violin_test <- function(seurat_object,
     # shq = show_quantiles
     # cond = condition
 
-    indata$add_col <- paste0(indata$cat, "\n", indata$test_cat)
+    indata$add_col <- paste0(indata$gene, "\n", indata$test_cat)
     concat_table_names <- names(table(indata$add_col))
 
     # comps <- split(concat_table_names, f = gsub(pattern = "\n.+$", replacement = "", x = concat_table_names))
@@ -1874,13 +1874,23 @@ seurat_feature_violin_test <- function(seurat_object,
     } else {
       test_res <- rstatix::add_y_position(test = test_res, step.increase = 0)
     }
+    if(apa) {
+      if("p.adj.signif" %in% colnames(test_res)) {
+        stat_label = "p.adj.signif"
+      } else {
+        print("padj not found, falling back to p")
+        stat_label = "p"
+      }
+    } else {
+      stat_label = "p"
+    }
 
     plt <- ggplot()
     if(shq) {
       plt <- plt + geom_violin(data = indata, aes(x = add_col, y = ct, fill = test_cat), scale = "width", trim = TRUE, alpha = 0.7, draw_quantiles = TRUE) +
         ggrastr::geom_jitter_rast(data = indata_jitter, aes(x = add_col, y = ct), width = 0.2, height = 0, size = 1, alpha = 0.5) +
         # scale_fill_viridis_d() +
-        stat_pvalue_manual(as.data.frame(test_res), label = "p.adj.signif", tip.length = 0.01, size = 7*texp) +
+        stat_pvalue_manual(as.data.frame(test_res), label = stat_label, tip.length = 0.01, size = 7*texp) +
         theme_minimal() +
         ylab("normalized count") +
         theme(legend.position = "none",
