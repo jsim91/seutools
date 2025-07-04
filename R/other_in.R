@@ -85,6 +85,12 @@ seu_plot_volcano <- function(dge_input, plot_clusters = "all",
         padj_colname <- "FDR"
     }
     cluster_colname <- "cluster"
+    if (class(dge_input) == "list") {
+      dge_input <- do.call(rbind, dge_input)
+      if (!padj_colname %in% colnames(dge_input)) {
+        stop("'padj_colname not found in dge_input")
+      }
+    }
     dge_input$p_val_adj_nlog10 <- -log10(dge_input[,padj_colname])
   }
 
