@@ -194,7 +194,7 @@ seurat_tile_reduction <- function(seurat_object, condition_column, cluster_colum
       }
     } else {
       plt <- ggplot(data = input, mapping = aes(x = redx, y = redy)) +
-        geom_point(pch = 19, alpha = palpha, size = psize) + theme_void() +
+        ggrastr::geom_point_rast(pch = 19, alpha = palpha, size = psize) + theme_void() +
         xlim(plimx) + ylim(plimy)
       if(!isFALSE(flimx[1])) {
         plt <- plt + xlim(flimx)
@@ -206,9 +206,9 @@ seurat_tile_reduction <- function(seurat_object, condition_column, cluster_colum
     if(color_clus[1]!="none") {
       if(color_clus[1]!="all") {
         plt <- ggplot(data = input, mapping = aes(x = redx, y = redy)) +
-          geom_point(pch = 19, alpha = palpha, size = psize) + theme_void() +
+          ggrastr::geom_point_rast(pch = 19, alpha = palpha, size = psize) + theme_void() +
           xlim(plimx) + ylim(plimy)
-        plt <- plt + geom_point(data = foreground,
+        plt <- plt + ggrastr::geom_point_rast(data = foreground,
                                 mapping = aes(x = redx, y = redy, color = cluster),
                                 alpha = palpha, size = psize) +
           guides(color = guide_legend(override.aes = list(size = 6, alpha = 1))) +
@@ -223,10 +223,10 @@ seurat_tile_reduction <- function(seurat_object, condition_column, cluster_colum
         }
       } else {
         # plt <- ggplot(data = foreground, mapping = aes(x = UMAP1, y = UMAP2)) +
-        #   geom_point(pch = 19, alpha = palpha, size = psize) + theme_void() +
+        #   ggrastr::geom_point_rast(pch = 19, alpha = palpha, size = psize) + theme_void() +
         #   xlim(plimx) + ylim(plimy)
         plt <- ggplot() + theme_void() + xlim(plimx) + ylim(plimy) +
-          geom_point(data = foreground,
+          ggrastr::geom_point_rast(data = foreground,
                      mapping = aes(x = redx, y = redy, color = cluster),
                      alpha = palpha, size = psize) +
           guides(color = guide_legend(override.aes = list(size = 6, alpha = 1))) +
@@ -552,7 +552,7 @@ seurat_footprint <- function(seurat_object, cluster_column, pid_column, conditio
       text_expansion_factor <- 1
 
       mapplt <- ggplot(data = df, mapping = aes(x = redx, y = redy, color = score)) +
-        geom_point(size = 0.5, alpha = 0.2) +
+        ggrastr::geom_point_rast(size = 0.5, alpha = 0.2) +
         scale_colour_gradientn(colours = c("blue", "red"),
                                na.value = "grey",
                                limits = c(min(df$score, na.rm = TRUE), max(df$score, na.rm = TRUE))) +
