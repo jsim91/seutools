@@ -1067,7 +1067,8 @@ seurat_test_clusters <- function(seurat_object, test_by_column = "condition", pi
                                  return_plots = TRUE, return_plot_data = FALSE,
                                  coord_stretch_factor = 0.11, text_size_factor = 1,
                                  shape_key = NULL, compare_step_distance = 0,
-                                 y_as_log = FALSE, coordinate_title_color = FALSE)
+                                 y_as_log = FALSE, coordinate_title_color = FALSE, 
+                                 perform_test = TRUE)
 {
   require(ggplot2)
   require(ggpubr)
@@ -1163,6 +1164,7 @@ seurat_test_clusters <- function(seurat_object, test_by_column = "condition", pi
                               should_connect = connect_points,
                               anchor_stim = backround_condition,
                               comps = comparison_list,
+                              ptest = perform_test, 
                               # tp = tile_plots,
                               dp = data_paired,
                               yax_lab = y_axis_subset,
@@ -1246,19 +1248,21 @@ seurat_test_clusters <- function(seurat_object, test_by_column = "condition", pi
       pl <- pl + geom_dotplot(data = arg_melt, aes(fill = variable), color = "black", stroke = 1.1,
                               binaxis = "y", stackdir = "center", position = "dodge", binpositions="all")
     }
-    if(dp) {
-      pl <- pl +
-        stat_compare_means(paired = TRUE, method = "wilcox", comparisons = compare_these, size = 7.6*tsf, step.increase = csd)
-    } else {
-      pl <- pl +
-        stat_compare_means(paired = FALSE, method = "wilcox", comparisons = compare_these, size = 7.6*tsf, step.increase = csd)
+    if(ptest) {
+      if(dp) {
+        pl <- pl +
+          stat_compare_means(paired = TRUE, method = "wilcox", comparisons = compare_these, size = 7.6*tsf, step.increase = csd)
+      } else {
+        pl <- pl +
+          stat_compare_means(paired = FALSE, method = "wilcox", comparisons = compare_these, size = 7.6*tsf, step.increase = csd)
+      }
+      pl <- pl + coord_cartesian(ylim = c(min(arg_melt$frequency, na.rm = TRUE), max(arg_melt$frequency, na.rm = TRUE)*(1 + length(compare_these)*csf)))
     }
     if(!isFALSE(ctcol[1])) {
       get_title_col <- ctcol[arg_melt[,"cluster"][1]]
     } else {
       get_title_col = "black"
     }
-    pl <- pl + coord_cartesian(ylim = c(min(arg_melt$frequency, na.rm = TRUE), max(arg_melt$frequency, na.rm = TRUE)*(1 + length(compare_these)*csf)))
     pl <- pl +
       guides(fill = "none", shape = guide_legend(position = "bottom", override.aes = list(size = 7*tsf),
                                                  theme = theme(legend.text = element_text(size = 18*tsf, margin = margin(t = -2, r = 15, b = 0, l = 1)),
