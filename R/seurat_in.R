@@ -53,7 +53,7 @@ heatmap_calculate <- function(seurat_obj, gene_set, set_name, clusters)
   # return(grid::grid.grabExpr(draw(out_hm)))
 }
 
-seurat_tile_reduction_test <- function(seurat_object, condition_column, cluster_column, reduction = "umap",
+seurat_tile_reduction <- function(seurat_object, condition_column, cluster_column, reduction = "umap",
                                   color_clusters = "all", label_clusters = "all",
                                   pt_alpha = 0.05, text_expansion = 1, pt_size = 1, color_seed = 123,
                                   # outline_method = c("nudge","fontsize"),
