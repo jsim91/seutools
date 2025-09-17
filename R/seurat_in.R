@@ -53,7 +53,7 @@ heatmap_calculate <- function(seurat_obj, gene_set, set_name, clusters)
   # return(grid::grid.grabExpr(draw(out_hm)))
 }
 
-seurat_tile_reduction <- function(seurat_object, condition_column, cluster_column, reduction = "umap",
+seurat_tile_reduction_test <- function(seurat_object, condition_column, cluster_column, reduction = "umap",
                                   color_clusters = "all", label_clusters = "all",
                                   pt_alpha = 0.05, text_expansion = 1, pt_size = 1, color_seed = 123,
                                   # outline_method = c("nudge","fontsize"),
@@ -67,11 +67,7 @@ seurat_tile_reduction <- function(seurat_object, condition_column, cluster_colum
   require(shadowtext)
   require(ggrastr)
   require(ggrepel)
-
-  # testing
-  # seurat_object = seu_small
-  # condition_column = "condition"
-  # cluster_column = "cell_type"
+  # defaults
   # reduction = "umap"
   # color_clusters = "all"
   # label_clusters = "all"
@@ -79,8 +75,9 @@ seurat_tile_reduction <- function(seurat_object, condition_column, cluster_colum
   # text_expansion = 1
   # pt_size = 1
   # color_seed = 123
-  # outline_method = c("nudge","fontsize")
+  # # outline_method = c("nudge","fontsize"),
   # postfix_title_string = NA
+  # force_colors = FALSE
   # force_xlim = FALSE
   # force_ylim = FALSE
   # return_as_list = FALSE
@@ -88,10 +85,23 @@ seurat_tile_reduction <- function(seurat_object, condition_column, cluster_colum
   # annotation_method = "repel" # c("repel","text","shadowtext","none")
   # override_color_aes = NA
   # frameon = FALSE
-
-
+  # 
+  # seurat_object = seu_nk
+  # condition_column = 'tmp'
+  # pt_alpha = 0.75
+  # text_expansion = 2.5
+  # cluster_column = 'cell_type'
+  # pt_size = 0.2
+  # plot_order = c(1)
+  # frameon = TRUE
+  # return_as_list = TRUE
+  # color_seed = 42
+  # color_clusters = c('NK CD56bright Reactive','NK CD56dim Reactive') 
+  # label_clusters = c('NK CD56bright Reactive','NK CD56dim Reactive')
+  
+  
   coords <- seurat_object@reductions[[tolower(reduction)]]@cell.embeddings
-
+  
   plot_data <- data.frame(redx = coords[,1], redy = coords[,2],
                           cluster = as.character(seurat_object@meta.data[,cluster_column]),
                           condition = seurat_object@meta.data[,condition_column])
@@ -99,7 +109,7 @@ seurat_tile_reduction <- function(seurat_object, condition_column, cluster_colum
   set.seed(color_seed)
   plot_data$cluster <- factor(x = plot_data$cluster, levels = sample(unique_clus,length(unique_clus),replace=F))
   xrange <- range(plot_data$redx); yrange = range(plot_data$redy)
-
+  
   uclus <- unique(plot_data$cluster); uclus <- uclus[order(uclus,decreasing=F)]
   clusx <- rep(NA,length(uclus)); names(clusx) <- uclus; clusy <- clusx
   for(i in 1:length(clusx)) {
@@ -115,14 +125,14 @@ seurat_tile_reduction <- function(seurat_object, condition_column, cluster_colum
       clusx <- c(); clusy <- c()
     }
   }
-
+  
   spl_data <- split(x = plot_data, f = plot_data$condition)
   ds_to <- min(sapply(X = spl_data, FUN = function(x) return(nrow(x))))
   for(i in 1:length(spl_data)) {
     set.seed(123)
     spl_data[[i]] <- spl_data[[i]][sample(x = 1:nrow(spl_data[[i]]), size = ds_to, replace = FALSE),]
   }
-
+  
   plot_red <- function(input, color_clus = color_clusters, xanno = clusx, yanno = clusy,
                        palpha = pt_alpha, texp = text_expansion, psize = pt_size,
                        plimx = xrange, plimy = yrange, amethod = annotation_method,
@@ -144,16 +154,17 @@ seurat_tile_reduction <- function(seurat_object, condition_column, cluster_colum
     # amethod = annotation_method
     # cseed = color_seed
     # oca = override_color_aes
+    # fcol = force_colors
     # flimx = force_xlim
     # flimy = force_ylim
     # pts = postfix_title_string
     # fo = frameon
-
+    
     gg_color_hue <- function(n) {
       hues = seq(15, 375, length = n + 1)
       hcl(h = hues, l = 65, c = 100)[1:n]
     }
-
+    
     if(length(xanno)!=0) {
       text_add <- data.frame(UMAP1 = xanno, UMAP2 = yanno, cluster = names(xanno))
     } else {
@@ -169,7 +180,7 @@ seurat_tile_reduction <- function(seurat_object, condition_column, cluster_colum
       if(length(subs_rows)!=0) {
         color_text_add <- text_add[subs_rows,]
         text_add <- text_add[subs_rows,]
-
+        
         color_text_add$cluster <- factor(color_text_add$cluster)
         text_add$cluster <- factor(text_add$cluster)
         # set.seed(cseed)
@@ -183,14 +194,21 @@ seurat_tile_reduction <- function(seurat_object, condition_column, cluster_colum
       }
       color_text_add <- matrix(data=NA,nrow=0,ncol=2)
     }
-
-    input$cluster <- factor(input$cluster)
+    
+    input$cluster <- as.character(input$cluster)
     if(color_clus[1]!="none") {
       if(color_clus[1]!="all") {
-        foreground <- input[which(input$cluster %in% color_clus),]
-        input <- input[which(!input$cluster %in% color_clus),]
+        # foreground <- input[which(input$cluster %in% color_clus),]
+        # input <- input[which(!input$cluster %in% color_clus),]
+        input$cluster_col <- sapply(X = input$cluster, FUN = function(x){
+          if(x %in% color_clus) {
+            return(x)
+          } else {
+            return('other')
+          }
+        })
       } else {
-        foreground <- input
+        input$cluster_col <- input$cluster
       }
     } else {
       plt <- ggplot(data = input, mapping = aes(x = redx, y = redy)) +
@@ -203,46 +221,62 @@ seurat_tile_reduction <- function(seurat_object, condition_column, cluster_colum
         plt <- plt + ylim(flimy)
       }
     }
-    if(color_clus[1]!="none") {
-      if(color_clus[1]!="all") {
-        plt <- ggplot(data = input, mapping = aes(x = redx, y = redy)) +
-          ggrastr::geom_point_rast(pch = 19, alpha = palpha, size = psize) + theme_void() +
-          xlim(plimx) + ylim(plimy)
-        plt <- plt + ggrastr::geom_point_rast(data = foreground,
-                                mapping = aes(x = redx, y = redy, color = cluster),
-                                alpha = palpha, size = psize) +
-          guides(color = guide_legend(override.aes = list(size = 6, alpha = 1))) +
-          theme(legend.position = "none",
-                legend.title = element_blank(),
-                legend.text = element_text(size = 16*texp))
-        if(!isFALSE(flimx[1])) {
-          plt <- plt + xlim(flimx)
-        }
-        if(!isFALSE(flimy[1])) {
-          plt <- plt + ylim(flimy)
-        }
-      } else {
-        # plt <- ggplot(data = foreground, mapping = aes(x = UMAP1, y = UMAP2)) +
-        #   ggrastr::geom_point_rast(pch = 19, alpha = palpha, size = psize) + theme_void() +
-        #   xlim(plimx) + ylim(plimy)
-        plt <- ggplot() + theme_void() + xlim(plimx) + ylim(plimy) +
-          ggrastr::geom_point_rast(data = foreground,
-                     mapping = aes(x = redx, y = redy, color = cluster),
-                     alpha = palpha, size = psize) +
-          guides(color = guide_legend(override.aes = list(size = 6, alpha = 1))) +
-          theme(legend.position = "none",
-                legend.title = element_blank(),
-                legend.text = element_text(size = 16*texp))
-        if(!isFALSE(flimx[1])) {
-          plt <- plt + xlim(flimx)
-        }
-        if(!isFALSE(flimy[1])) {
-          plt <- plt + ylim(flimy)
-        }
-      }
-      if(!is.na(oca[1])) {
-        plt <- plt + scale_color_manual(values = oca)
-      }
+    # if(color_clus[1]!="none") {
+    #   if(color_clus[1]!="all") {
+    #     plt <- ggplot(data = input, mapping = aes(x = redx, y = redy)) +
+    #       ggrastr::geom_point_rast(pch = 19, alpha = palpha, size = psize) + theme_void() +
+    #       xlim(plimx) + ylim(plimy)
+    #     plt <- plt + ggrastr::geom_point_rast(data = foreground,
+    #                                           mapping = aes(x = redx, y = redy, color = cluster),
+    #                                           alpha = palpha, size = psize) +
+    #       guides(color = guide_legend(override.aes = list(size = 6, alpha = 1))) +
+    #       theme(legend.position = "none",
+    #             legend.title = element_blank(),
+    #             legend.text = element_text(size = 16*texp))
+    #     if(!isFALSE(flimx[1])) {
+    #       plt <- plt + xlim(flimx)
+    #     }
+    #     if(!isFALSE(flimy[1])) {
+    #       plt <- plt + ylim(flimy)
+    #     }
+    #   } else {
+    #     # plt <- ggplot(data = foreground, mapping = aes(x = UMAP1, y = UMAP2)) +
+    #     #   ggrastr::geom_point_rast(pch = 19, alpha = palpha, size = psize) + theme_void() +
+    #     #   xlim(plimx) + ylim(plimy)
+    #     plt <- ggplot() + theme_void() + xlim(plimx) + ylim(plimy) +
+    #       ggrastr::geom_point_rast(data = foreground,
+    #                                mapping = aes(x = redx, y = redy, color = cluster),
+    #                                alpha = palpha, size = psize) +
+    #       guides(color = guide_legend(override.aes = list(size = 6, alpha = 1))) +
+    #       theme(legend.position = "none",
+    #             legend.title = element_blank(),
+    #             legend.text = element_text(size = 16*texp))
+    #     if(!isFALSE(flimx[1])) {
+    #       plt <- plt + xlim(flimx)
+    #     }
+    #     if(!isFALSE(flimy[1])) {
+    #       plt <- plt + ylim(flimy)
+    #     }
+    #   }
+    #   if(!is.na(oca[1])) {
+    #     plt <- plt + scale_color_manual(values = oca)
+    #   }
+    # }
+    plt <- ggplot(data = input, mapping = aes(x = redx, y = redy, color = cluster_col)) +
+      ggrastr::geom_point_rast(pch = 19, alpha = palpha, size = psize) + theme_void() +
+      xlim(plimx) + ylim(plimy) + 
+    # plt <- plt + ggrastr::geom_point_rast(data = foreground,
+    #                                       mapping = aes(x = redx, y = redy, color = cluster),
+    #                                       alpha = palpha, size = psize) +
+      guides(color = guide_legend(override.aes = list(size = 6, alpha = 1))) +
+      theme(legend.position = "none",
+            legend.title = element_blank(),
+            legend.text = element_text(size = 16*texp))
+    if(!isFALSE(flimx[1])) {
+      plt <- plt + xlim(flimx)
+    }
+    if(!isFALSE(flimy[1])) {
+      plt <- plt + ylim(flimy)
     }
     if(amethod[1]!="none") {
       if(nrow(text_add)!=0) {
@@ -299,13 +333,13 @@ seurat_tile_reduction <- function(seurat_object, condition_column, cluster_colum
     }
     return(plt)
   }
-
+  
   out_plots <- lapply(X = spl_data, FUN = plot_red)
-
+  
   if(return_as_list) {
     return(out_plots[plot_order])
   }
-
+  
   if(!is.na(plot_order[1])) {
     arr_plot <- ggpubr::ggarrange(plotlist = out_plots[plot_order], nrow = 1)
   } else {
@@ -313,7 +347,6 @@ seurat_tile_reduction <- function(seurat_object, condition_column, cluster_colum
   }
   return(arr_plot)
 }
-
 
 seurat_footprint <- function(seurat_object, cluster_column, pid_column, condition_column,
                              media_condition, subtract_media, color_by_column, which_clusters = "all",
