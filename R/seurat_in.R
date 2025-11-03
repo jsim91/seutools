@@ -2109,7 +2109,8 @@ seurat_dge <- function(seurat_object,
                        wilcox_only_positive = FALSE,
                        pseudobulk_test_mode = c("cluster_identity","cluster_by_category","cluster_by_condition"),
                        return_all_pseudobulk = TRUE, 
-                       gene_set_blacklist = NULL) {
+                       gene_set_blacklist = NULL, 
+                       plot_n = 100) {
   suppressPackageStartupMessages({
     require(Seurat)
   })
@@ -2582,7 +2583,7 @@ seurat_dge <- function(seurat_object,
         lfc2$primerid <- row.names(lfc2)
 
         getlfcs <- as.data.frame(MAST::getLogFC(zlmfit = zlmCond))
-        getlfcs <- getlfcs[which(getlfcs$contrast!="cngeneson"),]
+        getlfcs <- getlfcs[which(getlfcs$contrast=="categoryGroup2"),]
         row.names(getlfcs) <- getlfcs$primerid
 
         getlfcs1 <- getlfcs[mast_res$primerid,]
@@ -2597,15 +2598,167 @@ seurat_dge <- function(seurat_object,
         mast_res2 <- merge(x = mast_res2, y = getlfcs2, by = "primerid", sort = FALSE, all.x = TRUE)
         mast_res2$contrast <- paste0(category_column,".",ident2)
         mast_res2$cluster <- names(dge_outs[[i]])[j]
-        if(nrow(fcHurdleSig)!=0) {
-          entrez_to_plot <- fcHurdleSig[,primerid]
-          flat_dat <- as(my_sca[entrez_to_plot,], 'data.table')
-          flat_dat$category <- ifelse(flat_dat$category=="Group1",ident1,ident2)
-          ggbase <- ggplot(flat_dat, aes(x=category, y=logcounts, color=category)) + geom_jitter() + facet_wrap(~primerid, scale='free_y')+ggtitle("DE Genes")
-          mast_violins <- ggbase+geom_violin()
-          dge_outs[[i]][[j]] <- list(filtered_res = mast_res, raw_res = mast_res2, gene_plots = mast_violins, zlmfit = zlmCond, sca = my_sca)
+        # plotting block: balanced, annotated per-gene plots
+        if (nrow(fcHurdleSig) != 0) {
+          # user requested number to plot (default 100)
+          if (!exists("plot_n") || !is.numeric(plot_n) || length(plot_n) != 1) plot_n <- 100L
+        
+          # build stats table from mast_res2 (must contain primerid and logFC)
+          stats_all <- mast_res2[, c("primerid", "logFC", "fdr")]
+          stats_all$primerid <- as.character(stats_all$primerid)
+        
+          # significant primer ids
+          sig_ids <- unique(as.character(fcHurdleSig$primerid))
+          sig_stats <- stats_all[stats_all$primerid %in% sig_ids, , drop = FALSE]
+        
+          # split by sign
+          pos_candidates <- sig_stats$primerid[!is.na(sig_stats$logFC) & sig_stats$logFC > 0]
+          neg_candidates <- sig_stats$primerid[!is.na(sig_stats$logFC) & sig_stats$logFC < 0]
+        
+          # desired counts per side
+          n_total <- as.integer(plot_n)
+          n_pos_want <- ceiling(n_total / 2)
+          n_neg_want <- floor(n_total / 2)
+        
+          # take available up to desired
+          n_pos_take <- min(length(pos_candidates), n_pos_want)
+          n_neg_take <- min(length(neg_candidates), n_neg_want)
+        
+          # fill shortage from remaining candidates by |logFC|
+          if ((n_pos_take + n_neg_take) < n_total) {
+            need_more <- n_total - (n_pos_take + n_neg_take)
+            pos_remaining <- setdiff(pos_candidates, head(pos_candidates, n_pos_take))
+            neg_remaining <- setdiff(neg_candidates, head(neg_candidates, n_neg_take))
+            pool <- c(pos_remaining, neg_remaining)
+            if (length(pool) > 0) {
+              pool_stats <- sig_stats[match(pool, sig_stats$primerid), , drop = FALSE]
+              pool_stats$absLFC <- abs(pool_stats$logFC)
+              pool_stats <- pool_stats[order(-pool_stats$absLFC), , drop = FALSE]
+              to_add <- head(pool_stats$primerid, need_more)
+              pos_extra <- intersect(to_add, pos_remaining)
+              neg_extra <- intersect(to_add, neg_remaining)
+              n_pos_take <- n_pos_take + length(pos_extra)
+              n_neg_take <- n_neg_take + length(neg_extra)
+            }
+          }
+        
+          # select top per side by abs(logFC)
+          selected_pos <- character(0)
+          selected_neg <- character(0)
+          if (n_pos_take > 0 && length(pos_candidates) > 0) {
+            pos_stats <- sig_stats[match(pos_candidates, sig_stats$primerid), , drop = FALSE]
+            pos_stats$absLFC <- abs(pos_stats$logFC)
+            pos_stats <- pos_stats[order(-pos_stats$absLFC), , drop = FALSE]
+            selected_pos <- head(pos_stats$primerid, n_pos_take)
+          }
+          if (n_neg_take > 0 && length(neg_candidates) > 0) {
+            neg_stats <- sig_stats[match(neg_candidates, sig_stats$primerid), , drop = FALSE]
+            neg_stats$absLFC <- abs(neg_stats$logFC)
+            neg_stats <- neg_stats[order(-neg_stats$absLFC), , drop = FALSE]
+            selected_neg <- head(neg_stats$primerid, n_neg_take)
+          }
+        
+          # union and order by abs(logFC)
+          selected_set <- unique(c(selected_pos, selected_neg))
+          if (length(selected_set) == 0) {
+            # fallback: take top by abs(logFC) from all significant
+            tmp <- sig_stats
+            tmp$absLFC <- abs(tmp$logFC)
+            tmp <- tmp[order(-tmp$absLFC), , drop = FALSE]
+            selected_set <- head(tmp$primerid, n_total)
+          }
+          sel_stats <- sig_stats[match(selected_set, sig_stats$primerid), , drop = FALSE]
+          # order by descending abs(logFC)
+          ord <- order(-abs(sel_stats$logFC))
+          selected_set <- selected_set[ord]
+        
+          # ensure present in my_sca rownames and cap at n_total
+          present_ids <- intersect(selected_set, rownames(my_sca))
+          if (length(present_ids) < n_total) {
+            # pad with other significant genes by abs(logFC)
+            remaining_pool <- setdiff(sig_stats$primerid, selected_set)
+            if (length(remaining_pool) > 0) {
+              rem_stats <- sig_stats[match(remaining_pool, sig_stats$primerid), , drop = FALSE]
+              rem_stats$absLFC <- abs(rem_stats$logFC)
+              rem_stats <- rem_stats[order(-rem_stats$absLFC), , drop = FALSE]
+              add_ids <- intersect(rem_stats$primerid, rownames(my_sca))
+              add_ids <- head(add_ids, n_total - length(present_ids))
+              present_ids <- unique(c(present_ids, add_ids))
+            }
+          }
+          present_ids <- unique(head(present_ids, n_total))
+        
+          if (length(present_ids) == 0) {
+            warning("No significant genes (primerid) found in my_sca rownames after balanced selection; skipping plots.")
+            gene_plots <- NA
+          } else {
+            # optional cap to avoid creating thousands of plots interactively
+            max_plot_genes <- 200L
+            if (length(present_ids) > max_plot_genes) {
+              present_ids <- head(present_ids, max_plot_genes)
+              message("Limiting plotting to first ", length(present_ids), " selected genes (set max_plot_genes to change).")
+            }
+        
+            # build a long table of expression for present genes
+            flat_dat <- as(my_sca[present_ids, ], "data.table")
+            flat_dat <- data.table::as.data.table(flat_dat)
+            if (!"primerid" %in% colnames(flat_dat)) flat_dat[, primerid := rownames(my_sca)[.I]]
+            flat_dat[, category := ifelse(category == "Group1", ident1, ident2)]
+        
+            # stats lookup for annotations
+            stats_dt <- mast_res2[match(present_ids, mast_res2$primerid), c("primerid", "logFC", "fdr")]
+        
+            # create list of ggplots with annotations
+            gene_plots <- lapply(seq_along(present_ids), function(ii) {
+              gid <- present_ids[ii]
+              dat_g <- flat_dat[primerid == gid]
+              if (nrow(dat_g) == 0) return(NULL)
+              stat_row <- stats_dt[ii, , drop = FALSE]
+              ann_logFC <- if (is.na(stat_row$logFC)) NA_real_ else stat_row$logFC
+              ann_fdr   <- if (is.na(stat_row$fdr)) NA_real_ else stat_row$fdr
+        
+              y_max <- suppressWarnings(max(dat_g$logcounts, na.rm = TRUE))
+              if (!is.finite(y_max)) y_max <- 0
+        
+              title_txt <- gid
+              if (!is.null(rowData(seu_as_sce)$gene_symbol)) {
+                sym <- rowData(seu_as_sce)$gene_symbol[rownames(seu_as_sce) == gid]
+                if (!is.na(sym) && nzchar(sym)) title_txt <- paste0(sym, " (", gid, ")")
+              }
+        
+              ggplot(dat_g, aes(x = category, y = logcounts, color = category)) +
+                geom_jitter(width = 0.2, alpha = 0.6, size = 0.6) +
+                geom_violin(alpha = 0.3, trim = TRUE) +
+                ggtitle(title_txt) +
+                annotate("text",
+                         x = 1.5,
+                         y = y_max * 1.05 + 1e-6,
+                         label = paste0("logFC = ", ifelse(is.na(ann_logFC), "NA", round(ann_logFC, 2)),
+                                        "\nFDR = ", ifelse(is.na(ann_fdr), "NA", signif(ann_fdr, 3))),
+                         hjust = 0.5, vjust = 0, size = 3.2) +
+                theme_bw() +
+                theme(legend.position = "none")
+            })
+            names(gene_plots) <- present_ids
+            gene_plots <- gene_plots[!vapply(gene_plots, is.null, logical(1))]
+          }
+        
+          dge_outs[[i]][[j]] <- list(
+            filtered_res = mast_res,
+            raw_res      = mast_res2,
+            gene_plots   = gene_plots,
+            zlmfit       = zlmCond,
+            sca          = my_sca
+          )
+        
         } else {
-          dge_outs[[i]][[j]] <- list(filtered_res = "no dge", raw_res = mast_res2, gene_plots = NA, zlmfit = zlmCond, sca = my_sca)
+          dge_outs[[i]][[j]] <- list(
+            filtered_res = "no dge",
+            raw_res      = mast_res2,
+            gene_plots   = NA,
+            zlmfit       = zlmCond,
+            sca          = my_sca
+          )
         }
         ##### plotting stuff from mast; leaving for now; ggbase+geom_violin() may be particularly useful
         # entrez_to_plot <- fcHurdleSig[,primerid]
@@ -2693,18 +2846,18 @@ seurat_dge_pseudobulk <- function(seurat_object,
                                   pseudobulk_test_mode = c("cluster_identity","cluster_by_category","cluster_by_condition"),
                                   return_all_pseudobulk = FALSE) {
   # testing
-  seurat_object = seu_small
-  assay = "RNA"
-  fc_threshold = log2(1.5)
-  test_clusters = "all" # one or more clusters to test, or "all"
-  cluster_column = "cell_type"
-  category_column = "age_group"
-  test_categories = c("younger","older") # order matters: translates into (test_categories[1]/test_categories[2]) for DESeq2 pseudobulk
-  test_condition = "all"
-  condition_column = "condition"
-  pid_column = "pid"
-  pseudobulk_test_mode = "cluster_by_category" # c("cluster_identity","cluster_by_category","cluster_by_condition")
-  return_all_pseudobulk = FALSE
+  #seurat_object = seu_small
+  #assay = "RNA"
+  #fc_threshold = log2(1.5)
+  #test_clusters = "all" # one or more clusters to test, or "all"
+  #cluster_column = "cell_type"
+  #category_column = "age_group"
+  #test_categories = c("younger","older") # order matters: translates into (test_categories[1]/test_categories[2]) for DESeq2 pseudobulk
+  #test_condition = "all"
+  #condition_column = "condition"
+  #pid_column = "pid"
+  #pseudobulk_test_mode = "cluster_by_category" # c("cluster_identity","cluster_by_category","cluster_by_condition")
+  #return_all_pseudobulk = FALSE
 
   suppressPackageStartupMessages({
     require(Seurat)
