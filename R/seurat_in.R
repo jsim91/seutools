@@ -2725,18 +2725,18 @@ seurat_dge <- function(seurat_object,
                 sym <- rowData(seu_as_sce)$gene_symbol[rownames(seu_as_sce) == gid]
                 if (!is.na(sym) && nzchar(sym)) title_txt <- paste0(sym, " (", gid, ")")
               }
-        
+              
               ggplot(dat_g, aes(x = category, y = logcounts, color = category)) +
-                geom_jitter(width = 0.2, alpha = 0.6, size = 0.6) +
+                ggrastr::geom_jitter_rast(width = 0.2, alpha = 0.6, size = 1) +
                 geom_violin(alpha = 0.3, trim = TRUE) +
                 ggtitle(title_txt) +
                 annotate("text",
                          x = 1.5,
-                         y = y_max * 1.05 + 1e-6,
+                         y = y_max * 0.95,
                          label = paste0("logFC = ", ifelse(is.na(ann_logFC), "NA", round(ann_logFC, 2)),
                                         "\nFDR = ", ifelse(is.na(ann_fdr), "NA", signif(ann_fdr, 3))),
-                         hjust = 0.5, vjust = 0, size = 3.2) +
-                theme_bw() +
+                         hjust = 0.5, vjust = 0, size = 6) +
+                theme_bw(base_size = 14) +
                 theme(legend.position = "none")
             })
             names(gene_plots) <- present_ids
