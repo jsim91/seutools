@@ -31,8 +31,8 @@ MAST_de <- function(object,
   filtered_seu@meta.data$mast_main_effect <- factor(filtered_seu@meta.data$mast_main_effect, c(ident.1,ident.2))
   assay_data <- Seurat::GetAssayData(object = filtered_seu, assay = mast_assay, layer = 'counts')
   assay_data@x <- log2((assay_data@x)+1)
-  if(length(mixed.covars)!=0) {
-    for(i in mixed.covars) {
+  if(length(mixed.covar)!=0) {
+    for(i in mixed.covar) {
       filtered_seu@meta.data[,i] <- factor(filtered_seu@meta.data[,i])
     }
   }
