@@ -1,4 +1,4 @@
-MAST_de <- function(object = seu_subset, 
+MAST_de <- function(object, 
                     ident.1 = 'ident.1', 
                     ident.2 = 'ident.2', 
                     mast_assay = 'RNA', 
