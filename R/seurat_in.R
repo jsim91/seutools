@@ -1,3 +1,85 @@
+MAST_de <- function(object = seu_subset, 
+                    ident.1 = 'SD1', 
+                    ident.2 = 'SD3', 
+                    mast_assay = 'RNA', 
+                    freq_expressed = 0.1, 
+                    fixed.covars = NULL,  # note cellular detection rate is included by default; do not re-specify
+                    mixed.covar = 'study_id', 
+                    use_robust_fit = TRUE) {
+  require(MAST)
+  require(Seurat)
+  if(length(mixed.covar)>1) {
+    stop("only one 'mixed.covar' allowed")
+  }
+  mast_seu <- subset(x = seu_subset, cells = which(Idents(seu_subset) %in% c(ident.1,ident.2)))
+  counts_ident1 <- Seurat::GetAssayData(mast_seu[,as.character(Idents(mast_seu))==ident.1])
+  counts_ident2 <- Seurat::GetAssayData(mast_seu[,as.character(Idents(mast_seu))==ident.2])
+  nnz_ident1 <- apply(X = counts_ident1, MARGIN = 1, FUN = Matrix::nnzero)/ncol(counts_ident1)
+  nnz_ident2 <- apply(X = counts_ident2, MARGIN = 1, FUN = Matrix::nnzero)/ncol(counts_ident2)
+  nnz_ident1_filter <- nnz_ident1>=freq_expressed
+  nnz_ident2_filter <- nnz_ident2>=freq_expressed
+  feature_keep <- nnz_ident1_filter | nnz_ident2_filter
+  
+  stopifnot(mean(names(nnz_ident1)==names(nnz_ident2))==1)
+  pct_features <- data.frame(primerid = names(nnz_ident1), pct.1 = round(nnz_ident1,3), pct.2 = round(nnz_ident2,3))
+  
+  filtered_seu <- mast_seu[feature_keep,]
+  filtered_seu@meta.data$mast_main_effect <- as.character(Idents(filtered_seu)) # make unique test name
+  filtered_seu@meta.data$mast_main_effect <- factor(filtered_seu@meta.data$mast_main_effect, c(ident.1,ident.2))
+  assay_data <- Seurat::GetAssayData(object = filtered_seu, assay = mast_assay, layer = 'counts')
+  assay_data@x <- log2((assay_data@x)+1)
+  if(length(mixed.covars)!=0) {
+    for(i in mixed.covars) {
+      filtered_seu@meta.data[,i] <- factor(filtered_seu@meta.data[,i])
+    }
+  }
+  data_list <- list(expressionmat = as.matrix(assay_data), # converts to dense
+                    fdat = data.frame(primerid = row.names(filtered_seu)), 
+                    cdat = cbind(filtered_seu@meta.data, data.frame(wellKey = row.names(filtered_seu@meta.data))))
+  
+  as_sca <- FromMatrix(as.matrix(data_list$expressionmat), data_list$cdat, data_list$fdat) # convert to dense here to avoid having to store more dense matrices
+  colData(as_sca)$cngeneson <- scale(colSums(assay(as_sca)>0))
+  terms <- c("mast_main_effect", "cngeneson", fixed.covars)
+  terms <- terms[nzchar(terms)]
+  if(!is.null(mixed.covar)) {
+    fmla <- as.formula(paste0("~ ", paste(terms, collapse = " + "), " + ", glue::glue("(1|{mixed.covar})")))
+  } else {
+    fmla <- as.formula(object = paste0("~ ", paste(terms, collapse = " + ")))
+  }
+  if(use_robust_fit) {
+    ctrl <- lme4::glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 1e5))
+    as_zlm <- zlm(formula = fmla, sca = as_sca,
+                  method = ifelse(!is.null(mixed.covar),"glmer","bayesglm"),
+                  fitArgsD = list(nAGQ = 1, control = ctrl),
+                  ebayes = FALSE, silent = TRUE, strictConvergence = FALSE)
+  } else {
+    as_zlm <- zlm(formula = fmla, 
+                  sca = as_sca, 
+                  method=ifelse(!is.null(mixed.covar),"glmer","bayesglm"),
+                  ebayes=FALSE,
+                  silent=T,
+                  # fitArgsD = list(nAGQ = 0),
+                  strictConvergence = FALSE)
+  }
+  summaryCond <- MAST::summary(object = as_zlm, doLRT = paste0('mast_main_effect',ident.2))
+  summaryDt <- summaryCond$datatable
+  lfc_all_terms <- MAST::getLogFC(as_zlm)
+  lfc <- as.data.frame.matrix(lfc_all_terms[lfc_all_terms$contrast==paste0('mast_main_effect',ident.2),])
+  fcHurdle <- merge(summaryDt[contrast==paste0('mast_main_effect',ident.2) & component=='H',.(primerid, `Pr(>Chisq)`)], #hurdle P values
+                    summaryDt[contrast==paste0('mast_main_effect',ident.2) & component=='logFC', .(primerid, coef, ci.hi, ci.lo)], by='primerid') #logFC coefficients
+  fcHurdle[,fdr:=p.adjust(`Pr(>Chisq)`, 'fdr')]
+  setorder(fcHurdle, fdr)
+  testres <- as.data.frame.matrix(fcHurdle)
+  exprs_df <- pct_features[testres$primerid,]
+  stopifnot(mean(testres$primerid==exprs_df$primerid)==1)
+  test_res <- merge(x = testres, y = exprs_df, by = 'primerid')
+  test_res_lfc <- merge(x = test_res, y = lfc, by = 'primerid')
+  test_res_lfc$ident.1 <- ident.1
+  test_res_lfc$ident.2 <- ident.2
+  setorder(test_res_lfc, fdr)
+  return(test_res_lfc)
+}
+
 heatmap_calculate <- function(seurat_obj, gene_set, set_name, clusters)
 {
   require(ComplexHeatmap)
