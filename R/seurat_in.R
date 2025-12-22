@@ -1,11 +1,12 @@
 MAST_de <- function(object = seu_subset, 
-                    ident.1 = 'SD1', 
-                    ident.2 = 'SD3', 
+                    ident.1 = 'ident.1', 
+                    ident.2 = 'ident.2', 
                     mast_assay = 'RNA', 
-                    freq_expressed = 0.1, 
-                    fixed.covars = NULL,  # note cellular detection rate is included by default; do not re-specify
-                    mixed.covar = 'study_id', 
+                    freq_expressed = 0.1, # note: features kept if expressed at this level in EITHER ident.1 or ident.2
+                    fixed.covars = NULL, # note cellular detection rate is included by default; do not re-specify
+                    mixed.covar = NULL, 
                     use_robust_fit = TRUE) {
+  # https://github.com/RGLab/MAST/blob/devel/vignettes/MAITAnalysis.Rmd
   require(MAST)
   require(Seurat)
   if(length(mixed.covar)>1) {
@@ -22,7 +23,9 @@ MAST_de <- function(object = seu_subset,
   
   stopifnot(mean(names(nnz_ident1)==names(nnz_ident2))==1)
   pct_features <- data.frame(primerid = names(nnz_ident1), pct.1 = round(nnz_ident1,3), pct.2 = round(nnz_ident2,3))
-  
+
+  message('n genes for testing post-filter:')
+  print(length(feature_keep))
   filtered_seu <- mast_seu[feature_keep,]
   filtered_seu@meta.data$mast_main_effect <- as.character(Idents(filtered_seu)) # make unique test name
   filtered_seu@meta.data$mast_main_effect <- factor(filtered_seu@meta.data$mast_main_effect, c(ident.1,ident.2))
@@ -46,6 +49,8 @@ MAST_de <- function(object = seu_subset,
   } else {
     fmla <- as.formula(object = paste0("~ ", paste(terms, collapse = " + ")))
   }
+  message('formula used:')
+  print(fmla)
   if(use_robust_fit) {
     ctrl <- lme4::glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 1e5))
     as_zlm <- zlm(formula = fmla, sca = as_sca,
@@ -58,7 +63,6 @@ MAST_de <- function(object = seu_subset,
                   method=ifelse(!is.null(mixed.covar),"glmer","bayesglm"),
                   ebayes=FALSE,
                   silent=T,
-                  # fitArgsD = list(nAGQ = 0),
                   strictConvergence = FALSE)
   }
   summaryCond <- MAST::summary(object = as_zlm, doLRT = paste0('mast_main_effect',ident.2))
