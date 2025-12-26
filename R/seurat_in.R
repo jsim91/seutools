@@ -81,7 +81,8 @@ MAST_de <- function(object,
   test_res_lfc$ident.1 <- ident.1
   test_res_lfc$ident.2 <- ident.2
   setorder(test_res_lfc, fdr)
-  return(test_res_lfc)
+  # return(test_res_lfc)
+  return(list(sca = as_sca, test_result = test_res_lfc, formula = fmla))
 }
 
 heatmap_calculate <- function(seurat_obj, gene_set, set_name, clusters)
