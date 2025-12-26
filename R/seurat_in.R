@@ -62,6 +62,7 @@ MAST_de <- function(object,
     as_zlm <- zlm(formula = fmla, 
                   sca = as_sca, 
                   method=ifelse(!is.null(mixed.covar),"glmer","bayesglm"),
+                  fitArgsD = list(nAGQ = 0),
                   ebayes=FALSE,
                   silent=T,
                   strictConvergence = FALSE)
