@@ -57,6 +57,7 @@ MAST_de <- function(object,
                   method = ifelse(!is.null(mixed.covar),"glmer","bayesglm"),
                   fitArgsD = list(nAGQ = 1, control = ctrl),
                   ebayes = FALSE, silent = TRUE, strictConvergence = FALSE)
+    fitargs <- list(nAGQ = 1, control = ctrl)
   } else {
     as_zlm <- zlm(formula = fmla, 
                   sca = as_sca, 
@@ -64,6 +65,7 @@ MAST_de <- function(object,
                   ebayes=FALSE,
                   silent=T,
                   strictConvergence = FALSE)
+    fitargs <- 'default'
   }
   summaryCond <- MAST::summary(object = as_zlm, doLRT = paste0('mast_main_effect',ident.2))
   summaryDt <- summaryCond$datatable
@@ -82,7 +84,7 @@ MAST_de <- function(object,
   test_res_lfc$ident.2 <- ident.2
   setorder(test_res_lfc, fdr)
   # return(test_res_lfc)
-  return(list(sca = as_sca, test_result = test_res_lfc, formula = fmla))
+  return(list(sca = as_sca, test_result = test_res_lfc, formula = fmla, fitArgsD = fitargs))
 }
 
 heatmap_calculate <- function(seurat_obj, gene_set, set_name, clusters)
@@ -2835,7 +2837,9 @@ seurat_dge <- function(seurat_object,
             raw_res      = mast_res2,
             gene_plots   = gene_plots,
             zlmfit       = zlmCond,
-            sca          = my_sca
+            sca          = my_sca, 
+            formula      = fmla, 
+            fitArgsD     = list(nAGQ = 0)
           )
         
         } else {
@@ -2844,7 +2848,9 @@ seurat_dge <- function(seurat_object,
             raw_res      = mast_res2,
             gene_plots   = NA,
             zlmfit       = zlmCond,
-            sca          = my_sca
+            sca          = my_sca, 
+            formula      = fmla, 
+            fitArgsD     = list(nAGQ = 0)
           )
         }
         ##### plotting stuff from mast; leaving for now; ggbase+geom_violin() may be particularly useful
