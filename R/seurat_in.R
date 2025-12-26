@@ -85,7 +85,7 @@ MAST_de <- function(object,
   test_res_lfc$ident.2 <- ident.2
   setorder(test_res_lfc, fdr)
   # return(test_res_lfc)
-  return(list(sca = as_sca, test_result = test_res_lfc, formula = fmla, fitArgsD = fitargs))
+  return(list(sca = as_sca, test_result = test_res_lfc, formula = fmla, fitArgsD = fitargs, zlm_res = as_zlm))
 }
 
 heatmap_calculate <- function(seurat_obj, gene_set, set_name, clusters)
@@ -2840,7 +2840,8 @@ seurat_dge <- function(seurat_object,
             zlmfit       = zlmCond,
             sca          = my_sca, 
             formula      = fmla, 
-            fitArgsD     = list(nAGQ = 0)
+            fitArgsD     = list(nAGQ = 0), 
+            zlm_res      = zlmCond
           )
         
         } else {
@@ -2851,7 +2852,8 @@ seurat_dge <- function(seurat_object,
             zlmfit       = zlmCond,
             sca          = my_sca, 
             formula      = fmla, 
-            fitArgsD     = list(nAGQ = 0)
+            fitArgsD     = list(nAGQ = 0), 
+            zlm_res      = zlmCond
           )
         }
         ##### plotting stuff from mast; leaving for now; ggbase+geom_violin() may be particularly useful
