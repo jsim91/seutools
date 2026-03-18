@@ -1,10 +1,10 @@
-MAST_de <- function(object, 
-                    ident.1 = 'ident.1', 
-                    ident.2 = 'ident.2', 
-                    mast_assay = 'RNA', 
+MAST_de <- function(object,
+                    ident.1 = 'ident.1',
+                    ident.2 = 'ident.2',
+                    mast_assay = 'RNA',
                     freq_expressed = 0.1, # note: features kept if expressed at this level in EITHER ident.1 or ident.2
                     fixed.covars = NULL, # note cellular detection rate is included by default; do not re-specify
-                    mixed.covar = NULL, 
+                    mixed.covar = NULL,
                     use_robust_fit = TRUE) {
   # https://github.com/RGLab/MAST/blob/devel/vignettes/MAITAnalysis.Rmd
   require(MAST)
@@ -12,7 +12,7 @@ MAST_de <- function(object,
   if(length(mixed.covar)>1) {
     stop("only one 'mixed.covar' allowed")
   }
-  mast_seu <- subset(x = seu_subset, cells = which(Idents(seu_subset) %in% c(ident.1,ident.2)))
+  mast_seu <- subset(x = object, cells = which(Idents(object) %in% c(ident.1,ident.2)))
   counts_ident1 <- Seurat::GetAssayData(mast_seu[,as.character(Idents(mast_seu))==ident.1])
   counts_ident2 <- Seurat::GetAssayData(mast_seu[,as.character(Idents(mast_seu))==ident.2])
   nnz_ident1 <- apply(X = counts_ident1, MARGIN = 1, FUN = Matrix::nnzero)/ncol(counts_ident1)
@@ -20,7 +20,7 @@ MAST_de <- function(object,
   nnz_ident1_filter <- nnz_ident1>=freq_expressed
   nnz_ident2_filter <- nnz_ident2>=freq_expressed
   feature_keep <- nnz_ident1_filter | nnz_ident2_filter
-  
+
   stopifnot(mean(names(nnz_ident1)==names(nnz_ident2))==1)
   pct_features <- data.frame(primerid = names(nnz_ident1), pct.1 = round(nnz_ident1,3), pct.2 = round(nnz_ident2,3))
 
@@ -37,9 +37,9 @@ MAST_de <- function(object,
     }
   }
   data_list <- list(expressionmat = as.matrix(assay_data), # converts to dense
-                    fdat = data.frame(primerid = row.names(filtered_seu)), 
+                    fdat = data.frame(primerid = row.names(filtered_seu)),
                     cdat = cbind(filtered_seu@meta.data, data.frame(wellKey = row.names(filtered_seu@meta.data))))
-  
+
   as_sca <- FromMatrix(as.matrix(data_list$expressionmat), data_list$cdat, data_list$fdat) # convert to dense here to avoid having to store more dense matrices
   colData(as_sca)$cngeneson <- scale(colSums(assay(as_sca)>0))
   terms <- c("mast_main_effect", "cngeneson", fixed.covars)
@@ -59,8 +59,8 @@ MAST_de <- function(object,
                   ebayes = FALSE, silent = TRUE, strictConvergence = FALSE)
     fitargs <- list(nAGQ = 1, control = ctrl)
   } else {
-    as_zlm <- zlm(formula = fmla, 
-                  sca = as_sca, 
+    as_zlm <- zlm(formula = fmla,
+                  sca = as_sca,
                   method=ifelse(!is.null(mixed.covar),"glmer","bayesglm"),
                   fitArgsD = list(nAGQ = 0),
                   ebayes=FALSE,
@@ -175,7 +175,7 @@ seurat_tile_reduction <- function(seurat_object, condition_column, cluster_colum
   # annotation_method = "repel" # c("repel","text","shadowtext","none")
   # override_color_aes = NA
   # frameon = FALSE
-  # 
+  #
   # seurat_object = seu_nk
   # condition_column = 'tmp'
   # pt_alpha = 0.75
@@ -186,12 +186,12 @@ seurat_tile_reduction <- function(seurat_object, condition_column, cluster_colum
   # frameon = TRUE
   # return_as_list = TRUE
   # color_seed = 42
-  # color_clusters = c('NK CD56bright Reactive','NK CD56dim Reactive') 
+  # color_clusters = c('NK CD56bright Reactive','NK CD56dim Reactive')
   # label_clusters = c('NK CD56bright Reactive','NK CD56dim Reactive')
-  
-  
+
+
   coords <- seurat_object@reductions[[tolower(reduction)]]@cell.embeddings
-  
+
   plot_data <- data.frame(redx = coords[,1], redy = coords[,2],
                           cluster = as.character(seurat_object@meta.data[,cluster_column]),
                           condition = seurat_object@meta.data[,condition_column])
@@ -199,7 +199,7 @@ seurat_tile_reduction <- function(seurat_object, condition_column, cluster_colum
   set.seed(color_seed)
   plot_data$cluster <- factor(x = plot_data$cluster, levels = sample(unique_clus,length(unique_clus),replace=F))
   xrange <- range(plot_data$redx); yrange = range(plot_data$redy)
-  
+
   uclus <- unique(plot_data$cluster); uclus <- uclus[order(uclus,decreasing=F)]
   clusx <- rep(NA,length(uclus)); names(clusx) <- uclus; clusy <- clusx
   for(i in 1:length(clusx)) {
@@ -215,14 +215,14 @@ seurat_tile_reduction <- function(seurat_object, condition_column, cluster_colum
       clusx <- c(); clusy <- c()
     }
   }
-  
+
   spl_data <- split(x = plot_data, f = plot_data$condition)
   ds_to <- min(sapply(X = spl_data, FUN = function(x) return(nrow(x))))
   for(i in 1:length(spl_data)) {
     set.seed(123)
     spl_data[[i]] <- spl_data[[i]][sample(x = 1:nrow(spl_data[[i]]), size = ds_to, replace = FALSE),]
   }
-  
+
   plot_red <- function(input, color_clus = color_clusters, xanno = clusx, yanno = clusy,
                        palpha = pt_alpha, texp = text_expansion, psize = pt_size,
                        plimx = xrange, plimy = yrange, amethod = annotation_method,
@@ -249,12 +249,12 @@ seurat_tile_reduction <- function(seurat_object, condition_column, cluster_colum
     # flimy = force_ylim
     # pts = postfix_title_string
     # fo = frameon
-    
+
     gg_color_hue <- function(n) {
       hues = seq(15, 375, length = n + 1)
       hcl(h = hues, l = 65, c = 100)[1:n]
     }
-    
+
     if(length(xanno)!=0) {
       text_add <- data.frame(UMAP1 = xanno, UMAP2 = yanno, cluster = names(xanno))
     } else {
@@ -270,7 +270,7 @@ seurat_tile_reduction <- function(seurat_object, condition_column, cluster_colum
       if(length(subs_rows)!=0) {
         color_text_add <- text_add[subs_rows,]
         text_add <- text_add[subs_rows,]
-        
+
         color_text_add$cluster <- factor(color_text_add$cluster)
         text_add$cluster <- factor(text_add$cluster)
         # set.seed(cseed)
@@ -284,7 +284,7 @@ seurat_tile_reduction <- function(seurat_object, condition_column, cluster_colum
       }
       color_text_add <- matrix(data=NA,nrow=0,ncol=2)
     }
-    
+
     input$cluster <- as.character(input$cluster)
     if(color_clus[1]!="none") {
       if(color_clus[1]!="all") {
@@ -354,7 +354,7 @@ seurat_tile_reduction <- function(seurat_object, condition_column, cluster_colum
     # }
     plt <- ggplot(data = input, mapping = aes(x = redx, y = redy, color = cluster_col)) +
       ggrastr::geom_point_rast(pch = 19, alpha = palpha, size = psize) + theme_void() +
-      xlim(plimx) + ylim(plimy) + 
+      xlim(plimx) + ylim(plimy) +
     # plt <- plt + ggrastr::geom_point_rast(data = foreground,
     #                                       mapping = aes(x = redx, y = redy, color = cluster),
     #                                       alpha = palpha, size = psize) +
@@ -423,13 +423,13 @@ seurat_tile_reduction <- function(seurat_object, condition_column, cluster_colum
     }
     return(plt)
   }
-  
+
   out_plots <- lapply(X = spl_data, FUN = plot_red)
-  
+
   if(return_as_list) {
     return(out_plots[plot_order])
   }
-  
+
   if(!is.na(plot_order[1])) {
     arr_plot <- ggpubr::ggarrange(plotlist = out_plots[plot_order], nrow = 1)
   } else {
@@ -1190,7 +1190,7 @@ seurat_test_clusters <- function(seurat_object, test_by_column = "condition", pi
                                  return_plots = TRUE, return_plot_data = FALSE,
                                  coord_stretch_factor = 0.11, text_size_factor = 1,
                                  shape_key = NULL, compare_step_distance = 0,
-                                 y_as_log = FALSE, coordinate_title_color = FALSE, 
+                                 y_as_log = FALSE, coordinate_title_color = FALSE,
                                  perform_test = TRUE)
 {
   require(ggplot2)
@@ -1287,7 +1287,7 @@ seurat_test_clusters <- function(seurat_object, test_by_column = "condition", pi
                               should_connect = connect_points,
                               anchor_stim = backround_condition,
                               comps = comparison_list,
-                              ptest = perform_test, 
+                              ptest = perform_test,
                               # tp = tile_plots,
                               dp = data_paired,
                               yax_lab = y_axis_subset,
@@ -2198,8 +2198,8 @@ seurat_dge <- function(seurat_object,
                        pid_column = "pid",
                        wilcox_only_positive = FALSE,
                        pseudobulk_test_mode = c("cluster_identity","cluster_by_category","cluster_by_condition"),
-                       return_all_pseudobulk = TRUE, 
-                       gene_set_blacklist = NULL, 
+                       return_all_pseudobulk = TRUE,
+                       gene_set_blacklist = NULL,
                        plot_n = 100) {
   suppressPackageStartupMessages({
     require(Seurat)
@@ -2692,28 +2692,28 @@ seurat_dge <- function(seurat_object,
         if (nrow(fcHurdleSig) != 0) {
           # user requested number to plot (default 100)
           if (!exists("plot_n") || !is.numeric(plot_n) || length(plot_n) != 1) plot_n <- 100L
-        
+
           # build stats table from mast_res2 (must contain primerid and logFC)
           stats_all <- mast_res2[, c("primerid", "logFC", "fdr")]
           stats_all$primerid <- as.character(stats_all$primerid)
-        
+
           # significant primer ids
           sig_ids <- unique(as.character(fcHurdleSig$primerid))
           sig_stats <- stats_all[stats_all$primerid %in% sig_ids, , drop = FALSE]
-        
+
           # split by sign
           pos_candidates <- sig_stats$primerid[!is.na(sig_stats$logFC) & sig_stats$logFC > 0]
           neg_candidates <- sig_stats$primerid[!is.na(sig_stats$logFC) & sig_stats$logFC < 0]
-        
+
           # desired counts per side
           n_total <- as.integer(plot_n)
           n_pos_want <- ceiling(n_total / 2)
           n_neg_want <- floor(n_total / 2)
-        
+
           # take available up to desired
           n_pos_take <- min(length(pos_candidates), n_pos_want)
           n_neg_take <- min(length(neg_candidates), n_neg_want)
-        
+
           # fill shortage from remaining candidates by |logFC|
           if ((n_pos_take + n_neg_take) < n_total) {
             need_more <- n_total - (n_pos_take + n_neg_take)
@@ -2731,7 +2731,7 @@ seurat_dge <- function(seurat_object,
               n_neg_take <- n_neg_take + length(neg_extra)
             }
           }
-        
+
           # select top per side by abs(logFC)
           selected_pos <- character(0)
           selected_neg <- character(0)
@@ -2747,7 +2747,7 @@ seurat_dge <- function(seurat_object,
             neg_stats <- neg_stats[order(-neg_stats$absLFC), , drop = FALSE]
             selected_neg <- head(neg_stats$primerid, n_neg_take)
           }
-        
+
           # union and order by abs(logFC)
           selected_set <- unique(c(selected_pos, selected_neg))
           if (length(selected_set) == 0) {
@@ -2761,7 +2761,7 @@ seurat_dge <- function(seurat_object,
           # order by descending abs(logFC)
           ord <- order(-abs(sel_stats$logFC))
           selected_set <- selected_set[ord]
-        
+
           # ensure present in my_sca rownames and cap at n_total
           present_ids <- intersect(selected_set, rownames(my_sca))
           if (length(present_ids) < n_total) {
@@ -2777,7 +2777,7 @@ seurat_dge <- function(seurat_object,
             }
           }
           present_ids <- unique(head(present_ids, n_total))
-        
+
           if (length(present_ids) == 0) {
             warning("No significant genes (primerid) found in my_sca rownames after balanced selection; skipping plots.")
             gene_plots <- NA
@@ -2788,16 +2788,16 @@ seurat_dge <- function(seurat_object,
               present_ids <- head(present_ids, max_plot_genes)
               message("Limiting plotting to first ", length(present_ids), " selected genes (set max_plot_genes to change).")
             }
-        
+
             # build a long table of expression for present genes
             flat_dat <- as(my_sca[present_ids, ], "data.table")
             flat_dat <- data.table::as.data.table(flat_dat)
             if (!"primerid" %in% colnames(flat_dat)) flat_dat[, primerid := rownames(my_sca)[.I]]
             flat_dat[, category := ifelse(category == "Group1", ident1, ident2)]
-        
+
             # stats lookup for annotations
             stats_dt <- mast_res2[match(present_ids, mast_res2$primerid), c("primerid", "logFC", "fdr")]
-        
+
             # create list of ggplots with annotations
             gene_plots <- lapply(seq_along(present_ids), function(ii) {
               gid <- present_ids[ii]
@@ -2806,16 +2806,16 @@ seurat_dge <- function(seurat_object,
               stat_row <- stats_dt[ii, , drop = FALSE]
               ann_logFC <- if (is.na(stat_row$logFC)) NA_real_ else stat_row$logFC
               ann_fdr   <- if (is.na(stat_row$fdr)) NA_real_ else stat_row$fdr
-        
+
               y_max <- suppressWarnings(max(dat_g$logcounts, na.rm = TRUE))
               if (!is.finite(y_max)) y_max <- 0
-        
+
               title_txt <- gid
               if (!is.null(rowData(seu_as_sce)$gene_symbol)) {
                 sym <- rowData(seu_as_sce)$gene_symbol[rownames(seu_as_sce) == gid]
                 if (!is.na(sym) && nzchar(sym)) title_txt <- paste0(sym, " (", gid, ")")
               }
-              
+
               ggplot(dat_g, aes(x = category, y = logcounts, color = category)) +
                 ggrastr::geom_jitter_rast(width = 0.2, alpha = 0.6, size = 1) +
                 geom_violin(alpha = 0.3, trim = TRUE) +
@@ -2832,27 +2832,27 @@ seurat_dge <- function(seurat_object,
             names(gene_plots) <- present_ids
             gene_plots <- gene_plots[!vapply(gene_plots, is.null, logical(1))]
           }
-        
+
           dge_outs[[i]][[j]] <- list(
             filtered_res = mast_res,
             raw_res      = mast_res2,
             gene_plots   = gene_plots,
             zlmfit       = zlmCond,
-            sca          = my_sca, 
-            formula      = fmla, 
-            fitArgsD     = list(nAGQ = 0), 
+            sca          = my_sca,
+            formula      = fmla,
+            fitArgsD     = list(nAGQ = 0),
             zlm_res      = zlmCond
           )
-        
+
         } else {
           dge_outs[[i]][[j]] <- list(
             filtered_res = "no dge",
             raw_res      = mast_res2,
             gene_plots   = NA,
             zlmfit       = zlmCond,
-            sca          = my_sca, 
-            formula      = fmla, 
-            fitArgsD     = list(nAGQ = 0), 
+            sca          = my_sca,
+            formula      = fmla,
+            fitArgsD     = list(nAGQ = 0),
             zlm_res      = zlmCond
           )
         }

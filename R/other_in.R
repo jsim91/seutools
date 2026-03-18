@@ -531,7 +531,7 @@ seu_mast_gsea <- function(mast_dge_result, seu_mast_sets,
       gsea_table_bottom <- gsea_table_bottom[1:prepare_plot_n,]
     }
     gsea_top_bottom_table <- rbind(gsea_table_top, gsea_table_bottom[order(gsea_table_bottom$combined_Z, decreasing = T),])
-    gseaTable_plot <- melt(gsea_top_bottom_table[,.(set, disc_Z, cont_Z, combined_Z)], id.vars='set')
+    gseaTable_plot <- data.table::melt(gsea_top_bottom_table[,.(set, disc_Z, cont_Z, combined_Z)], id.vars='set')
     gseaTable_report <- as.data.frame(gsea_table)
     gseaTable_report$positive_score_group <- positive_group
     gsea_result[[i]] <- list(result = gseaTable_report,
